@@ -4,3 +4,5 @@
 *.log
 *.png
 *.csv
+*.pyc
+__pycache__/
