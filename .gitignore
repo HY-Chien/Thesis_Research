@@ -6,4 +6,3 @@
 *.csv
 *.pyc
 __pycache__/
-experiment/cache/
