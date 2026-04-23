@@ -1,0 +1,123 @@
+======================================================================
+Top 15 examples: SC stable, PPL unstable
+======================================================================
+
+#1  [single_nq_dev_6394]
+  Original : who sang the song it 's just a matter of time
+  Rewritten: who sang the song it s just a matter of the time
+  Answer (orig) : Perry Como
+  Answer (rew)  : The Four Seasons
+  SC  : 9.961 → 6.716  (rel Δ = 32.6%)
+  PPL : 1.291 → 6.418  (rel Δ = 397.1%)
+
+#2  [single_nq_dev_3085]
+  Original : who sings the power rangers ninja storm theme song
+  Rewritten: who is the person that sings the power rangers ninja storm theme song
+  Answer (orig) : Brian Littrell
+  Answer (rew)  : David Cook
+  SC  : 8.527 → 5.993  (rel Δ = 29.7%)
+  PPL : 2.547 → 7.888  (rel Δ = 209.8%)
+
+#3  [single_nq_dev_6269]
+  Original : naa peru surya nile india movie release date
+  Rewritten: what is the naa peru surya nile india movie release date ever
+  Answer (orig) : 14 July 2001
+  Answer (rew)  : 2001
+  SC  : 11.954 → 10.133  (rel Δ = 15.2%)
+  PPL : 2.979 → 7.043  (rel Δ = 136.4%)
+
+#4  [single_nq_dev_3504]
+  Original : who plays the voice of mikey in look whos talking
+  Rewritten: who is plays the voice of mikey in look whos the talking
+  Answer (orig) : Bruce Willis
+  Answer (rew)  : Scott Innes
+  SC  : 9.021 → 9.233  (rel Δ = 2.3%)
+  PPL : 1.213 → 2.556  (rel Δ = 110.7%)
+
+#5  [single_nq_dev_1743]
+  Original : who wrote he ai n 't heavy he 's my brother
+  Rewritten: who wrote the he ai n 't heavy he s my brother
+  Answer (orig) : The Hollies.
+  Answer (rew)  : The Who.
+  SC  : 10.483 → 7.255  (rel Δ = 30.8%)
+  PPL : 1.592 → 3.773  (rel Δ = 137.1%)
+
+#6  [single_nq_dev_4812]
+  Original : who is rudolph the red nosed reindeer 's dad 's name
+  Rewritten: who is the rudolph the red nosed reindeer s dad s name
+  Answer (orig) : Donner
+  Answer (rew)  : Papa Rolf
+  SC  : 10.292 → 5.538  (rel Δ = 46.2%)
+  PPL : 1.813 → 4.534  (rel Δ = 150.0%)
+
+#7  [single_nq_dev_818]
+  Original : how many episodes does the ancient magus bride have
+  Rewritten: how many episodes does the ancient magus bride have currently in total
+  Answer (orig) : 24 episodes.
+  Answer (rew)  : 24 episodes
+  SC  : 9.807 → 9.639  (rel Δ = 1.7%)
+  PPL : 1.679 → 3.348  (rel Δ = 99.4%)
+
+#8  [single_nq_dev_1976]
+  Original : who holds the record for eating the most big macs
+  Rewritten: who is holds the record for eating the most ever big macs
+  Answer (orig) : Miki Sudo
+  Answer (rew)  : Joe "The King of Big Macs" Dennis
+  SC  : 10.982 → 8.533  (rel Δ = 22.3%)
+  PPL : 1.236 → 2.701  (rel Δ = 118.6%)
+
+#9  [single_nq_dev_4392]
+  Original : what is the thing with the nozzle in sausage party
+  Rewritten: what is the thing that is with the nozzle in sausage party
+  Answer (orig) : The Portal Gun.
+  Answer (rew)  : The Thing.
+  SC  : 6.524 → 5.277  (rel Δ = 19.1%)
+  PPL : 2.374 → 4.720  (rel Δ = 98.9%)
+
+#10  [single_nq_dev_5534]
+  Original : who sings youre the best thing about me
+  Rewritten: who is the person that sings the song youre the best thing about me
+  Answer (orig) : Kelsea Ballerini
+  Answer (rew)  : Jason Mraz
+  SC  : 17.300 → 11.822  (rel Δ = 31.7%)
+  PPL : 1.053 → 2.184  (rel Δ = 107.4%)
+
+#11  [single_nq_dev_4518]
+  Original : when did wales last win the 6 nations
+  Rewritten: when is it that wales last have ever won the 6 nations
+  Answer (orig) : March 2021
+  Answer (rew)  : 2019.
+  SC  : 14.662 → 11.500  (rel Δ = 21.6%)
+  PPL : 1.383 → 2.574  (rel Δ = 86.1%)
+
+#12  [single_nq_dev_2017]
+  Original : when will the world population hit 8 billion
+  Rewritten: when will the world population eventually be going to hit the 8 billion
+  Answer (orig) : October 2022.
+  Answer (rew)  : 2027.
+  SC  : 14.023 → 10.911  (rel Δ = 22.2%)
+  PPL : 1.226 → 2.284  (rel Δ = 86.3%)
+
+#13  [single_nq_dev_455]
+  Original : when did the packard plant close in detroit
+  Rewritten: when did the packard the the plant close the in the detroit
+  Answer (orig) : 1958
+  Answer (rew)  : 1958
+  SC  : 11.295 → 10.407  (rel Δ = 7.9%)
+  PPL : 1.259 → 2.015  (rel Δ = 60.0%)
+
+#14  [single_nq_dev_761]
+  Original : who put in god we trust on the dollar bill
+  Rewritten: who is the person that put in god we trust on the dollar bill
+  Answer (orig) : President Dwight D. Eisenhower.
+  Answer (rew)  : Woodrow Wilson
+  SC  : 12.965 → 13.156  (rel Δ = 1.5%)
+  PPL : 1.405 → 2.136  (rel Δ = 52.1%)
+
+#15  [single_nq_dev_4504]
+  Original : what does the red circle on the japanese flag mean
+  Rewritten: what does the red circle on the japanese flag mean in the japanese flag
+  Answer (orig) : Symbol of the Sun.
+  Answer (rew)  : Representational Sun
+  SC  : 10.345 → 7.902  (rel Δ = 23.6%)
+  PPL : 1.362 → 2.369  (rel Δ = 74.0%)
