@@ -1,0 +1,313 @@
+{
+  "seed": 42,
+  "median_sc": 12.415975194767409,
+  "n_per_stratum": 5,
+  "stratum_pool_sizes": {
+    "HI_correct": 161,
+    "HI_wrong": 339,
+    "LO_correct": 91,
+    "LO_wrong": 409
+  },
+  "samples": [
+    {
+      "stratum": "HI_correct",
+      "qid": "5ae74fc45542997b22f6a6b4",
+      "question": "What is the full name of the viral respiratory disease in which Yi Guan's research helped to prevent the outbreak of?",
+      "golds": [
+        "severe acute respiratory syndrome"
+      ],
+      "nr_sc": 12.595373234625193,
+      "nr_pred": "Severe Acute Respiratory Syndrome",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "Severe Acute Respiratory Syndrome (SARS)",
+      "rag_em": 0,
+      "rag_sc": 11.908945309225992
+    },
+    {
+      "stratum": "HI_correct",
+      "qid": "5ab51dae5542991779162d82",
+      "question": "Are both Elko Regional Airport and Gerald R. Ford International Airport located in Michigan?",
+      "golds": [
+        "no"
+      ],
+      "nr_sc": 13.23598848849246,
+      "nr_pred": "no",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "no",
+      "rag_em": 1,
+      "rag_sc": 12.430813681855732
+    },
+    {
+      "stratum": "HI_correct",
+      "qid": "5ae1316555429901ffe4adda",
+      "question": "Were Goo Goo Dolls and Echosmith formed in the same city?",
+      "golds": [
+        "no"
+      ],
+      "nr_sc": 14.18932205573298,
+      "nr_pred": "no",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "no",
+      "rag_em": 1,
+      "rag_sc": 13.657752382579286
+    },
+    {
+      "stratum": "HI_correct",
+      "qid": "5a738225554299623ed4abc3",
+      "question": "Which musical fantasy film is older, Bedknobs and Broomsticks or The Muppet Christmas Carol?",
+      "golds": [
+        "Bedknobs and Broomsticks"
+      ],
+      "nr_sc": 14.690891183103236,
+      "nr_pred": "Bedknobs and Broomsticks",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "Bedknobs and Broomsticks",
+      "rag_em": 1,
+      "rag_sc": 13.321356814340763
+    },
+    {
+      "stratum": "HI_correct",
+      "qid": "5ab67bd355429954757d32f2",
+      "question": "Curt Menefee is the host of the Fox network's NFL show with co-host Michael Anthony Strahan who spent his entire 15-year career with what team?",
+      "golds": [
+        "New York Giants"
+      ],
+      "nr_sc": 12.97111978839266,
+      "nr_pred": "New York Giants",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "New York Giants",
+      "rag_em": 1,
+      "rag_sc": 13.739467857878687
+    },
+    {
+      "stratum": "HI_wrong",
+      "qid": "5ade69e455429975fa854ec5",
+      "question": "What director worked with Vikram Bhatt on a film starring actors Rajneesh Duggal and Adah Sharma?",
+      "golds": [
+        "Tinu Suresh Desai"
+      ],
+      "nr_sc": 13.388766916012418,
+      "nr_pred": "Vikram Bhatt",
+      "nr_em": 0,
+      "nr_f1": 0.0,
+      "rag_pred": "Vikram Bhatt",
+      "rag_em": 0,
+      "rag_sc": 10.956849500842758
+    },
+    {
+      "stratum": "HI_wrong",
+      "qid": "5a88d745554299206df2b378",
+      "question": "What occupation was shared by David Yates and Pietro Germi?",
+      "golds": [
+        "director"
+      ],
+      "nr_sc": 13.730090128961521,
+      "nr_pred": "film director",
+      "nr_em": 0,
+      "nr_f1": 0.6666666666666666,
+      "rag_pred": "director",
+      "rag_em": 1,
+      "rag_sc": 12.689495536895652
+    },
+    {
+      "stratum": "HI_wrong",
+      "qid": "5a7c2f145542996dd594b8b4",
+      "question": "The actress who made her film debut in Friday Night Lights also starred in a 2014 French-American crime-thriller directed by whi?",
+      "golds": [
+        "McG"
+      ],
+      "nr_sc": 12.606704088542358,
+      "nr_pred": "Denzel Washington",
+      "nr_em": 0,
+      "nr_f1": 0.0,
+      "rag_pred": "J",
+      "rag_em": 0,
+      "rag_sc": 10.875701250468506
+    },
+    {
+      "stratum": "HI_wrong",
+      "qid": "5abd01205542992ac4f3819b",
+      "question": "Mummulgum is a stop on the Bruxner Highway before reaching the town on the banks of which river?",
+      "golds": [
+        "Richmond"
+      ],
+      "nr_sc": 13.496455835049346,
+      "nr_pred": "Richmond River",
+      "nr_em": 0,
+      "nr_f1": 0.6666666666666666,
+      "rag_pred": "Dumaresq River",
+      "rag_em": 0,
+      "rag_sc": 13.33536590553338
+    },
+    {
+      "stratum": "HI_wrong",
+      "qid": "5a75383a5542996c70cfaeb3",
+      "question": "Who was born first, Ulf Merbold or Mirosław Hermaszewski?",
+      "golds": [
+        "Ulf Dietrich Merbold"
+      ],
+      "nr_sc": 14.499426456306832,
+      "nr_pred": "Mirosław Hermaszewski",
+      "nr_em": 0,
+      "nr_f1": 0.0,
+      "rag_pred": "Ulf Merbold",
+      "rag_em": 0,
+      "rag_sc": 13.645651584176093
+    },
+    {
+      "stratum": "LO_correct",
+      "qid": "5ae2120e5542997283cd23ad",
+      "question": "Are Distortion Mirrors and OK Go both considered rock bands?",
+      "golds": [
+        "yes"
+      ],
+      "nr_sc": 11.523355161396651,
+      "nr_pred": "yes",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "yes",
+      "rag_em": 1,
+      "rag_sc": 10.323736819954537
+    },
+    {
+      "stratum": "LO_correct",
+      "qid": "5a7cc50e554299452d57ba3e",
+      "question": "Which band, Letters to Cleo or Screaming Trees, had more members?",
+      "golds": [
+        "Letters to Cleo"
+      ],
+      "nr_sc": 12.255182522299844,
+      "nr_pred": "Letters to Cleo",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "Letters to Cleo",
+      "rag_em": 1,
+      "rag_sc": 12.227842670752938
+    },
+    {
+      "stratum": "LO_correct",
+      "qid": "5abd259d55429924427fcf1a",
+      "question": "Are both Dictyosperma, and Huernia described as a genus?",
+      "golds": [
+        "yes"
+      ],
+      "nr_sc": 11.588562637070304,
+      "nr_pred": "yes",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "yes",
+      "rag_em": 1,
+      "rag_sc": 11.631942673871702
+    },
+    {
+      "stratum": "LO_correct",
+      "qid": "5abdf12255429976d4830a2f",
+      "question": "The Album Against the Wind was the 11th Album of a Rock singer Robert C Seger born may 6 1945. What was the Rock singers stage name ?",
+      "golds": [
+        "Bob Seger"
+      ],
+      "nr_sc": 11.452516370228988,
+      "nr_pred": "Bob Seger",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "Bob Seger",
+      "rag_em": 1,
+      "rag_sc": 12.483199145303836
+    },
+    {
+      "stratum": "LO_correct",
+      "qid": "5ae048a255429924de1b708e",
+      "question": "What movie did Pitof direct which had an action-adventure tie-in video game based off of it in 2004?",
+      "golds": [
+        "Catwoman"
+      ],
+      "nr_sc": 12.353854319330782,
+      "nr_pred": "Catwoman",
+      "nr_em": 1,
+      "nr_f1": 1.0,
+      "rag_pred": "Catwoman",
+      "rag_em": 1,
+      "rag_sc": 10.696530295503436
+    },
+    {
+      "stratum": "LO_wrong",
+      "qid": "5a88e605554299206df2b39c",
+      "question": "What is the population of the town at the intersection of Interstate Highways 77 and  the longest Interstate highway within the borders of Virginia?",
+      "golds": [
+        "8,211 at the 2010 census"
+      ],
+      "nr_sc": 12.137076936596252,
+      "nr_pred": "8,300",
+      "nr_em": 0,
+      "nr_f1": 0.0,
+      "rag_pred": "15,140",
+      "rag_em": 0,
+      "rag_sc": 11.946678436721001
+    },
+    {
+      "stratum": "LO_wrong",
+      "qid": "5ae7eb3c5542994a481bbe20",
+      "question": "The Panel with striding lion  was one of many that lined the way north of the gate to the inner city of what location?",
+      "golds": [
+        "Babylon"
+      ],
+      "nr_sc": 9.793044298746949,
+      "nr_pred": "Hattusa",
+      "nr_em": 0,
+      "nr_f1": 0.0,
+      "rag_pred": "Babylon",
+      "rag_em": 1,
+      "rag_sc": 12.907210497599245
+    },
+    {
+      "stratum": "LO_wrong",
+      "qid": "5ae17daa55429901ffe4aea9",
+      "question": "Who directed the 1941 film based on the novel of the same name by Zane Grey starring an actor who was also an artist and stuntman?",
+      "golds": [
+        "James Tinling"
+      ],
+      "nr_sc": 12.303375199445554,
+      "nr_pred": "William Witney",
+      "nr_em": 0,
+      "nr_f1": 0.0,
+      "rag_pred": "not provided",
+      "rag_em": 0,
+      "rag_sc": 10.34722889829785
+    },
+    {
+      "stratum": "LO_wrong",
+      "qid": "5ab859a955429934fafe6d7b",
+      "question": "Who is the writer of this song that was inspired by words on a tombstone and was the first track on the box set Back to Mono?",
+      "golds": [
+        "Phil Spector"
+      ],
+      "nr_sc": 12.27844069345753,
+      "nr_pred": "Brian Wilson and Roger Christian",
+      "nr_em": 0,
+      "nr_f1": 0.0,
+      "rag_pred": "Barbara Campbell and Kent Westbury",
+      "rag_em": 0,
+      "rag_sc": 10.915237412519406
+    },
+    {
+      "stratum": "LO_wrong",
+      "qid": "5abd552555429933744ab776",
+      "question": "Where will the 2017 Atlantic 10 Men's Basketball Tournament be hosted?",
+      "golds": [
+        "PPG Paints Arena"
+      ],
+      "nr_sc": 12.22379802566811,
+      "nr_pred": "Richmond Coliseum, Richmond, Virginia",
+      "nr_em": 0,
+      "nr_f1": 0.0,
+      "rag_pred": "PPG Paints Arena in Pittsburgh, Pennsylvania",
+      "rag_em": 0,
+      "rag_sc": 13.501872735623198
+    }
+  ]
+}

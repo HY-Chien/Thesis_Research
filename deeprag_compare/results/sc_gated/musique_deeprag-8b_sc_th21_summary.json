@@ -1,0 +1,10 @@
+{
+  "dataset": "musique",
+  "model": "xinyan233333/DeepRAG-8b",
+  "gate": "sc",
+  "sc_threshold": 21.0,
+  "n_questions": 1000,
+  "em": 0.23,
+  "avg_retrievals": 2.249,
+  "elapsed_min": 82.62397530873616
+}

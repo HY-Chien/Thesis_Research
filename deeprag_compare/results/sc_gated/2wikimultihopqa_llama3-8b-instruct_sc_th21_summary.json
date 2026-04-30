@@ -1,0 +1,10 @@
+{
+  "dataset": "2wikimultihopqa",
+  "model": "/workspace/models/Meta-Llama-3-8B-Instruct",
+  "gate": "sc",
+  "sc_threshold": 21.0,
+  "n_questions": 200,
+  "em": 0.08,
+  "avg_retrievals": 1.01,
+  "elapsed_min": 7.680455529689789
+}

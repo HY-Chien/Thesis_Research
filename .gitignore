@@ -1,6 +1,5 @@
 # 忽略特定副檔名資料檔案與日誌
-*.json
-*.jsonl
+
 *.log
 *.png
 *.csv

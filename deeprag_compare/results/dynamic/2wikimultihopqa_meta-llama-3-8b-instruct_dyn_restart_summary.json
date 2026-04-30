@@ -1,0 +1,80 @@
+{
+  "dataset": "2wikimultihopqa",
+  "model": "/workspace/models/Meta-Llama-3-8B-Instruct",
+  "n_questions": 1000,
+  "max_new_tokens": 100,
+  "topk": 3,
+  "n_shots": 8,
+  "methods": {
+    "no_rag": {
+      "em": 0.312,
+      "f1": 0.39342144685380015,
+      "retrieve_rate": 0.0
+    },
+    "single_rag": {
+      "em": 0.379,
+      "f1": 0.4704242434036556,
+      "retrieve_rate": 1.0
+    },
+    "dynamic_rag": {
+      "em": 0.172,
+      "f1": 0.2800491304450397,
+      "retrieve_rate": 0.296,
+      "mean_retrievals": 0.374
+    },
+    "sc_gated_rate10": {
+      "em": 0.324,
+      "f1": 0.4114022549346082,
+      "retrieve_rate": 0.099,
+      "sc_threshold": 12.788557179235973
+    },
+    "sc_gated_rate20": {
+      "em": 0.331,
+      "f1": 0.420595905728259,
+      "retrieve_rate": 0.199,
+      "sc_threshold": 13.040124357379685
+    },
+    "sc_gated_rate30": {
+      "em": 0.343,
+      "f1": 0.4330279403602936,
+      "retrieve_rate": 0.299,
+      "sc_threshold": 13.26794410850244
+    },
+    "sc_gated_rate40": {
+      "em": 0.345,
+      "f1": 0.43573306856542177,
+      "retrieve_rate": 0.399,
+      "sc_threshold": 13.447822632704035
+    },
+    "sc_gated_rate50": {
+      "em": 0.348,
+      "f1": 0.4416925923749456,
+      "retrieve_rate": 0.499,
+      "sc_threshold": 13.620416897299844
+    },
+    "sc_gated_rate60": {
+      "em": 0.357,
+      "f1": 0.45136207289442615,
+      "retrieve_rate": 0.599,
+      "sc_threshold": 13.775392103138167
+    },
+    "sc_gated_rate70": {
+      "em": 0.358,
+      "f1": 0.4525456504280036,
+      "retrieve_rate": 0.699,
+      "sc_threshold": 13.978860167010424
+    },
+    "sc_gated_rate80": {
+      "em": 0.373,
+      "f1": 0.466326097758451,
+      "retrieve_rate": 0.799,
+      "sc_threshold": 14.253880438966512
+    },
+    "sc_gated_rate90": {
+      "em": 0.38,
+      "f1": 0.4720021821315942,
+      "retrieve_rate": 0.899,
+      "sc_threshold": 14.629638688093259
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "dataset": "hotpotqa",
+  "model": "/workspace/models/Meta-Llama-3-8B-Instruct",
+  "n_questions": 1000,
+  "max_new_tokens": 100,
+  "topk": 3,
+  "n_shots": 8,
+  "methods": {
+    "no_rag": {
+      "em": 0.252,
+      "f1": 0.35594759570494877,
+      "retrieve_rate": 0.0
+    },
+    "single_rag": {
+      "em": 0.324,
+      "f1": 0.43997381311498984,
+      "retrieve_rate": 1.0
+    },
+    "dynamic_rag": {
+      "em": 0.191,
+      "f1": 0.3065872532145225,
+      "retrieve_rate": 0.349,
+      "mean_retrievals": 0.465
+    },
+    "sc_gated_rate10": {
+      "em": 0.272,
+      "f1": 0.3770841036414567,
+      "retrieve_rate": 0.099,
+      "sc_threshold": 11.16903450583278
+    },
+    "sc_gated_rate20": {
+      "em": 0.275,
+      "f1": 0.37965051778287084,
+      "retrieve_rate": 0.199,
+      "sc_threshold": 11.57620843921601
+    },
+    "sc_gated_rate30": {
+      "em": 0.283,
+      "f1": 0.38878702571937884,
+      "retrieve_rate": 0.299,
+      "sc_threshold": 11.9043412361222
+    },
+    "sc_gated_rate40": {
+      "em": 0.288,
+      "f1": 0.39687179650414967,
+      "retrieve_rate": 0.399,
+      "sc_threshold": 12.175798321950545
+    },
+    "sc_gated_rate50": {
+      "em": 0.306,
+      "f1": 0.414247406188583,
+      "retrieve_rate": 0.499,
+      "sc_threshold": 12.413179029285871
+    },
+    "sc_gated_rate60": {
+      "em": 0.306,
+      "f1": 0.413304621195798,
+      "retrieve_rate": 0.599,
+      "sc_threshold": 12.608799507080285
+    },
+    "sc_gated_rate70": {
+      "em": 0.313,
+      "f1": 0.42234087660705344,
+      "retrieve_rate": 0.699,
+      "sc_threshold": 12.847856549245954
+    },
+    "sc_gated_rate80": {
+      "em": 0.321,
+      "f1": 0.4320968289880058,
+      "retrieve_rate": 0.799,
+      "sc_threshold": 13.091235026666112
+    },
+    "sc_gated_rate90": {
+      "em": 0.322,
+      "f1": 0.4328587337499105,
+      "retrieve_rate": 0.899,
+      "sc_threshold": 13.558575735872697
+    }
+  }
+}

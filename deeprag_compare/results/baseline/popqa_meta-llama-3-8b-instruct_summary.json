@@ -1,0 +1,80 @@
+{
+  "dataset": "popqa",
+  "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+  "n_questions": 1000,
+  "max_new_tokens": 100,
+  "topk": 3,
+  "n_shots": 8,
+  "methods": {
+    "no_rag": {
+      "em": 0.204,
+      "f1": 0.2314362637362638,
+      "retrieve_rate": 0.0
+    },
+    "single_rag": {
+      "em": 0.416,
+      "f1": 0.5128478354978359,
+      "retrieve_rate": 1.0
+    },
+    "dynamic_rag": {
+      "em": 0.077,
+      "f1": 0.18257539775039788,
+      "retrieve_rate": 0.169,
+      "mean_retrievals": 0.217
+    },
+    "sc_gated_rate10": {
+      "em": 0.211,
+      "f1": 0.2508793373293375,
+      "retrieve_rate": 0.099,
+      "sc_threshold": 13.662192720653138
+    },
+    "sc_gated_rate20": {
+      "em": 0.226,
+      "f1": 0.2754221944721947,
+      "retrieve_rate": 0.199,
+      "sc_threshold": 13.90098271878188
+    },
+    "sc_gated_rate30": {
+      "em": 0.249,
+      "f1": 0.30394917859917875,
+      "retrieve_rate": 0.299,
+      "sc_threshold": 14.051722255333775
+    },
+    "sc_gated_rate40": {
+      "em": 0.273,
+      "f1": 0.32954679764679784,
+      "retrieve_rate": 0.399,
+      "sc_threshold": 14.18535148125693
+    },
+    "sc_gated_rate50": {
+      "em": 0.295,
+      "f1": 0.35643593073593094,
+      "retrieve_rate": 0.499,
+      "sc_threshold": 14.292282151167111
+    },
+    "sc_gated_rate60": {
+      "em": 0.313,
+      "f1": 0.3792216450216453,
+      "retrieve_rate": 0.599,
+      "sc_threshold": 14.41435831134675
+    },
+    "sc_gated_rate70": {
+      "em": 0.333,
+      "f1": 0.4028192640692643,
+      "retrieve_rate": 0.699,
+      "sc_threshold": 14.58714749859725
+    },
+    "sc_gated_rate80": {
+      "em": 0.35,
+      "f1": 0.42613037518037544,
+      "retrieve_rate": 0.799,
+      "sc_threshold": 14.791958579560323
+    },
+    "sc_gated_rate90": {
+      "em": 0.379,
+      "f1": 0.4612906926406929,
+      "retrieve_rate": 0.899,
+      "sc_threshold": 15.294894114739964
+    }
+  }
+}

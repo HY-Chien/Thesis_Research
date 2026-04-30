@@ -1,0 +1,10 @@
+{
+  "dataset": "hotpotqa",
+  "model": "xinyan233333/DeepRAG-8b",
+  "gate": "sc",
+  "sc_threshold": 17.0,
+  "n_questions": 1000,
+  "em": 0.32,
+  "avg_retrievals": 0.529,
+  "elapsed_min": 52.357001729806264
+}

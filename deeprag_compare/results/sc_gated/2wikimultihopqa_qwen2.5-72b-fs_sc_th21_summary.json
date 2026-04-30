@@ -1,0 +1,10 @@
+{
+  "dataset": "2wikimultihopqa",
+  "model": "/workspace/models/hub/models--Qwen--Qwen2.5-72B-Instruct/snapshots/495f39366efef23836d0cfae4fbe635880d2be31",
+  "gate": "sc",
+  "sc_threshold": 21.0,
+  "n_questions": 200,
+  "em": 0.25,
+  "avg_retrievals": 1.33,
+  "elapsed_min": 167.10078360239666
+}

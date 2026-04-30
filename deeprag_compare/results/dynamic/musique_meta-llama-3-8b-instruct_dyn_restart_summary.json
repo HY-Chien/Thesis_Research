@@ -1,0 +1,80 @@
+{
+  "dataset": "musique",
+  "model": "/workspace/models/Meta-Llama-3-8B-Instruct",
+  "n_questions": 1000,
+  "max_new_tokens": 100,
+  "topk": 3,
+  "n_shots": 8,
+  "methods": {
+    "no_rag": {
+      "em": 0.115,
+      "f1": 0.20278905008247125,
+      "retrieve_rate": 0.0
+    },
+    "single_rag": {
+      "em": 0.192,
+      "f1": 0.2902120106931251,
+      "retrieve_rate": 1.0
+    },
+    "dynamic_rag": {
+      "em": 0.103,
+      "f1": 0.19390368589869345,
+      "retrieve_rate": 0.238,
+      "mean_retrievals": 0.309
+    },
+    "sc_gated_rate10": {
+      "em": 0.12,
+      "f1": 0.20899333468675585,
+      "retrieve_rate": 0.099,
+      "sc_threshold": 12.195134649295852
+    },
+    "sc_gated_rate20": {
+      "em": 0.135,
+      "f1": 0.2280423107107318,
+      "retrieve_rate": 0.199,
+      "sc_threshold": 12.51258763395154
+    },
+    "sc_gated_rate30": {
+      "em": 0.14,
+      "f1": 0.23158346171658872,
+      "retrieve_rate": 0.299,
+      "sc_threshold": 12.74221236885673
+    },
+    "sc_gated_rate40": {
+      "em": 0.154,
+      "f1": 0.24470753209065907,
+      "retrieve_rate": 0.399,
+      "sc_threshold": 12.918866872349746
+    },
+    "sc_gated_rate50": {
+      "em": 0.168,
+      "f1": 0.26051962482248864,
+      "retrieve_rate": 0.499,
+      "sc_threshold": 13.107191395179086
+    },
+    "sc_gated_rate60": {
+      "em": 0.173,
+      "f1": 0.26910848318634695,
+      "retrieve_rate": 0.599,
+      "sc_threshold": 13.277113270179086
+    },
+    "sc_gated_rate70": {
+      "em": 0.175,
+      "f1": 0.2743734265762903,
+      "retrieve_rate": 0.699,
+      "sc_threshold": 13.55530493372699
+    },
+    "sc_gated_rate80": {
+      "em": 0.182,
+      "f1": 0.28098465978752346,
+      "retrieve_rate": 0.799,
+      "sc_threshold": 13.84254685613218
+    },
+    "sc_gated_rate90": {
+      "em": 0.184,
+      "f1": 0.2864486591324052,
+      "retrieve_rate": 0.899,
+      "sc_threshold": 14.173810110872697
+    }
+  }
+}

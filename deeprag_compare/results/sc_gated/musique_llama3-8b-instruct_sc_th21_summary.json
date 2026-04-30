@@ -1,0 +1,10 @@
+{
+  "dataset": "musique",
+  "model": "/workspace/models/Meta-Llama-3-8B-Instruct",
+  "gate": "sc",
+  "sc_threshold": 21.0,
+  "n_questions": 200,
+  "em": 0.035,
+  "avg_retrievals": 1.01,
+  "elapsed_min": 7.211702640851339
+}

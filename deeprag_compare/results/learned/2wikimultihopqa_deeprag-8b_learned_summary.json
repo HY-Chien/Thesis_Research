@@ -1,0 +1,10 @@
+{
+  "dataset": "2wikimultihopqa",
+  "model": "xinyan233333/DeepRAG-8b",
+  "gate": "learned",
+  "sc_threshold": 0.0,
+  "n_questions": 1000,
+  "em": 0.502,
+  "avg_retrievals": 1.451,
+  "elapsed_min": 56.28690581719081
+}
