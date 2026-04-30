@@ -1,8 +1,9 @@
 # 忽略特定副檔名資料檔案與日誌
-
 *.log
 *.png
 *.csv
 *.pyc
 __pycache__/
 experiment/cache/
+*json
+*jsonl
