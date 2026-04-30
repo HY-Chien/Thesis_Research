@@ -19,7 +19,7 @@ class BM25Retriever:
     # the dataset-specific indices (hotpotqa / 2wikimultihopqa / musique) use
     # `paragraph_text`. We auto-detect below.
     _TEXT_FIELD = {
-        "wiki": "txt",
+        "wiki": "paragraph_text",
         "hotpotqa": "paragraph_text",
         "2wikimultihopqa": "paragraph_text",
         "musique": "paragraph_text",

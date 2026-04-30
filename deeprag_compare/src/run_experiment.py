@@ -31,6 +31,7 @@ import os
 import sys
 import time
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
@@ -74,6 +75,29 @@ parser.add_argument("--dyn_min_sent_tokens", type=int, default=4,
                     help="Min tokens to count as a valid sentence boundary")
 parser.add_argument("--run_dynamic", action="store_true",
                     help="Enable dynamic sentence-level RAG (token-by-token, slow; off by default)")
+parser.add_argument("--dyn_max_new_tokens", type=int, default=512,
+                    help="Max new tokens for dynamic CoT generation (should be longer than base)")
+parser.add_argument("--dyn_on_trigger", default="continue",
+                    choices=["continue", "restart", "regenerate_sentence"],
+                    help="On SC trigger: continue = inject docs + keep partial CoT; "
+                         "restart = discard partial CoT, regenerate from scratch with docs; "
+                         "regenerate_sentence = drop only the triggering sentence, keep "
+                         "earlier completed sentences, regenerate that sentence with docs")
+parser.add_argument("--dyn_query_mode", default="basic",
+                    choices=["basic", "masked"],
+                    help="Retrieval query formulation: "
+                         "basic = question + last 300 chars of partial CoT (original); "
+                         "masked = question + anchor tokens of triggering sentence "
+                         "(low-SC tokens masked out, FLARE-style)")
+parser.add_argument("--dyn_mask_pct", type=float, default=30.0,
+                    help="In masked query mode, drop tokens with SC below this percentile of "
+                         "the triggering sentence (default 30 = drop bottom 30%%).")
+parser.add_argument("--output_suffix", default="",
+                    help="Suffix to append to output filenames (for side-by-side variants)")
+parser.add_argument("--skip_baselines", action="store_true",
+                    help="Load nr_*/rag_* fields from the baseline JSONL (no suffix) instead "
+                         "of re-running no_rag and single_rag. Only dynamic RAG is run. "
+                         "Requires the baseline file to exist for this dataset/model.")
 args = parser.parse_args()
 
 
@@ -81,9 +105,10 @@ MODEL_TAG = args.model_id.split("/")[-1].lower().replace(".", "")
 os.makedirs(args.output_dir, exist_ok=True)
 os.makedirs(args.log_dir, exist_ok=True)
 
-LOG_FILE = os.path.join(args.log_dir, f"{args.dataset}_{MODEL_TAG}.log")
-RESULTS_FILE = os.path.join(args.output_dir, f"{args.dataset}_{MODEL_TAG}.jsonl")
-SUMMARY_FILE = os.path.join(args.output_dir, f"{args.dataset}_{MODEL_TAG}_summary.json")
+_SUF = f"_{args.output_suffix}" if args.output_suffix else ""
+LOG_FILE = os.path.join(args.log_dir, f"{args.dataset}_{MODEL_TAG}{_SUF}.log")
+RESULTS_FILE = os.path.join(args.output_dir, f"{args.dataset}_{MODEL_TAG}{_SUF}.jsonl")
+SUMMARY_FILE = os.path.join(args.output_dir, f"{args.dataset}_{MODEL_TAG}{_SUF}_summary.json")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -182,29 +207,87 @@ def regenerate_answer(model, tok, prompt: str, cot_text: str, max_new: int = 20)
     return cot_text + " So the answer is " + gen.strip()
 
 
-# --- Dynamic sentence-level SC-triggered RAG ------------------------------
+# --- Dynamic sentence-level SC-triggered RAG (EXP10-style CoT) ------------
 
 import re as _re
 _SENT_END_RE = _re.compile(r'[.!?]\s*$|\n\s*$')
+_COT_ANS_PATTERNS = [
+    r"final answer\s*[:：]\s*(.+?)(?:\n|$)",
+    r"\banswer\s*[:：]\s*(.+?)(?:\n|$)",
+    r"the answer is\s*(.+?)(?:\.|\n|$)",
+]
+
+
+def _extract_cot_answer(text: str) -> str:
+    """Extract answer from CoT output with 'Final Answer: X' format."""
+    for pat in _COT_ANS_PATTERNS:
+        m = _re.findall(pat, text, flags=_re.IGNORECASE)
+        if m:
+            return m[-1].strip().strip(".").strip()
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    return lines[-1] if lines else text
+
+
+def _build_cot_prompt(tok, question: str) -> str:
+    msgs = [
+        {"role": "system", "content":
+            "Answer the given question. Always conduct and show your "
+            "step-by-step reasoning first, then give the final answer. "
+            "End with a line: 'Final Answer: <your answer>'."},
+        {"role": "user", "content": question},
+    ]
+    return tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+
+
+def _build_cot_rag_prompt(tok, question: str, docs: list) -> str:
+    ctx = "\n\n".join(
+        f"Wikipedia Title: {d.get('title','').strip()}\n{d.get('text','').strip()}"
+        for d in docs)
+    msgs = [
+        {"role": "system", "content":
+            "Answer the given question using the Wikipedia passages below. "
+            "Always conduct and show your step-by-step reasoning first, then give the final answer. "
+            "End with a line: 'Final Answer: <your answer>'.\n\n" + ctx},
+        {"role": "user", "content": question},
+    ]
+    return tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
 
 
 @torch.no_grad()
 def generate_dynamic_rag(model, tok, retriever, ds_cls, fewshot_prefix: str,
                           question: str, max_new: int, topk: int,
                           sc_threshold, drop_threshold, trigger_mode,
-                          max_retrievals: int, min_sent_tokens: int):
+                          max_retrievals: int, min_sent_tokens: int,
+                          on_trigger: str = "continue",
+                          query_mode: str = "basic",
+                          mask_pct: float = 30.0):
     """
     Token-by-token greedy generation with sentence-level SC-triggered retrieval.
-    Mirrors exp10_sentence_rag.py but uses DRAGIN fewshot prompt and BM25Retriever.
+
+    on_trigger:
+      - "continue": inject retrieved docs into prompt, keep partial CoT, continue
+      - "restart":  discard partial CoT, regenerate from scratch with retrieved docs
+                    (docs accumulate across restarts). Budget `max_new` is a total
+                    across all restart attempts so one question can't run forever.
+      - "regenerate_sentence": discard only the triggering sentence, keep earlier
+                    completed sentences, regenerate that sentence with retrieved docs.
+                    Cheaper than restart, cleaner than continue (drops half-baked tokens
+                    that triggered the alert in the first place).
+
+    query_mode (FLARE-style retrieval query):
+      - "basic":  question + last 300 chars of partial CoT (original behaviour)
+      - "masked": question + anchor tokens of the triggering sentence with low-SC
+                    tokens removed (mask_pct = bottom percentile cutoff). Targets the
+                    information gap directly instead of the broader CoT context.
     """
     V = float(model.config.vocab_size)
     log_V = math.log(V)
     device = model.device
 
-    def _make_prompt(docs_txt=None):
-        if docs_txt:
-            return build_single_rag_prompt(ds_cls, fewshot_prefix, question, docs_txt)
-        return build_no_rag_prompt(ds_cls, fewshot_prefix, question)
+    def _make_prompt(docs=None):
+        if docs:
+            return _build_cot_rag_prompt(tok, question, docs)
+        return _build_cot_prompt(tok, question)
 
     # Bootstrap: feed prompt, get KV cache + last logits
     prompt_ids = tok(_make_prompt(), return_tensors="pt",
@@ -219,6 +302,9 @@ def generate_dynamic_rag(model, tok, retriever, ds_cls, fewshot_prefix: str,
     trigger_events = []
     current_sent_start = 0
     n_retrievals = 0
+    accumulated_docs = []   # only used in restart mode
+    restart_history = []    # discarded CoTs from prior restarts (for debugging)
+    total_steps = 0         # total tokens generated across all restarts (budget)
 
     def _pick(logits):
         lp = F.log_softmax(logits, dim=-1)
@@ -238,19 +324,19 @@ def generate_dynamic_rag(model, tok, retriever, ds_cls, fewshot_prefix: str,
         if trigger_mode == "both":    return abs_fire and drop_fire
         return abs_fire or drop_fire  # "either" (default)
 
-    step = 0
-    while step < max_new:
+    while total_steps < max_new:
         next_id, tok_sc = _pick(last_logits)
         if next_id == tok.eos_token_id:
             break
 
         generated_ids.append(next_id)
         sc_per_token.append(tok_sc)
-        step += 1
+        total_steps += 1
+        step_in_gen = len(generated_ids)
 
-        look_back = min(10, len(generated_ids))
+        look_back = min(10, step_in_gen)
         recent_text = tok.decode(generated_ids[-look_back:], skip_special_tokens=True)
-        n_in_sent = step - current_sent_start
+        n_in_sent = step_in_gen - current_sent_start
 
         if _is_sent_end(recent_text) and n_in_sent >= min_sent_tokens:
             sent_scs = sc_per_token[current_sent_start:]
@@ -260,26 +346,87 @@ def generate_dynamic_rag(model, tok, retriever, ds_cls, fewshot_prefix: str,
 
                 if n_retrievals < max_retrievals and _should_trigger(mean_sc, sentence_scs[:-1]):
                     partial_cot = tok.decode(generated_ids, skip_special_tokens=True)
-                    query = question + " " + partial_cot[-300:]
-                    docs = retriever.search(query, topk=topk)
-                    if docs:
-                        docs_txt = BM25Retriever.format_context(docs)
-                        new_prompt_ids = tok(_make_prompt(docs_txt), return_tensors="pt",
-                                             add_special_tokens=False).input_ids.to(device)
-                        partial_ids = torch.tensor([generated_ids], device=device)
-                        full_ids = torch.cat([new_prompt_ids, partial_ids], dim=1)
-                        out2 = model(full_ids, use_cache=True)
-                        past_kv = out2.past_key_values
-                        last_logits = out2.logits[0, -1, :].float()
+
+                    # ── Query formulation ─────────────────────────────
+                    if query_mode == "masked":
+                        sent_ids_window = generated_ids[current_sent_start:]
+                        sent_scs_tok = sc_per_token[current_sent_start:]
+                        if len(sent_scs_tok) >= 4:
+                            cutoff = float(np.percentile(sent_scs_tok, mask_pct))
+                            keep_ids = [tid for tid, sc in zip(sent_ids_window, sent_scs_tok)
+                                        if sc >= cutoff]
+                            anchor = tok.decode(keep_ids, skip_special_tokens=True).strip()
+                        else:
+                            anchor = tok.decode(sent_ids_window, skip_special_tokens=True).strip()
+                        query = question + " " + anchor
+                    else:  # "basic"
+                        query = question + " " + partial_cot[-300:]
+
+                    ret_docs = retriever.search(query, topk=topk)
+                    if ret_docs:
                         n_retrievals += 1
                         trigger_events.append({
-                            "step": step, "sent_sc": mean_sc,
-                            "titles": [d["title"] for d in docs],
+                            "step": total_steps, "sent_sc": mean_sc,
+                            "mode": on_trigger,
+                            "query_mode": query_mode,
+                            "query": query[-300:],
+                            "titles": [d["title"] for d in ret_docs],
+                            "partial_cot_tail": partial_cot[-200:],
                         })
-                        current_sent_start = step
+
+                        if on_trigger == "continue":
+                            # Keep partial CoT, rebuild prompt with retrieved docs
+                            new_prompt_ids = tok(_make_prompt(ret_docs), return_tensors="pt",
+                                                 add_special_tokens=False).input_ids.to(device)
+                            partial_ids = torch.tensor([generated_ids], device=device)
+                            full_ids = torch.cat([new_prompt_ids, partial_ids], dim=1)
+                            out2 = model(full_ids, use_cache=True)
+                            past_kv = out2.past_key_values
+                            last_logits = out2.logits[0, -1, :].float()
+                            current_sent_start = step_in_gen
+                            continue
+
+                        if on_trigger == "regenerate_sentence":
+                            # Drop only the triggering sentence; keep earlier sentences.
+                            # Tokens before current_sent_start = previously-committed
+                            # sentences we trust.
+                            generated_ids = generated_ids[:current_sent_start]
+                            sc_per_token  = sc_per_token[:current_sent_start]
+                            # Rebuild prompt with retrieved docs + truncated partial CoT
+                            new_prompt_ids = tok(_make_prompt(ret_docs), return_tensors="pt",
+                                                 add_special_tokens=False).input_ids.to(device)
+                            if generated_ids:
+                                partial_ids = torch.tensor([generated_ids], device=device)
+                                full_ids = torch.cat([new_prompt_ids, partial_ids], dim=1)
+                            else:
+                                full_ids = new_prompt_ids
+                            out2 = model(full_ids, use_cache=True)
+                            past_kv = out2.past_key_values
+                            last_logits = out2.logits[0, -1, :].float()
+                            # current_sent_start now == len(generated_ids) (start fresh sentence)
+                            current_sent_start = len(generated_ids)
+                            # Drop the SC for the discarded sentence from history
+                            if sentence_scs:
+                                sentence_scs.pop()
+                            continue
+
+                        # on_trigger == "restart"
+                        restart_history.append(partial_cot)
+                        accumulated_docs = accumulated_docs + list(ret_docs)
+                        new_prompt_ids = tok(_make_prompt(accumulated_docs),
+                                             return_tensors="pt",
+                                             add_special_tokens=False).input_ids.to(device)
+                        out2 = model(new_prompt_ids, use_cache=True)
+                        past_kv = out2.past_key_values
+                        last_logits = out2.logits[0, -1, :].float()
+                        # Reset per-generation tracking (total_steps NOT reset — budget)
+                        generated_ids = []
+                        sc_per_token = []
+                        sentence_scs = []
+                        current_sent_start = 0
                         continue
 
-            current_sent_start = step
+            current_sent_start = step_in_gen
 
         new_input = torch.tensor([[next_id]], device=device)
         out = model(new_input, past_key_values=past_kv, use_cache=True)
@@ -295,6 +442,7 @@ def generate_dynamic_rag(model, tok, retriever, ds_cls, fewshot_prefix: str,
         "n_retrievals": n_retrievals,
         "sentence_scs": sentence_scs,
         "trigger_events": trigger_events,
+        "restart_history": restart_history,
     }
 
 
@@ -311,6 +459,18 @@ def build_single_rag_prompt(ds_cls, fewshot_prefix: str, question: str, docs_tex
         + "Context (retrieved from Wikipedia):\n" + docs_text + "\n\n"
         + ds_cls.test_input(question) + " "
     )
+
+
+# --- Baseline loader (--skip_baselines) -----------------------------------
+
+def load_baselines(jsonl_path: str) -> dict:
+    """Return {qid: record} from an existing result JSONL."""
+    baselines = {}
+    with open(jsonl_path, encoding="utf-8") as f:
+        for line in f:
+            r = json.loads(line)
+            baselines[r["qid"]] = r
+    return baselines
 
 
 # --- Main loop ------------------------------------------------------------
@@ -332,53 +492,75 @@ def main():
     # Warm up retriever once
     _ = retriever.search("what is the capital of France?", topk=2)
 
+    # --skip_baselines: load nr_*/rag_* from the existing (no-suffix) JSONL
+    if args.skip_baselines:
+        base_jsonl = os.path.join(args.output_dir, f"{args.dataset}_{MODEL_TAG}.jsonl")
+        if not os.path.exists(base_jsonl):
+            raise FileNotFoundError(
+                f"--skip_baselines requires baseline JSONL at {base_jsonl}")
+        baselines = load_baselines(base_jsonl)
+        logging.info(f"Loaded {len(baselines)} baseline records from {base_jsonl}")
+    else:
+        baselines = {}
+
     records = []
     t0 = time.time()
     for ex in tqdm(data, desc=args.dataset):
         golds = ds_cls.golds(ex)
 
-        # 1) CoT no-RAG generation + SC + PPL
-        p_nr = build_no_rag_prompt(ds_cls, fewshot, ex["question"])
-        g_nr = generate_and_score(model, tok, p_nr, args.max_new_tokens)
-        nr_text = g_nr["text"]
-        if "the answer is" not in nr_text:
-            nr_text = regenerate_answer(model, tok, p_nr, g_nr["text"])
-        pred_nr = extract_answer(nr_text)
-        sc_nr = score(pred_nr, golds)
+        if args.skip_baselines and ex["qid"] in baselines:
+            b = baselines[ex["qid"]]
+            nr_text  = b["nr_text"];  pred_nr  = b["nr_pred"]
+            g_nr     = {"sc": b["nr_sc"], "ppl": b.get("nr_ppl", 0.0), "n_tokens": b["nr_n_tok"]}
+            sc_nr    = {"em": b["nr_em"], "f1": b["nr_f1"]}
+            rag_text = b["rag_text"]; pred_rag = b["rag_pred"]
+            g_rag    = {"sc": b["rag_sc"], "ppl": b.get("rag_ppl", 0.0), "n_tokens": b["rag_n_tok"]}
+            sc_rag   = {"em": b["rag_em"], "f1": b["rag_f1"]}
+            docs     = [{"title": t, "text": ""} for t in b.get("retrieved_titles", [])]
+        else:
+            # 1) CoT no-RAG generation + SC + PPL
+            p_nr = build_no_rag_prompt(ds_cls, fewshot, ex["question"])
+            g_nr = generate_and_score(model, tok, p_nr, args.max_new_tokens)
+            nr_text = g_nr["text"]
+            if "the answer is" not in nr_text:
+                nr_text = regenerate_answer(model, tok, p_nr, g_nr["text"])
+            pred_nr = extract_answer(nr_text)
+            sc_nr = score(pred_nr, golds)
 
-        # 2) Single-retrieval RAG (always retrieve)
-        docs = retriever.search(ex["question"], topk=args.topk)
-        docs_text = BM25Retriever.format_context(docs)
-        p_rag = build_single_rag_prompt(ds_cls, fewshot, ex["question"], docs_text)
-        g_rag = generate_and_score(model, tok, p_rag, args.max_new_tokens)
-        rag_text = g_rag["text"]
-        if "the answer is" not in rag_text:
-            rag_text = regenerate_answer(model, tok, p_rag, g_rag["text"])
-        pred_rag = extract_answer(rag_text)
-        sc_rag = score(pred_rag, golds)
+            # 2) Single-retrieval RAG (always retrieve)
+            docs = retriever.search(ex["question"], topk=args.topk)
+            docs_text = BM25Retriever.format_context(docs)
+            p_rag = build_single_rag_prompt(ds_cls, fewshot, ex["question"], docs_text)
+            g_rag = generate_and_score(model, tok, p_rag, args.max_new_tokens)
+            rag_text = g_rag["text"]
+            if "the answer is" not in rag_text:
+                rag_text = regenerate_answer(model, tok, p_rag, g_rag["text"])
+            pred_rag = extract_answer(rag_text)
+            sc_rag = score(pred_rag, golds)
 
         # 3) Dynamic sentence-level SC-triggered RAG (only with --run_dynamic)
         if not args.run_dynamic:
             g_dyn = {"text": "", "sc": 0.0, "n_tokens": 0,
-                     "n_retrievals": 0, "sentence_scs": [], "trigger_events": []}
+                     "n_retrievals": 0, "sentence_scs": [], "trigger_events": [],
+                     "restart_history": []}
             dyn_text = nr_text   # fall back to no-RAG result
             pred_dyn = pred_nr
             sc_dyn = sc_nr
         else:
             g_dyn = generate_dynamic_rag(
                 model, tok, retriever, ds_cls, fewshot, ex["question"],
-                max_new=args.max_new_tokens, topk=args.topk,
+                max_new=args.dyn_max_new_tokens, topk=args.topk,
                 sc_threshold=args.dyn_sc_threshold,
                 drop_threshold=args.dyn_drop_threshold,
                 trigger_mode=args.dyn_trigger_mode,
                 max_retrievals=args.dyn_max_retrievals,
                 min_sent_tokens=args.dyn_min_sent_tokens,
+                on_trigger=args.dyn_on_trigger,
+                query_mode=args.dyn_query_mode,
+                mask_pct=args.dyn_mask_pct,
             )
             dyn_text = g_dyn["text"]
-            if "the answer is" not in dyn_text:
-                p_dyn_fallback = build_no_rag_prompt(ds_cls, fewshot, ex["question"])
-                dyn_text = regenerate_answer(model, tok, p_dyn_fallback, g_dyn["text"])
-            pred_dyn = extract_answer(dyn_text)
+            pred_dyn = _extract_cot_answer(dyn_text)
             sc_dyn = score(pred_dyn, golds)
 
         rec = {
@@ -398,6 +580,10 @@ def main():
             "dyn_sc": g_dyn["sc"], "dyn_n_tok": g_dyn["n_tokens"],
             "dyn_n_retrievals": g_dyn["n_retrievals"],
             "dyn_sentence_scs": g_dyn["sentence_scs"],
+            "dyn_trigger_events": g_dyn.get("trigger_events", []),
+            "dyn_restart_history": g_dyn.get("restart_history", []),
+            "dyn_on_trigger": args.dyn_on_trigger if args.run_dynamic else None,
+            "dyn_query_mode": args.dyn_query_mode if args.run_dynamic else None,
             "dyn_em": sc_dyn["em"], "dyn_f1": sc_dyn["f1"],
             # retrieval
             "retrieved_titles": [d["title"] for d in docs],
@@ -447,7 +633,6 @@ def summarize(records, dataset_tag):
 
     # SC-gated: if SC_nr >= τ, take no-RAG pred; else take RAG pred.
     # Sweep τ at percentiles so the retrieve rate is controllable.
-    import numpy as np
     sc_arr = sorted(r["nr_sc"] for r in records)
     for target_rate in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
         # retrieve_rate = fraction with SC < τ, so τ = the (rate)-quantile of SC

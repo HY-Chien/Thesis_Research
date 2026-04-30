@@ -14,6 +14,17 @@ RES_DIR = "/home/S113065528/Research/deeprag_compare/results"
 DATASETS = ["hotpotqa", "2wikimultihopqa", "musique"]
 DATASETS_ALL = ["hotpotqa", "2wikimultihopqa", "musique", "popqa"]
 
+
+def find_in_results(filename):
+    """Look for filename at RES_DIR root, then in any first-level subdir.
+    Returns the matched path, or RES_DIR/filename so callers' os.path.exists fails cleanly."""
+    import glob
+    direct = os.path.join(RES_DIR, filename)
+    if os.path.exists(direct):
+        return direct
+    matches = glob.glob(os.path.join(RES_DIR, "*", filename))
+    return matches[0] if matches else direct
+
 # DeepRAG paper Table 2 numbers on Llama-3-8B-Instruct (zero-shot baselines)
 DEEPRAG_REF = {
     "CoT (paper)":     {"hotpotqa": (27.2, 37.8), "2wikimultihopqa": (28.2, 34.9), "musique": (13.7, 23.0)},
@@ -31,7 +42,7 @@ def main():
 
     ours = {}
     for ds in DATASETS_ALL:
-        path = os.path.join(RES_DIR, f"{ds}_{args.model_tag}_summary.json")
+        path = find_in_results(f"{ds}_{args.model_tag}_summary.json")
         if os.path.exists(path):
             ours[ds] = json.load(open(path))
         else:
