@@ -1,0 +1,94 @@
+\babel@toc {english}{}\relax 
+\contentsline {chapter}{學位論文授權書}{}{Doc-Start}
+\contentsline {chapter}{指導教授推薦書}{}{Doc-Start}
+\contentsline {chapter}{考試委員審定書}{}{Doc-Start}
+\contentsline {chapter}{Abstract}{i}{chapter*.1}%
+\contentsline {chapter}{摘要}{ii}{chapter*.2}%
+\contentsline {chapter}{Acknowledgements}{iii}{chapter*.3}%
+\contentsline {chapter}{Contents}{vii}{chapter*.3}%
+\contentsline {chapter}{List of Figures}{viii}{chapter*.3}%
+\contentsline {chapter}{List of Tables}{ix}{chapter*.3}%
+\contentsline {chapter}{Nomenclature}{1}{chapter*.3}%
+\contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Background and Motivation}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Research Objectives}{1}{section.1.2}%
+\contentsline {chapter}{\numberline {2}Related Work}{2}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Retrieval-Augmented Generation}{2}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Adaptive Retrieval-Augmented Generation}{2}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Classifier-Based Gating}{3}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Confidence- and Uncertainty-Based Gating}{3}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}Reasoning- and Policy-Based Gating}{4}{subsection.2.2.3}%
+\contentsline {section}{\numberline {2.3}Reasoning in Retrieval-Augmented Generation}{5}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Knowledge Boundary}{6}{section.2.4}%
+\contentsline {paragraph}{Self-knowledge and its calibration.}{6}{paragraph*.4}%
+\contentsline {paragraph}{Uncertainty estimation as a boundary signal.}{7}{paragraph*.5}%
+\contentsline {paragraph}{The boundary under retrieval.}{7}{paragraph*.6}%
+\contentsline {section}{\numberline {2.5}Multi-Hop Question Answering Datasets}{8}{section.2.5}%
+\contentsline {subsection}{\numberline {2.5.1}HotpotQA}{8}{subsection.2.5.1}%
+\contentsline {subsection}{\numberline {2.5.2}2WikiMultihopQA}{8}{subsection.2.5.2}%
+\contentsline {subsection}{\numberline {2.5.3}MuSiQue}{9}{subsection.2.5.3}%
+\contentsline {subsection}{\numberline {2.5.4}PopQA}{9}{subsection.2.5.4}%
+\contentsline {subsection}{\numberline {2.5.5}Single-Hop Open-Domain QA}{9}{subsection.2.5.5}%
+\contentsline {section}{\numberline {2.6}Summary of Related Work}{9}{section.2.6}%
+\contentsline {chapter}{\numberline {3}Methodology}{11}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Overview}{11}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Problem Formulation}{12}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Stage 1: Sub-Question Decomposer}{12}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Output Format}{12}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Decomposer Prompt}{13}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Decomposition Examples by Dataset}{13}{subsection.3.3.3}%
+\contentsline {section}{\numberline {3.4}Stage 2: Token-Level Confidence Probe}{13}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Stage 3: Retrieval Gate}{15}{section.3.5}%
+\contentsline {subsection}{\numberline {3.5.1}Retriever}{15}{subsection.3.5.1}%
+\contentsline {subsection}{\numberline {3.5.2}Optional Skip-Decompose Probe}{16}{subsection.3.5.2}%
+\contentsline {section}{\numberline {3.6}Stage 4: Synthesis}{16}{section.3.6}%
+\contentsline {section}{\numberline {3.7}Training Protocol}{17}{section.3.7}%
+\contentsline {subsection}{\numberline {3.7.1}Backbone and LoRA Configuration}{17}{subsection.3.7.1}%
+\contentsline {subsection}{\numberline {3.7.2}Training Data}{17}{subsection.3.7.2}%
+\contentsline {subsection}{\numberline {3.7.3}Optimisation}{18}{subsection.3.7.3}%
+\contentsline {section}{\numberline {3.8}Inference Modes}{18}{section.3.8}%
+\contentsline {section}{\numberline {3.9}Implementation Summary}{19}{section.3.9}%
+\contentsline {chapter}{\numberline {4}Experiments}{20}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Experimental Setup}{20}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Datasets}{20}{subsection.4.1.1}%
+\contentsline {subsection}{\numberline {4.1.2}Retrieval Corpus}{20}{subsection.4.1.2}%
+\contentsline {subsection}{\numberline {4.1.3}Metrics}{21}{subsection.4.1.3}%
+\contentsline {subsection}{\numberline {4.1.4}Baselines}{21}{subsection.4.1.4}%
+\contentsline {subsection}{\numberline {4.1.5}Implementation Details}{21}{subsection.4.1.5}%
+\contentsline {section}{\numberline {4.2}Main Results}{22}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Key Findings}{22}{subsection.4.2.1}%
+\contentsline {section}{\numberline {4.3}Ablation: Gating Threshold $\tau $}{24}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Ablation: Inference Mode B vs C}{25}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Ablation: Decomposer Training Data}{25}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Ablation: Synthesis Prompt}{26}{section.4.6}%
+\contentsline {section}{\numberline {4.7}Retrieval Trigger Rate Analysis}{27}{section.4.7}%
+\contentsline {section}{\numberline {4.8}Per-Type and Per-Hop Breakdowns}{28}{section.4.8}%
+\contentsline {subsection}{\numberline {4.8.1}2Wiki by Question Type}{28}{subsection.4.8.1}%
+\contentsline {subsection}{\numberline {4.8.2}MuSiQue by Hop Depth}{28}{subsection.4.8.2}%
+\contentsline {section}{\numberline {4.9}Summary}{29}{section.4.9}%
+\contentsline {chapter}{\numberline {5}Discussion}{31}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Cost--Accuracy Trade-off versus DeepRAG}{31}{section.5.1}%
+\contentsline {section}{\numberline {5.2}The EM--F1 Gap and Residual Failure Modes}{32}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Verbose Spans with Correct Information}{32}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Alias Mismatch}{33}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Wrong Sub-Answer Propagation}{33}{subsection.5.2.3}%
+\contentsline {section}{\numberline {5.3}The Over-Decomposition Limitation (PopQA)}{34}{section.5.3}%
+\contentsline {section}{\numberline {5.4}What the Threshold Sweep Reveals About the Signal}{34}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Threats to Validity}{35}{section.5.5}%
+\contentsline {subsection}{\numberline {5.5.1}Retrieval Corpus Mismatch}{35}{subsection.5.5.1}%
+\contentsline {subsection}{\numberline {5.5.2}Dataset Slicing}{36}{subsection.5.5.2}%
+\contentsline {subsection}{\numberline {5.5.3}Single Seed / Greedy Decoding}{36}{subsection.5.5.3}%
+\contentsline {subsection}{\numberline {5.5.4}Decomposer Distribution Shift}{36}{subsection.5.5.4}%
+\contentsline {chapter}{\numberline {6}Conclusions and Future Work}{37}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Summary of Contributions}{37}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Limitations}{38}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Future Work}{39}{section.6.3}%
+\contentsline {subsection}{\numberline {6.3.1}Length-Conditioned Decomposer}{39}{subsection.6.3.1}%
+\contentsline {subsection}{\numberline {6.3.2}Hybrid Confidence Signals}{39}{subsection.6.3.2}%
+\contentsline {subsection}{\numberline {6.3.3}Multi-Sample Decomposition with Re-Selection}{39}{subsection.6.3.3}%
+\contentsline {subsection}{\numberline {6.3.4}Span-Trimming Calibration}{40}{subsection.6.3.4}%
+\contentsline {subsection}{\numberline {6.3.5}Beyond English Wikipedia}{40}{subsection.6.3.5}%
+\contentsline {section}{\numberline {6.4}Closing Remarks}{40}{section.6.4}%
+\contentsline {chapter}{References}{41}{chapter*.22}%
+\contentsline {chapter}{Appendices}{}{}
+\contentsline {chapter}{\numberline {A}Supplementary Material}{46}{chapter.A}%

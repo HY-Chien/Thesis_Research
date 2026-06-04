@@ -1,0 +1,14 @@
+\nomenclatureentry{aRAG@[{RAG}]\begingroup Retrieval-Augmented Generation\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aSEER@[{SEER}]\begingroup Sub-question Entropy-driven Efficient Retrieval\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aLLM@[{LLM}]\begingroup Large Language Model\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aLM@[{LM}]\begingroup Language Model\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aQA@[{QA}]\begingroup Question Answering\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aSFT@[{SFT}]\begingroup Supervised Fine-Tuning\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aDPO@[{DPO}]\begingroup Direct Preference Optimization\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aMDP@[{MDP}]\begingroup Markov Decision Process\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aEM@[{EM}]\begingroup Exact Match\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aAUROC@[{AUROC}]\begingroup Area Under the Receiver Operating Characteristic Curve\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aPPL@[{PPL}]\begingroup Perplexity\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aCoT@[{CoT}]\begingroup Chain-of-Thought\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aFLARE@[{FLARE}]\begingroup Forward-Looking Active REtrieval augmented generation\nomeqref {0}|nompageref}{1}
+\nomenclatureentry{aNTHU@[{NTHU}]\begingroup National Tsing Hua University\nomeqref {0}|nompageref}{1}

@@ -1,0 +1,8 @@
+This study proposes SEER (Sub-question Entropy-driven Efficient Retrieval), a sub-question-level adaptive Retrieval-Augmented Generation (RAG) framework. Existing RAG systems typically apply a one-size-fits-all retrieval strategy: unnecessary retrieval on simple queries adds noise and cost, while a single retrieval pass on complex multi-hop questions often yields incomplete or incorrect answers.
+
+Recent adaptive RAG methods attempt to address this issue but operate at the wrong granularity: question-level routing is too coarse to react mid-reasoning, while token-level probing is too noisy. Sub-question-level approaches such as DeepRAG match the right granularity but rely on costly binary tree search, SFT, and DPO pipelines, sacrificing portability and interpretability.
+
+The core idea of SEER is: after decomposing a complex question into atomic sub-questions, we compute the entropy over the first-entity span of each tentative answer as a measure of model confidence, and use this signal to gate retrieval. SEER consists of three stages: (1) data construction integrating MuSiQue, HotpotQA, and 2WikiMultiHopQA with quality filtering; (2) supervised fine-tuning of a lightweight decomposer; and (3) a training-free entropy-threshold gate. We expect SEER to match DeepRAG's Exact Match on multi-hop QA benchmarks while substantially reducing training cost and improving interpretability.
+
+\bigskip
+\noindent\textbf{Keywords:} Retrieval-Augmented Generation, Adaptive Retrieval, Multi-hop Question Answering, Entropy, Sub-question Decomposition, Large Language Models

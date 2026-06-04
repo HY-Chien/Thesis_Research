@@ -1,0 +1,245 @@
+\chapter{Methodology}
+\label{ch:method}
+
+This chapter presents \textbf{SEER} (\textbf{S}ub-question \textbf{E}ntropy-driven \textbf{E}fficient \textbf{R}etrieval), a sub-question-level adaptive RAG framework. Section~\ref{sec:overview} gives an end-to-end overview. Sections~\ref{sec:decomposer}--\ref{sec:synthesize} describe each pipeline stage. Section~\ref{sec:training} details the LoRA training protocol for the decomposer, and Section~\ref{sec:modes} explains the two inference modes (B / C) used for ablation.
+
+\section{Overview}
+\label{sec:overview}
+
+Given a question $q$ and a candidate paragraph pool $\mathcal{P}_q$ (the standard multi-hop QA evaluation setup), SEER produces a final answer $\hat{a}$ in four stages:
+
+\begin{enumerate}
+    \item \textbf{Decompose.} The decomposer $\mathcal{D}_\theta$ maps $q$ to an ordered list of atomic sub-questions $\{s_1, s_2, \ldots, s_n\}$ in a knowledge-graph-triple notation, with explicit cross-references between steps.
+    \item \textbf{Per-step probe.} For each sub-question $s_i$, the answerer $\mathcal{A}_\theta$ generates a tentative answer $\tilde{a}_i$ without retrieval and emits a token-level confidence signal $\sigma_i$.
+    \item \textbf{Gate.} If $\sigma_i \geq \tau$ (high uncertainty), the BM25 retriever fetches the top-$k$ paragraphs from $\mathcal{P}_q$ for $s_i$, and $\mathcal{A}_\theta$ re-answers $s_i$ conditioned on the retrieved context to produce $a_i$. Otherwise $a_i := \tilde{a}_i$ (parametric memory only).
+    \item \textbf{Synthesize.} The synthesizer (same model as $\mathcal{A}_\theta$) takes $q$ together with all sub-answers $\{(s_i, a_i)\}$ and emits the final terse answer $\hat{a}$.
+\end{enumerate}
+
+The decomposer and answerer share a single Llama3-8B-Instruct backbone with a LoRA adapter (rank 16) trained on the decomposition task only. All gating happens at inference time --- no policy is learned for the retrieve / skip decision.
+
+\begin{figure}[h]
+    \centering
+    % \includegraphics[width=\textwidth]{figures/seer_pipeline.pdf}
+    \caption[SEER Pipeline]{SEER pipeline: a question is decomposed into KG-triple sub-questions, each probed for token-level entropy, gated against threshold $\tau$, optionally re-answered with retrieved context, and finally synthesized into a terse answer.}
+    \label{fig:pipeline}
+\end{figure}
+
+\section{Problem Formulation}
+
+Let $\mathcal{M}_\theta$ be a pretrained language model and $r(s, \mathcal{P}) \to \mathcal{P}_{\text{top-}k}$ a retriever over a paragraph pool $\mathcal{P}$. A retrieval-augmented QA system produces an answer $\hat{a} = \mathcal{M}_\theta(q, c)$ where $c$ is a (possibly empty) context. We define a per-sub-question \emph{retrieval policy} $\pi: \mathcal{S} \to \{0, 1\}$ which decides, for each sub-question $s$, whether to invoke the retriever. The optimisation goal is:
+
+\[
+    \min_\pi \;\; \mathbb{E}_{(q, a^*)}\!\left[ \mathcal{L}(\hat{a}, a^*) + \lambda \cdot \mathbb{E}_{s \in \mathcal{D}(q)}\!\left[ \pi(s) \right] \right],
+\]
+
+where $\mathcal{L}$ is an answer-correctness loss (e.g.\ $1 - \text{EM}$), $\mathcal{D}(q)$ is the decomposition of $q$, and $\lambda > 0$ trades off accuracy against retrieval cost. SEER does \emph{not} learn $\pi$; instead it instantiates $\pi$ as a simple threshold rule on a model-derived confidence signal, sidestepping the policy-learning cost of DeepRAG~\cite{deeprag}.
+
+\section{Stage 1: Sub-Question Decomposer}
+\label{sec:decomposer}
+
+\subsection{Output Format}
+
+The decomposer is instructed to emit one sub-question per line, prefixed with \texttt{\#}$\langle i \rangle$\texttt{:}. Each sub-question is expressed as a \emph{knowledge-graph triple} fragment:
+
+\begin{center}
+    \texttt{\#}$i$\texttt{: }$\langle$\emph{entity}$\rangle$\texttt{ >> }$\langle$\emph{relation}$\rangle$
+\end{center}
+
+When a sub-question depends on the answer of an earlier step, the placeholder \texttt{\#}$j$ (with $j < i$) substitutes for the unresolved entity. For example, the question ``\emph{Where was the director of the film X born?}'' decomposes to:
+
+\begin{verbatim}
+#1: X >> director
+#2: #1 >> place of birth
+\end{verbatim}
+
+At inference, placeholders are resolved sequentially: once $a_1$ is determined, \texttt{\#}$1$ in $s_2$ is rewritten as $a_1$ before the answerer is invoked. The KG-triple notation has three benefits over free-form natural-language sub-questions: (i) it is compact and consistent across datasets, reducing decoding variance; (ii) it matches the underlying structure of Wikidata-derived datasets (PopQA, 2WikiMultihopQA); and (iii) it makes downstream entropy probing semantically meaningful --- the answer span IS the object entity of the triple.
+
+\subsection{Decomposer Prompt}
+
+The decomposer is prompted with a fixed instruction:
+
+\begin{quote}\small\itshape
+Decompose the following multi-hop question into an ordered list of atomic sub-questions. Each sub-question must be answerable in a single retrieval/reasoning step. When a sub-question depends on the answer of an earlier one, refer to that step with a \texttt{\#N} placeholder (e.g.\ \texttt{\#1}). Output one sub-question per line, prefixed with \texttt{\#<index>:}
+\end{quote}
+
+\subsection{Decomposition Examples by Dataset}
+
+Different datasets exhibit distinct decomposition topologies (Table~\ref{tab:decomp-examples}):
+
+\begin{table}[h]
+    \centering
+    \caption[Decomposition Patterns by Dataset]{Representative decomposition patterns produced by the SEER decomposer.}
+    \label{tab:decomp-examples}
+    \setlength{\tabcolsep}{6pt}
+    \small
+    \begin{tabular}{ l p{4cm} p{6cm} }
+        \toprule
+        Dataset & Question type & Decomposition \\
+        \midrule
+        PopQA & 1-hop fact lookup & \texttt{\#1: George Rankin >> occupation} \\
+        \addlinespace
+        HotpotQA & 2-hop bridge & \texttt{\#1: Film X >> director} \newline \texttt{\#2: \#1 >> nationality} \\
+        \addlinespace
+        2WikiMultihopQA & comparison & \texttt{\#1: A >> date of birth} \newline \texttt{\#2: B >> date of birth} \\
+        \addlinespace
+        MuSiQue (4-hop) & compositional chain & \texttt{\#1: X >> capital} \newline \texttt{\#2: \#1 >> mayor} \newline \texttt{\#3: \#2 >> party} \newline \texttt{\#4: \#3 >> founder} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Stage 2: Token-Level Confidence Probe}
+\label{sec:probe}
+
+For each resolved sub-question $s_i$, the answerer produces a tentative answer $\tilde{a}_i$ by greedy decoding (\texttt{do\_sample=False}) under a constraint prompt that forces an answer-only emission:
+
+\begin{quote}\small\itshape
+Answer the question with the answer phrase only. No explanation, no preamble, no full sentence --- just the answer.
+\end{quote}
+
+This prompt is critical: by forbidding preamble and explanation, the generated span IS the answer entity, so token-level confidence probes the model's certainty about the \emph{factual} target rather than about boilerplate. During generation, the per-step softmax distribution $p_t = \mathrm{softmax}(\mathrm{logits}_t)$ is captured for each generated token $t$, and three confidence signals are computed:
+
+\begin{align}
+    \sigma^{\text{max-ent}}  &= \max_t H(p_t), \quad &\text{(maximum per-token entropy)} \\
+    \sigma^{\text{mean-ent}} &= \frac{1}{T} \sum_t H(p_t), \quad &\text{(mean per-token entropy)} \\
+    \sigma^{\text{min-lp}}   &= \min_t \log p_t(y_t),  \quad &\text{(minimum log-prob of chosen token)}
+\end{align}
+
+where $H(p) = -\sum_v p(v) \log p(v)$ and $y_t$ is the chosen token at step $t$. EOS tokens are excluded. Higher entropy (or lower log-prob) indicates higher uncertainty. The default signal in SEER is $\sigma^{\text{max-ent}}$, which empirically correlates best with answer-span uncertainty in pilot studies.
+
+\section{Stage 3: Retrieval Gate}
+\label{sec:gate}
+
+The retrieval decision per sub-question is a thresholded comparison:
+
+\[
+    \pi(s_i) = \mathbb{1}[\sigma_i \geq \tau] \quad \text{for entropy signals (max-ent / mean-ent)},
+\]
+\[
+    \pi(s_i) = \mathbb{1}[\sigma_i \leq \tau] \quad \text{for log-prob signal (min-lp)}.
+\]
+
+When $\pi(s_i) = 1$, the retriever fetches the top-$k$ paragraphs and the answerer re-runs with the retrieved context. When $\pi(s_i) = 0$, the tentative parametric answer $\tilde{a}_i$ is adopted as $a_i$. The threshold $\tau$ is a single, dataset-agnostic hyperparameter --- set to $\tau = 0.3$ for max-entropy in all main experiments (justified in Chapter~\ref{ch:exp}). This unified $\tau$ design is a deliberate choice: tuning $\tau$ per dataset would constitute test-time leakage, weakening the claim that SEER generalises across query distributions.
+
+\subsection{Retriever}
+
+The retriever is BM25-Okapi~\cite{rag_survey} (via the \texttt{rank\_bm25} library) over the per-question candidate paragraph pool $\mathcal{P}_q$, matching the evaluation protocol of Adaptive-RAG~\cite{adaptiverag} and DeepRAG~\cite{deeprag}. Each candidate paragraph is tokenised by lower-cased word boundaries; the paragraph title is prepended to its body before indexing (titles carry strong entity signal for KG-triple queries). The retrieved context is rendered as a numbered block:
+
+\begin{verbatim}
+[1] <title-1>
+<body-1>
+
+[2] <title-2>
+<body-2>
+...
+\end{verbatim}
+
+Top-$k$ is fixed to $k = 5$ in all experiments.
+
+\subsection{Optional Skip-Decompose Probe}
+
+For predominantly single-hop datasets (e.g.\ PopQA), the decomposer can over-decompose --- emitting two-step plans for one-step questions. SEER supports an optional \emph{skip-decompose probe}: before decomposition, the answerer is asked the \emph{original} question with retrieved context, and if its confidence signal indicates high certainty ($\sigma < \tau_{\text{skip}}$), the answer is returned directly. This branch is ablated in Chapter~\ref{ch:exp} but disabled in the main results to keep the gating policy unified.
+
+\section{Stage 4: Synthesis}
+\label{sec:synthesize}
+
+The final answer is produced by a synthesis pass that conditions on the original question and all $(s_i, a_i)$ pairs. The synthesis prompt encodes three answer-shaping rules learned from error analysis on multi-hop benchmarks:
+
+\begin{enumerate}
+    \item \textbf{Comparison questions} (``which X is older / taller / earlier'') return the matching \emph{entity}, not the value being compared.
+    \item \textbf{Yes/No questions} (``do X and Y share a country?'') return ``Yes'' or ``No'' based on agreement between sub-answers.
+    \item \textbf{Terse-span rule.} Strip qualifiers, dates strip to year-only when the question asks ``when''. This rule directly addresses the EM/F1 gap observed in pilot experiments, where verbose answers (e.g.\ ``Conservative politician and soldier'' for gold ``politician'') lost EM despite high F1.
+\end{enumerate}
+
+The full synthesis instruction (excerpted from \texttt{seer/pipeline.py}) includes four worked few-shot examples covering comparison, Yes/No, single-fact, and ``when'' questions. The synthesizer emits the final span directly without any explanation, allowing standard SQuAD EM / F1 metrics to be applied without post-processing.
+
+\section{Training Protocol}
+\label{sec:training}
+
+Only the decomposer requires training; the answerer reuses the same adapter (Mode C) or runs on the base model (Mode B, see Section~\ref{sec:modes}).
+
+\subsection{Backbone and LoRA Configuration}
+
+\begin{itemize}
+    \item \textbf{Backbone:} Llama-3-8B-Instruct.
+    \item \textbf{Adapter type:} LoRA~\cite{lora} on all linear modules (\texttt{lora\_target=all}).
+    \item \textbf{Rank / Alpha / Dropout:} $r = 16$, $\alpha = 32$, dropout $= 0.05$.
+    \item \textbf{Precision:} bf16.
+    \item \textbf{Context length:} 1024 tokens (decomposition outputs are short).
+\end{itemize}
+
+\subsection{Training Data}
+
+Decomposer training data is constructed in the Alpaca instruction-tuning format. Three sources are used:
+
+\begin{table}[h]
+    \centering
+    \caption[Decomposer Training Data Composition]{Composition of the 12K decomposer training corpus.}
+    \label{tab:train-data}
+    \setlength{\tabcolsep}{6pt}
+    \begin{tabular}{ l r l }
+        \toprule
+        Source & \#samples & Decomposition source \\
+        \midrule
+        MuSiQue       & 4{,}000 & Gold sub-questions (provided by dataset) \\
+        2WikiMultihopQA & 4{,}000 & GPT-OSS-20B distillation with hop-count check \\
+        PopQA           & 4{,}000 & 1-step triple (\texttt{\#1: subj >> prop}) \\
+        \midrule
+        Total           & 12{,}000 & \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The PopQA contribution serves a specific purpose: by including single-hop samples in training, the decomposer learns that a one-step plan is a valid output, directly mitigating the over-decomposition failure mode discussed in Section~\ref{sec:gate}. This design choice is a deliberate trade-off rather than a free improvement. Including PopQA recovers single-hop accuracy substantially (PopQA exact-match rises from $14.2$ to $39.8$, Chapter~\ref{ch:exp}), but it mildly degrades the multi-hop benchmarks relative to a decomposer trained on multi-hop data alone (most visibly on 2WikiMultihopQA). SEER adopts the three-source decomposer as its default precisely because it yields a \emph{single, unified} model that performs acceptably across both single- and multi-hop query distributions without any per-dataset switching --- which is the central robustness claim of this work. The accuracy cost of this unification is quantified and discussed in Chapter~\ref{ch:exp} and Chapter~\ref{ch:discussion}.
+
+\subsection{Optimisation}
+
+LoRA is trained with the LLaMA-Factory framework~\cite{llamafactory}:
+
+\begin{itemize}
+    \item \textbf{Effective batch size:} 16 ($4 \times 4$ gradient accumulation).
+    \item \textbf{Learning rate:} $1 \times 10^{-4}$ with cosine schedule, $10\%$ warmup.
+    \item \textbf{Epochs:} 3.
+    \item \textbf{Total steps:} $\sim$2{,}250.
+    \item \textbf{Wall time:} $\sim$38 minutes on a single A6000 (48GB) GPU.
+\end{itemize}
+
+\section{Inference Modes}
+\label{sec:modes}
+
+Two inference modes are evaluated to disentangle the contribution of the LoRA adapter at \emph{answer time}:
+
+\begin{description}
+    \item[\textbf{Mode B (adapter-toggle).}] The LoRA adapter is enabled for decomposition and synthesis but \emph{disabled} for the answerer probe and re-answer steps. This isolates the decomposer's contribution: the answerer behaves as pure base Llama3-8B-Instruct.
+    \item[\textbf{Mode C (adapter-always).}] The LoRA adapter is enabled for all stages. This is the default used in main results, since the decomposition LoRA does not appear to degrade answer-only generation in pilot tests.
+\end{description}
+
+Both modes share the same gating logic; they differ only in which weights produce $\tilde{a}_i$ and $a_i$.
+
+\section{Implementation Summary}
+
+The end-to-end SEER inference loop is summarised as Algorithm~\ref{alg:seer}. Code lives in \texttt{Research/main\_methodology/seer/} (\texttt{pipeline.py}, \texttt{answerer.py}, \texttt{retriever.py}).
+
+\begin{algorithm}[h]
+\caption{SEER inference for one question $q$}
+\label{alg:seer}
+\begin{algorithmic}[1]
+\Require question $q$, paragraph pool $\mathcal{P}_q$, threshold $\tau$, top-$k$
+\State $\{s_1, \ldots, s_n\} \gets \mathcal{D}_\theta(q)$ \Comment{decompose}
+\State $A \gets \emptyset$ \Comment{answers dict for placeholder resolution}
+\For{$i = 1$ to $n$}
+    \State $s_i \gets \textsc{Resolve}(s_i, A)$ \Comment{substitute \texttt{\#}$j$ with $A[j]$}
+    \State $(\tilde{a}_i, \sigma_i) \gets \mathcal{A}_\theta(s_i, \emptyset)$ \Comment{probe without context}
+    \If{$\sigma_i \geq \tau$}
+        \State $c_i \gets r(s_i, \mathcal{P}_q, k)$ \Comment{retrieve}
+        \State $a_i \gets \mathcal{A}_\theta(s_i, c_i)$ \Comment{re-answer with context}
+    \Else
+        \State $a_i \gets \tilde{a}_i$
+    \EndIf
+    \State $A[i] \gets a_i$
+\EndFor
+\State $\hat{a} \gets \textsc{Synthesize}(q, \{(s_i, a_i)\}_{i=1}^n)$
+\State \Return $\hat{a}$
+\end{algorithmic}
+\end{algorithm}
+
+The next chapter evaluates this pipeline on four QA benchmarks and ablates the decomposer training data, gating signal, and threshold.

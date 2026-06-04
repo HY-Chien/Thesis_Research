@@ -1,0 +1,19 @@
+\chapter{Introduction}
+
+\section{Background and Motivation}
+
+Large language models (LLMs) often hallucinate when queried about recent, obscure, or proprietary information outside their training scope. Retrieval-Augmented Generation (RAG) addresses this by fetching relevant external data, keeping the model updated and significantly reducing factually incorrect outputs~\cite{rag_survey, hallucination_survey}. However, applying RAG indiscriminately to every question creates two main problems: for simple queries, unnecessary retrieval adds noise and increases latency; for complex multi-hop queries, a single retrieval step is often insufficient and yields incomplete answers.
+
+% [請於此處延伸介紹背景與動機。本章節對應簡報 p.4--p.10。]
+
+\section{Research Objectives}
+
+This thesis introduces SEER (Sub-question Entropy-driven Efficient Retrieval), a sub-question-level adaptive retrieval framework that:
+
+\begin{itemize}
+    \item Decomposes a complex question into atomic sub-questions via a lightweight SFT decomposer.
+    \item Probes the model's confidence on each sub-question by computing entropy over the first-entity span of its tentative answer.
+    \item Gates retrieval per sub-question --- low entropy uses parametric memory, high entropy invokes the retriever.
+\end{itemize}
+
+% [請於此處補充研究目標與貢獻摘要。]

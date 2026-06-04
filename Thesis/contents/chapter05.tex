@@ -1,0 +1,124 @@
+\chapter{Discussion}
+\label{ch:discussion}
+
+This chapter interprets the experimental findings of Chapter~\ref{ch:exp}. Section~\ref{sec:cost-benefit} compares SEER and DeepRAG along the training-cost / accuracy frontier. Section~\ref{sec:em-f1} dissects the EM--F1 gap and characterises the residual failure modes. Section~\ref{sec:popqa-limit} analyses the over-decomposition limitation exposed by PopQA. Section~\ref{sec:gate-design} discusses what the threshold sweep tells us about the entropy signal itself. Section~\ref{sec:threats} acknowledges threats to validity.
+
+\section{Cost--Accuracy Trade-off versus DeepRAG}
+\label{sec:cost-benefit}
+
+DeepRAG~\cite{deeprag} and SEER occupy adjacent points on the cost--accuracy frontier of adaptive RAG. The pipelines differ in three quantitative dimensions:
+
+\begin{table}[h]
+    \centering
+    \caption[Training Cost Comparison: SEER vs DeepRAG]{Approximate training cost comparison between SEER and DeepRAG, normalised to a single A6000 (48GB) GPU.}
+    \label{tab:cost-compare}
+    \setlength{\tabcolsep}{6pt}
+    \small
+    \begin{tabular}{ l l l }
+        \toprule
+        Component & SEER & DeepRAG \\
+        \midrule
+        Training data           & 8K--12K Alpaca samples & 5K seeds $\to \approx$10K via tree search \\
+        Training stages         & 1 (LoRA SFT)            & 2 (SFT + DPO / Chain of Calibration) \\
+        Tree-search rollouts    & --                       & $O(2^H)$ branches per question \\
+        Preference pair construction & -- & required for DPO \\
+        Wall-clock (LoRA)       & $\sim$38 min            & multi-hour SFT + multi-hour DPO \\
+        Gate signal             & token entropy (training-free) & learned implicit policy \\
+        Interpretability        & scalar $\sigma$ + threshold $\tau$ & opaque \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The key trade-offs that fall out of these differences are:
+
+\begin{enumerate}
+    \item \textbf{SEER wins on training simplicity.} A single LoRA SFT pass on 8K samples is approximately one order of magnitude cheaper than DeepRAG's full pipeline, and avoids the engineering risk of constructing well-balanced DPO preference pairs.
+    \item \textbf{DeepRAG wins on single-hop (PopQA).} Its Stage-II Chain of Calibration explicitly teaches the model when \emph{not} to retrieve and when to emit short answers --- both of which directly help PopQA's structure. SEER's single SFT pass cannot mimic this without supervision interference (Section~\ref{sec:popqa-limit}).
+    \item \textbf{SEER ties or wins on multi-hop F1.} On HotpotQA, 2Wiki, and MuSiQue, SEER's F1 matches or exceeds DeepRAG despite a much cheaper pipeline. This suggests that when the dominant bottleneck is \emph{reasoning composition}, the gating signal matters less than the decomposition quality.
+    \item \textbf{SEER wins on interpretability.} The entropy threshold $\tau$ is a single scalar a practitioner can inspect, tune, and monitor in production; DeepRAG's gate is a learned implicit policy with no externally legible score.
+\end{enumerate}
+
+The headline trade-off is therefore: \emph{SEER is cheaper, more interpretable, and competitive on multi-hop reasoning; DeepRAG is more accurate on single-hop fact lookup at substantially higher training cost.}
+
+\section{The EM--F1 Gap and Residual Failure Modes}
+\label{sec:em-f1}
+
+A recurring observation in Chapter~\ref{ch:exp} is that SEER's F1 often exceeds the corresponding baseline while its EM lags. The synthesis prompt v2 closed most of this gap on 2Wiki (Table~\ref{tab:synth-prompt}), but a residual gap of 1--3 EM persists on HotpotQA and 2Wiki. Manual inspection of $\sim$60 failure cases identifies three patterns:
+
+\subsection{Verbose Spans with Correct Information}
+
+The most common pattern (estimated 40--50\% of EM-only failures): the predicted span contains the gold answer but adds an apposition or qualifying clause. Examples:
+
+\begin{table}[h]
+    \centering
+    \caption[EM-only Failure Examples: Verbose Spans]{Representative EM-only failures where the predicted span subsumes the gold but is too long.}
+    \label{tab:verbose-failures}
+    \setlength{\tabcolsep}{6pt}
+    \small
+    \begin{tabular}{ p{4.5cm} p{3cm} p{4cm} }
+        \toprule
+        Question & Gold & SEER prediction \\
+        \midrule
+        What is George Rankin's occupation? & politician & Conservative politician and soldier \\
+        Where did the director of \emph{X} grow up? & London & London, England \\
+        What disease did the patient have? & tuberculosis & extrapulmonary tuberculosis \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+These failures could be addressed by a stricter post-processor (e.g.\ first-NP extraction), but doing so risks dropping the modifier when it \emph{is} the correct answer (``Conservative Party'' vs ``politician''). The synthesis prompt v2 partially addresses the issue via the ``KEEP IT TERSE'' rule and ``strip modifiers'' few-shot example; further gains likely require either RL with EM-shaped reward or supervised post-training on terse spans (i.e.\ approximately what DeepRAG's Chain of Calibration does).
+
+\subsection{Alias Mismatch}
+
+PopQA contributes many failures of this kind: the model emits ``Bill Clinton'' for gold ``William Jefferson Clinton'', or ``USA'' for gold ``United States of America''. The dataset provides alias lists but they are not exhaustive. An LLM-as-Judge evaluator (e.g.\ GPT-4 acting as semantic-equivalence judge) would likely raise reported EM by several points without any change to the model itself; we do not include this in the main results to avoid the additional methodological debate.
+
+\subsection{Wrong Sub-Answer Propagation}
+
+A smaller but more concerning failure: an incorrect sub-answer to step $i$ propagates through \texttt{\#}$i$ to subsequent steps. Once the bridge entity is wrong, the rest of the chain is wrong regardless of retrieval quality. This is intrinsic to a sequential decomposer; mitigations include (i) re-ranking top-$k$ candidates by downstream answer plausibility, (ii) emitting multiple candidate decompositions and selecting the highest-confidence final answer, or (iii) self-consistency aggregation across decoding samples. None of these are implemented in the present SEER and they constitute the most promising direction for raising multi-hop EM.
+
+\section{The Over-Decomposition Limitation (PopQA)}
+\label{sec:popqa-limit}
+
+The PopQA result is the largest single weakness of SEER and deserves dedicated analysis. Three observations follow from the training-data ablation (Table~\ref{tab:train-data-ablation}):
+
+\begin{enumerate}
+    \item \textbf{The decomposer is the bottleneck, not retrieval.} PopQA's retrieval trigger rate is 99.3\% --- the gate fires on essentially every step. Yet 8K-trained EM is only 17.9. The accuracy ceiling is therefore set by what happens \emph{before} retrieval: the decomposer's choice of step count and triple structure.
+    \item \textbf{Single-hop and multi-hop supervision interfere.} Mixing 4K PopQA single-hop samples lifts PopQA EM from 17.9 to 37.3 ($+19.4$) but costs 2Wiki $-5.7$ and HotpotQA $-3.5$. The model cannot serve both regimes from a single LoRA without conditional guidance.
+    \item \textbf{Entropy-based skip-decompose is not a unified solution.} A preliminary experiment with a ``skip if the original question can be answered confidently with retrieval'' bypass (probe with $\tau_{\text{skip}} = 2.0$ on max-entropy before decomposing) rescued PopQA by $+12.4$ EM but \emph{simultaneously} dropped MuSiQue by $-17.9$ and 2Wiki by $-15.6$. The model is false-confident on many multi-hop questions because the first sub-question is often easy, and a single-point probe cannot distinguish ``easy first hop of a hard question'' from ``easy single-hop question''.
+\end{enumerate}
+
+The right fix appears to be \emph{conditional decomposition}: explicitly tell the decomposer how many steps to emit, either via a control token (\texttt{[1step]}, \texttt{[2step]}, \ldots) trained jointly with both distributions, or via a small dataset-classifier upstream of the decomposer (similar in spirit to Adaptive-RAG's complexity classifier but with finer granularity). Both are deferred to future work.
+
+\section{What the Threshold Sweep Reveals About the Signal}
+\label{sec:gate-design}
+
+The threshold sweep (Table~\ref{tab:tau-sweep}) is more than an ablation --- it diagnoses the geometry of the entropy distribution itself. Three features stand out:
+
+\begin{itemize}
+    \item \textbf{A wide plateau between $\tau = 0$ and $\tau = 0.5$} ($-1$ EM, $-13$ percentage points of retrieval). The model is confident enough on the easy steps that we can safely skip retrieval there without harming accuracy. This confirms the basic premise of entropy-gated RAG: there \emph{is} a distinguishable population of confident steps.
+    \item \textbf{A cliff between $\tau = 0.5$ and $\tau = 1.0$} ($-6$ EM, $-12$ percentage points of retrieval). Once $\tau$ rises into the bulk of the entropy distribution, every additional skipped retrieval is increasingly costly. This indicates that the confident and uncertain populations are not cleanly separable --- they overlap in the $[0.5, 1.0]$ range.
+    \item \textbf{A linear decay above $\tau = 1.0$} approaching the no-RAG lower bound. In this regime the gate is essentially flipping coins, and EM falls roughly in proportion to retrieval coverage.
+\end{itemize}
+
+The plateau--cliff--decay shape suggests that max-entropy alone is necessary but not sufficient: it captures the easy tail well but cannot disambiguate the difficult middle. A natural extension is to combine max-entropy with a second orthogonal signal (e.g.\ self-consistency variance across multiple decoding samples, or top-1/top-2 logit margin) to push the cliff further right. This would be the most direct path to lowering retrieval cost without losing EM, and is the strongest future-work proposal arising from the present experiments.
+
+\section{Threats to Validity}
+\label{sec:threats}
+
+We discuss four potential threats:
+
+\subsection{Retrieval Corpus Mismatch}
+
+SEER and DeepRAG use different retrieval corpora: SEER ranks per-question candidate paragraphs (Adaptive-RAG / IRCoT convention), while DeepRAG ranks the global DPR Wikipedia dump. The per-question setup has a higher ceiling because the gold paragraph is guaranteed to be in the pool, which slightly favours SEER. We mitigate this by reporting our own re-implementations of CoT, Single-RAG, and \texttt{neg\_max\_ent} under the same per-question protocol --- so the relative ordering of methods within the SEER block of Table~\ref{tab:main-results} is on equal footing. Direct head-to-head with DeepRAG should be read with this caveat.
+
+\subsection{Dataset Slicing}
+
+The first-1000 protocol exposes a known artefact of MuSiQue dev (sorted by hop, so the first 1000 are all 2-hop). We address this by reporting full-dev results (35.4 EM on 2{,}417 questions) alongside the aligned-protocol 48.0 EM. DeepRAG's own paper reports against the same slicing; head-to-head numbers are therefore consistent, but \emph{absolute} multi-hop difficulty is understated in the aligned protocol.
+
+\subsection{Single Seed / Greedy Decoding}
+
+All reported numbers use greedy decoding (\texttt{do\_sample=False}) with no seed averaging. Variance estimates would strengthen claims of small EM differences ($\pm 1$--2 EM). However the principal SEER claims (MuSiQue $+25.5$ EM, F1 leadership on three datasets, the threshold-sweep cliff shape) are well outside any plausible single-seed noise band.
+
+\subsection{Decomposer Distribution Shift}
+
+The decomposer is trained on a mixture of three datasets but evaluated on a fourth (HotpotQA) it has not seen at training time. The HotpotQA results therefore demonstrate out-of-distribution generalisation of the decomposition adapter. While the 12K-mix experiments show that adding PopQA training data hurts HotpotQA, the 8K-mix (no HotpotQA training) achieves competitive HotpotQA performance ($39.6$ EM, only $-1.1$ vs DeepRAG), which we read as positive evidence for the cross-dataset transferability of KG-triple decomposition.

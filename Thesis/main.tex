@@ -1,0 +1,141 @@
+\documentclass{nthu_thesis}
+
+\geometry{
+  a4paper,
+  left=3cm,
+  right=3cm,
+  top=3cm,
+  bottom=3cm,
+  bindingoffset=0mm,
+  headheight=0pt,
+  headsep=0pt,
+  footskip=18pt
+}
+\setlength{\hoffset}{0pt}
+\setlength{\oddsidemargin}{15.5pt}
+\setlength{\marginparwidth}{0pt}
+\setlength{\marginparsep}{0pt}
+
+\begin{document}
+\pagestyle{plain} %This is the default style for most document classes. It places the page number centered in the footer, with an empty header.
+\begin{CJK}{UTF8}{bkai}
+
+\let\cleardoublepage=\clearpage
+
+%%% Necessary fields for this thesis data %%%
+% Add your custom class definitions here if any
+
+\newcommand{\degreeZH}{碩}  % 畢業學位，碩 for masters 或 博 for PHD
+\newcommand{\degreeEN}{Master's Thesis}  %  Fill in your degree "Master's Thisis" for masters 或 "Doctoral Dissertation" for PHD
+\newcommand{\titleZH}{基於子問題熵驅動之高效檢索增強生成} % 此括弧內填入論文中文標題Chinese title here
+\newcommand{\titleEN}{SEER: Sub-question Entropy-driven Efficient Retrieval} % 此括弧內填入論文英文標題
+\newcommand{\instituteZH}{資訊系統與應用研究所} % 此括弧內填入畢業生所屬學系班
+\newcommand{\instituteEN}{Institute of Information Systems and Applications} % Graduation Dept./Inst. Name
+\newcommand{\studentID}{S113065528} %填入畢業生的學號 your student ID
+\newcommand{\studentZH}{簡宏諭} % 此括弧內填入畢業生的中文名字 Graduate's Chinese Name here
+\newcommand{\studentEN}{Hung-Yu Chien} %此括弧內填入畢業生的英文姓名 Graduate's Eng. Name here
+\newcommand{\advisorZH}{高宏宇~博士} %此括弧內填入指導教授的中文名字，如有兩個，請自行增加
+\newcommand{\advisorEN}{Dr. Hong-Yu Kao} % 此括弧內填入 advisor's English Name
+\newcommand{\yearZH}{115} %此括弧內填入畢業年(民國) Year of ROC  ，就是口試日期的那個月
+\newcommand{\monthZH}{7} % Graduation (Oral exam) month of ROC
+\newcommand{\yearEN}{2026} % Graduation (oral exam) Year
+\newcommand{\monthEN}{July} % Graduation (oral Exam) month
+
+\input{2025Titlepage}
+
+%\restoregeometry  %back to NTHU required geometry setting
+
+\cftaddtitleline{toc}{chapter}{學位論文授權書}{}
+
+\includepdf[pages=1-3, angle=0, fitpaper=true,
+       keepaspectratio, pagecommand={{\thispagestyle{empty}}},offset=-0.0cm 0.0cm]{./front/Authorized agreement.pdf} %offset=+right +up
+       
+\includepdf[pages=1, angle=0, fitpaper=true,
+    keepaspectratio, pagecommand={{\thispagestyle{empty}}}]{./front/Advisor Approval Form.pdf}
+
+%\cftaddtitleline{<ext>}{<kind>}{<text>}{<page>} intead of using \addcontentsline command  for without page numbering
+
+       
+\cftaddtitleline{toc}{chapter}{指導教授推薦書}{}
+
+\includepdf[pages=1, angle=0, fitpaper=true,
+       keepaspectratio, pagecommand={{\thispagestyle{empty}}},offset=-0.0cm 0.0cm]{./front/Thesis Review Form.pdf} % offset=+right +up
+
+\cftaddtitleline{toc}{chapter}{考試委員審定書}{}
+
+\frontmatter %Use for book class 
+
+%\pagenumbering{roman} %set lowercase Roman numerals for page numbers if set report class
+
+%%% Necessary 中文摘要%%%
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\input{front/Eng_Abstract}     % Insert English Abstract
+\setcounter{page}{1}  %set page begins with i
+\clearpage
+
+\chapter*{摘要}
+\addcontentsline{toc}{chapter}{摘要}
+\input{front/C_Abstract}    % 插入中文摘要於此 Insert Chinese Abstract
+
+\clearpage
+
+
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+\input{front/acknowledgement}      % Acknowledgement
+\clearpage
+
+% generate Contents of Tables, lists of figures, tables, 
+
+\tableofcontents
+\addcontentsline{toc}{chapter}{Contents}
+\clearpage
+
+\listoffigures  % Insert list of figures
+\addcontentsline{toc}{chapter}{List of Figures}
+\clearpage
+
+\listoftables  % Insert list of tables
+\addcontentsline{toc}{chapter}{List of Tables}
+\clearpage
+
+%Nomenclature (optional). List unfamiliar terms, symbols, acronyms and their meanings.
+\input{front/Nomenclature}    % if needed Nomenclature
+\addcontentsline{toc}{chapter}{Nomenclature}
+\clearpage
+
+% Contents of Thesis
+
+\mainmatter  %for book class only
+%\pagenumbering{arabic} % already default for book class, Arabic/Indic page numbers, needed for article class
+
+\pagestyle{plain} %This is the default style for most document classes. It places the page number centered in the footer, with an empty header.
+\input{contents/chapter01}
+\input{contents/chapter02}
+\input{contents/chapter03}
+\input{contents/chapter04}
+\input{contents/chapter05}
+\input{contents/chapter06}
+
+% 參考文獻  References
+
+\cleardoublepage
+\printbibliography[
+heading=bibintoc,
+title={References}
+]
+
+
+% Appendices  if no appendix, this section can be deleted
+ 
+\appendix   % Signal the start of the appendix section
+
+\chapter*{\centering{Appendices}}
+\addtocontents{toc}{\protect\contentsline {chapter}{Appendices}{}{}}
+
+\input{back/appendix01}
+
+\end{CJK}
+\end{document}

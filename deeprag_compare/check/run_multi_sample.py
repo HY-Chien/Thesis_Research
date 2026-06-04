@@ -148,9 +148,19 @@ def main():
                         help="Process only first K of 20 questions (for smoke test)")
     parser.add_argument("--resume", action="store_true",
                         help="Skip (qid, sample_idx) pairs already in dump file")
+    parser.add_argument("--sampled_file", type=str, default=str(SAMPLED_FILE),
+                        help="Stratified question file (default: sampled_20q.json)")
+    parser.add_argument("--dump_file", type=str, default=str(DUMP_FILE),
+                        help="Output JSONL dump path")
+    parser.add_argument("--summary_file", type=str, default=str(SUMMARY_FILE),
+                        help="Output summary JSON path")
     args = parser.parse_args()
 
-    with open(SAMPLED_FILE) as f:
+    sampled_path = Path(args.sampled_file)
+    dump_path = Path(args.dump_file)
+    summary_path = Path(args.summary_file)
+
+    with open(sampled_path) as f:
         sampled = json.load(f)
     samples = sampled["samples"]
     if args.limit:
@@ -163,8 +173,8 @@ def main():
     fewshot = build_fewshot_prompt(HotpotQA, n_shots=8)
 
     done = set()
-    if args.resume and DUMP_FILE.exists():
-        for line in open(DUMP_FILE):
+    if args.resume and dump_path.exists():
+        for line in open(dump_path):
             try:
                 r = json.loads(line)
                 done.add((r["qid"], r["sample_idx"]))
@@ -172,8 +182,8 @@ def main():
                 pass
         print(f"Resume: skipping {len(done)} existing records")
 
-    mode = "a" if args.resume and DUMP_FILE.exists() else "w"
-    fout = open(DUMP_FILE, mode)
+    mode = "a" if args.resume and dump_path.exists() else "w"
+    fout = open(dump_path, mode)
 
     for q_idx, s in enumerate(samples):
         qid = s["qid"]
@@ -214,7 +224,7 @@ def main():
 
     # Compute per-qid summary
     by_qid = {}
-    for line in open(DUMP_FILE):
+    for line in open(dump_path):
         r = json.loads(line)
         by_qid.setdefault(r["qid"], []).append(r)
 
@@ -247,11 +257,11 @@ def main():
             "n_unique_preds": len(set(preds)),
         })
 
-    with open(SUMMARY_FILE, "w") as f:
+    with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
-    print(f"\nDump:    {DUMP_FILE}")
-    print(f"Summary: {SUMMARY_FILE}")
+    print(f"\nDump:    {dump_path}")
+    print(f"Summary: {summary_path}")
     print(f"\nQuick view:")
     for r in summary:
         print(f"  [{r['stratum']:11s}] sc_mean={r['sc_mean']:5.2f} ±{r['sc_std']:.2f}  "
