@@ -71,6 +71,19 @@ class OpenDomainBM25:
         self.corpus_name = corpus_name
 
     def topk(self, query: str, k: int = 3) -> list[dict]:
-        return self._r.retrieve_paragraphs(
-            self.corpus_name, query_text=query,
-            max_hits_count=k, max_buffer_count=max(100, k))[:k]
+        # Retry with backoff: under concurrent GPUs the shared ES can 429 /
+        # time out. A single failed query must NOT crash a 1000-row run — retry
+        # a few times, then degrade gracefully to empty context.
+        import time
+        last = None
+        for attempt in range(4):
+            try:
+                return self._r.retrieve_paragraphs(
+                    self.corpus_name, query_text=query,
+                    max_hits_count=k, max_buffer_count=max(100, k))[:k]
+            except Exception as e:  # noqa: BLE001 — ES 429/timeout under load
+                last = e
+                time.sleep(2 ** attempt)
+        print(f"[OpenDomainBM25] retrieval gave up after retries: {last}",
+              flush=True)
+        return []

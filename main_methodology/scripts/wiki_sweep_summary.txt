@@ -1,0 +1,19 @@
+=== wiki 21M sweep START Sat Jun  6 08:55:21 PM CST 2026 on GPU0 ===
+baseline ref (k=3): 2wiki 38.7 | hotpotqa 25.1 | musique 20.3  EM
+[GPU0] START hotpotqa  wiki_k8  k=8 skip=-  20:55:21
+[GPU0] DONE  hotpotqa  wiki_k8  21:32:27  ->  EM:           25.2% F1:           33.4% skipped:      0/1000 (0.0%) 
+[GPU0] START hotpotqa  wiki_single_k8  k=8 skip=1e9  21:32:27
+[GPU0] DONE  hotpotqa  wiki_single_k8  21:40:23  ->  EM:           30.3% F1:           41.5% skipped:      1000/1000 (100.0%) 
+[GPU0] START 2wiki  wiki_k8  k=8 skip=-  21:40:23
+[GPU0] DONE  2wiki  wiki_k8  22:18:31  ->  EM:           42.9% F1:           48.8% skipped:      0/1000 (0.0%) 
+[GPU0] START hotpotqa  wiki_k5  k=5 skip=-  22:18:31
+[GPU0] DONE  hotpotqa  wiki_k5  22:54:15  ->  EM:           24.2% F1:           32.6% skipped:      0/1000 (0.0%) 
+[GPU0] START 2wiki  wiki_k5  k=5 skip=-  22:54:15
+[GPU0] DONE  2wiki  wiki_k5  23:29:41  ->  EM:           40.4% F1:           46.3% skipped:      0/1000 (0.0%) 
+[GPU0] START musique  wiki_k8  k=8 skip=-  23:29:41
+[GPU0] DONE  musique  wiki_k8  00:02:27  ->  EM:           22.7% F1:           30.5% skipped:      0/1000 (0.0%) 
+[GPU0] START musique  wiki_k5  k=5 skip=-  00:02:27
+[GPU0] DONE  musique  wiki_k5  00:34:02  ->  EM:           21.1% F1:           28.3% skipped:      0/1000 (0.0%) 
+[GPU0] START hotpotqa  wiki_k10  k=10 skip=-  00:34:02
+[GPU0] DONE  hotpotqa  wiki_k10  01:13:21  ->  EM:           25.2% F1:           33.5% skipped:      0/1000 (0.0%) 
+=== wiki 21M sweep ALL DONE Sun Jun  7 01:13:21 AM CST 2026 ===

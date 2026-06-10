@@ -301,56 +301,73 @@ def fig_distribution(data):
 
 
 # ----------------------------------------------------------------------------
-# Figure 2b (BAR): grouped bars per entropy bin — accuracy DOWN vs error UP
+# Figure 2b (CONTINUOUS): Rolling Average Intersecting Trend Lines (Clean Version)
 # ----------------------------------------------------------------------------
-def fig_bar_contrast(data, n_bins=8):
+def fig_continuous_trend(data):
     ent, cor = data["ALL"]
-    centers, accs, los, his, ns = equal_freq_bins(ent, cor, n_bins=n_bins)
-    err = 100 - accs
+    
+    # 1. 根據 MAX_ENTROPY 由小到大排序所有資料
+    order = np.argsort(ent)
+    ent_sorted = ent[order]
+    cor_sorted = cor[order]
+    
+    # 2. 設定滑動視窗大小 (取總資料量的 5% 來做平滑化)
+    window = max(int(len(ent) * 0.05), 50)
+    
+    # 3. 計算連續的滑動平均值
+    rolling_acc = np.convolve(cor_sorted, np.ones(window)/window, mode='valid') * 100
+    rolling_err = 100 - rolling_acc
+    rolling_ent = np.convolve(ent_sorted, np.ones(window)/window, mode='valid')
+    
     rho, _ = sp_stats.spearmanr(ent, 1 - cor)
+    
+    fig, ax = plt.subplots(figsize=(10, 6.5))
+    
+    # 4. 繪製 Accuracy 趨勢線與下方填色 (綠色)
+    ax.plot(rolling_ent, rolling_acc, color="#1e8449", lw=3, 
+            label="Accuracy (correct %)", zorder=4)
+    ax.fill_between(rolling_ent, 0, rolling_acc, color="#27ae60", alpha=0.25, zorder=3)
+    
+    # 5. 繪製 Error 趨勢線與下方填色 (紅色)
+    ax.plot(rolling_ent, rolling_err, color="#922b21", lw=3, 
+            label="Error (incorrect %)", zorder=4)
+    ax.fill_between(rolling_ent, 0, rolling_err, color="#c0392b", alpha=0.25, zorder=3)
+    
+    # (已移除第 6 步驟的邊界標記點與垂直線)
 
-    x = np.arange(n_bins)
-    w = 0.42
-    fig, ax = plt.subplots(figsize=(11, 6.5))
-    b1 = ax.bar(x - w / 2, accs, w, color="#27ae60", label="Accuracy (correct %)",
-                edgecolor="white", zorder=3)
-    b2 = ax.bar(x + w / 2, err, w, color="#c0392b", label="Error (incorrect %)",
-                edgecolor="white", zorder=3)
-    # trend lines on top of the bars to make "down vs up" explicit
-    ax.plot(x - w / 2, accs, "o-", color="#145a32", lw=2.2, ms=6, zorder=4)
-    ax.plot(x + w / 2, err, "s-", color="#7b241c", lw=2.2, ms=6, zorder=4)
-    ax.annotate("", xy=(x[-1] - w / 2, accs[-1] + 4), xytext=(x[0] - w / 2, accs[0] + 4),
-                arrowprops=dict(arrowstyle="->", color="#145a32", lw=2))
-    ax.text(x.mean() - w / 2, max(accs) + 7, "accuracy ↓", color="#145a32",
-            fontsize=12, fontweight="bold", ha="center")
-    ax.annotate("", xy=(x[-1] + w / 2, err[-1] + 4), xytext=(x[0] + w / 2, err[0] + 4),
-                arrowprops=dict(arrowstyle="->", color="#7b241c", lw=2))
-    ax.text(x.mean() + w / 2, max(err) + 7, "error ↑", color="#7b241c",
-            fontsize=12, fontweight="bold", ha="center")
+    ax.set_xlabel("Continuous MAX_ENTROPY (Moving Average)", fontsize=13)
+    ax.set_ylabel("Probability (%)", fontsize=13)
+    
+    # Y 軸設定 0~105 留一點上方空間
+    ax.set_ylim(0, 105)
+    ax.set_xlim(rolling_ent.min(), rolling_ent.max())
+    
+    # 移除上方與右方邊框
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    
+    # 簡化主標題
+    ax.set_title("Knowledge Boundary: When Error Overtakes Accuracy",
+                 fontsize=15, fontweight="bold", pad=20)
+                 
+    # 圖例移到 X 軸下方
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=2, 
+              fontsize=12, frameon=False)
+              
+    # 統計資訊獨立收納到右下角的資訊框
+    stats_text = f"Window = {window} | Spearman = +{rho:.3f}"
+    ax.text(0.98, 0.05, stats_text, transform=ax.transAxes, 
+            ha="right", va="bottom", fontsize=10, color="#555555", 
+            bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="#dddddd", alpha=0.85))
 
-    for rect in list(b1) + list(b2):
-        h = rect.get_height()
-        ax.text(rect.get_x() + rect.get_width() / 2, h + 0.8, f"{h:.0f}",
-                ha="center", va="bottom", fontsize=9)
-
-    ax.set_xticks(x)
-    ax.set_xticklabels([f"{c:.2f}" for c in centers])
-    ax.set_xlabel("MAX_ENTROPY bin (median value, low → high)", fontsize=13)
-    ax.set_ylabel("Percentage within bin (%)", fontsize=13)
-    ax.set_ylim(0, 100)
-    ax.set_title("As MAX_ENTROPY rises: accuracy goes DOWN, error goes UP\n"
-                 f"(pooled, n = {len(ent)}, equal-frequency bins, "
-                 f"Spearman(ent,err) = +{rho:.3f})",
-                 fontsize=14, fontweight="bold")
-    ax.legend(loc="center left", fontsize=12, framealpha=0.95)
-    ax.grid(alpha=0.3, axis="y")
+    ax.grid(alpha=0.3, linestyle="--")
+    
     fig.tight_layout()
-    out = FIG_DIR / "fig2b_bar_accuracy_down_error_up.png"
-    fig.savefig(out, dpi=200)
+    # 儲存圖片時加入 bbox_inches="tight"，確保移到下方的圖例不會被切掉
+    out = FIG_DIR / "fig2b_continuous_trend_accuracy_error.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
     plt.close(fig)
     return out
-
-
 # ----------------------------------------------------------------------------
 # Figure 4: per-dataset 2x2 grid of accuracy vs entropy bins
 # ----------------------------------------------------------------------------
@@ -408,14 +425,14 @@ def main():
     outs = [
         fig_main(data),
         fig_positive(data),
-        fig_bar_contrast(data),
+        # 這裡原本是 fig_bar_contrast(data)，現在換成新的連續圖表
+        fig_continuous_trend(data), 
         fig_distribution(data),
         fig_per_dataset(data),
         write_summary(data),
     ]
     for o in outs:
         print("wrote", o)
-
 
 if __name__ == "__main__":
     main()

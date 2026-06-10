@@ -10,11 +10,8 @@ experiment/cache/
 *.json
 *.jsonl
 
-# =========================
-# 針對 RAG/NLP 研究建議新增
-# =========================
 
-# 1. 實驗輸出與快取資料夾
+# 實驗輸出與快取資料夾
 *_output/
 *_output_*/
 calibration_output/
@@ -29,16 +26,14 @@ calibration_output/
 *.bin
 *.parquet
 
-# 3. 論文 (LaTeX) 編譯暫存檔
+# 論文 (LaTeX) 編譯暫存檔
 *.aux
 *.bbl
 *.blg
 *.fls
 *.fdb_latexmk
 *.synctex.gz
-# *.pdf  # 如果連編譯好的 PDF 都不想上傳，可以把這行註解打開
 
-# 4. 機密資訊與開發者環境設定
 .env
 .vscode/
 .idea/
