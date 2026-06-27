@@ -13,7 +13,7 @@ GPU=$1; shift
 for spec in "$@"; do
   ds="${spec%%:*}"; dev="${spec##*:}"
   echo "[GPU$GPU] START $ds  $(date +%T)"
-  CUDA_VISIBLE_DEVICES=$GPU python scripts/run_seer.py $COMMON \
+  CUDA_VISIBLE_DEVICES=$GPU python scripts/run_seek.py $COMMON \
       --dev "$dev" --out "results/${ds}_1000_alwaysskip.jsonl" \
       > "scripts/m1_${ds}_alwaysskip.log" 2>&1
   echo "[GPU$GPU] DONE  $ds  $(date +%T)  -> $(grep '^EM:' scripts/m1_${ds}_alwaysskip.log)"

@@ -50,7 +50,7 @@ for row in "${CONFIGS[@]}"; do
   out="results/${ds}_1000_${suffix}.jsonl"
   log="scripts/${suffix}_${ds}.log"
   echo "[GPU$GPU] START $ds  $suffix  k=$k skip=$skip  $(date +%T)" | tee -a "$SUMMARY"
-  CUDA_VISIBLE_DEVICES=$GPU python scripts/run_seer.py $flags --out "$out" > "$log" 2>&1 || \
+  CUDA_VISIBLE_DEVICES=$GPU python scripts/run_seek.py $flags --out "$out" > "$log" 2>&1 || \
     echo "  !! FAILED $ds $suffix (see $log)" | tee -a "$SUMMARY"
   res=$(grep -E '^EM:|^F1:|^skipped:' "$log" 2>/dev/null | tr '\n' ' ')
   echo "[GPU$GPU] DONE  $ds  $suffix  $(date +%T)  ->  $res" | tee -a "$SUMMARY"

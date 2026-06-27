@@ -1,7 +1,12 @@
 # 範例② — dirOnly:直答對,一拆就錯
 
 > 來源:join `2wiki_1000_alwaysskip.jsonl`(直答 EM=1)× `2wiki_1000_C_maxent0.3_3ds_terse.jsonl`(拆解 EM=0)。
-> 2Wiki 共 **83 題** 落在這格(直答對、拆解反而錯)。這是「拆解不是免費」的證據。
+> 2Wiki 原本 **83 題** 落在這格(直答對、拆解反而錯)。這是「拆解不是免費」的證據。
+>
+> **2026-06-11 後記:本例這一型已被修掉。** 合成 value→entity guard
+> (`seek/pipeline.py::_rescue_value_answer`)把合成步回的「值」(1932)確定性映射回
+> 持有該值的 step 實體(The Mask Of Fu Manchu)。2Wiki dirOnly 83 → **39**
+> (修掉的 44 題全是此型);剩下的 39 題才是真正的拆解 trade-off。
 
 ## 案例 — 比較兩部片誰先上映
 

@@ -163,5 +163,5 @@
 %\usepackage[final]{hyperref} % adds hyper links inside the generated pdf file
 \hypersetup{colorlinks=true,linkcolor=black,citecolor=blue,filecolor=magenta,urlcolor=blue}
 
-\usepackage{algorithm}     % algorithm float (for SEER pseudocode in Ch.3)
+\usepackage{algorithm}     % algorithm float (for SEEK pseudocode in Ch.3)
 \usepackage{algpseudocode} % algorithmic environment

@@ -4,10 +4,10 @@ Compares retrieval recall@k of the gold (is_supporting) paragraphs from a
 question's distractor pool, under three query strategies at a MATCHED budget:
 
   A          original full question, one BM25 query, top-k
-  B-matched  SEER sub-questions; score each paragraph by its BEST-matching
+  B-matched  SEEK sub-questions; score each paragraph by its BEST-matching
              sub-q, take the global top-k  (FAIR vs A: same k paragraphs)
-  B-union    SEER sub-questions; each sub-q takes its own top-k, then union
-             (what SEER ACTUALLY sees; budget up to n_subq * k)
+  B-union    SEEK sub-questions; each sub-q takes its own top-k, then union
+             (what SEEK ACTUALLY sees; budget up to n_subq * k)
 
 Gold = {idx : is_supporting}. recall = |gold ∩ retrieved| / |gold|.
 Also reports full-coverage = fraction of questions with ALL gold recalled.
@@ -20,7 +20,7 @@ Usage:
 """
 import argparse, json, sys
 sys.path.insert(0, ".")
-from seer.retriever import PerQuestionBM25, _tok
+from seek.retriever import PerQuestionBM25, _tok
 
 
 def load_jsonl(p):
@@ -54,7 +54,7 @@ def main():
     full = {arm: {k: 0 for k in ks} for arm in arms}
     gold_tot = 0
     n_q = 0          # questions scored (decomposed, gold present)
-    n_singlehop_subq = 0   # questions where SEER produced <2 sub-qs
+    n_singlehop_subq = 0   # questions where SEEK produced <2 sub-qs
 
     for t in trace:
         rec = dev.get(str(t["id"]))

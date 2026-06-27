@@ -1,14 +1,14 @@
-# SEER 資料集說明
+# SEEK 資料集說明
 
 > 更新日期:2026-05-21
-> 專案:SEER(Sub-question Entropy-driven Efficient Retrieval)
-> 用途:SEER 第一階段「Data Construction」—— 建構 **SFT decomposer**(把複雜多跳問題拆成原子子問題)的訓練資料。
+> 專案:SEEK(Sub-question Entropy-driven Efficient Retrieval)
+> 用途:SEEK 第一階段「Data Construction」—— 建構 **SFT decomposer**(把複雜多跳問題拆成原子子問題)的訓練資料。
 
 ---
 
 ## 1. 三個資料集與其角色
 
-SEER 的 decomposer 要學會把多跳問題拆成帶依賴關係的子問題序列。我們用三個標準多跳 QA 資料集當訓練/評測來源:
+SEEK 的 decomposer 要學會把多跳問題拆成帶依賴關係的子問題序列。我們用三個標準多跳 QA 資料集當訓練/評測來源:
 
 | 資料集 | train | dev | 角色 |
 |---|---:|---:|---|
@@ -16,13 +16,13 @@ SEER 的 decomposer 要學會把多跳問題拆成帶依賴關係的子問題序
 | **2WikiMultiHopQA** | 167,454 | 12,576 | 訓練。`evidences` 三元組轉 gold 分解,已抽 4000 筆 SFT |
 | **HotpotQA** | 90,447 | 7,405 | **僅下游評估**。無任何 gold 分解,不拿來訓練 decomposer |
 
-**目前進度:** MuSiQue + 2Wiki 各 4000 筆 gold SFT 已建好。HotpotQA 經評估無 gold 分解訊號,定位為 SEER 全流程的 out-of-domain 評估集,不參與 decomposer 訓練。
+**目前進度:** MuSiQue + 2Wiki 各 4000 筆 gold SFT 已建好。HotpotQA 經評估無 gold 分解訊號,定位為 SEEK 全流程的 out-of-domain 評估集,不參與 decomposer 訓練。
 
 ---
 
 ## 2. 為什麼需要分解資料
 
-SEER 的推論流程(見 proposal p.10):
+SEEK 的推論流程(見 proposal p.10):
 
 ```
 複雜多跳問題 → a.Decompose(SFT decomposer)→ 子問題序列
@@ -147,7 +147,7 @@ SEER 的推論流程(見 proposal p.10):
 ## 8. 下一步
 
 1. 訓練 decomposer:可選 MuSiQue 單獨、或 MuSiQue + 2Wiki 合併(共 8000 筆)
-2. 評估 decomposer + 接 SEER 推論流程(Probe Entropy + Gate)
+2. 評估 decomposer + 接 SEEK 推論流程(Probe Entropy + Gate)
 3. HotpotQA 留作下游 QA 評估
 
 ---

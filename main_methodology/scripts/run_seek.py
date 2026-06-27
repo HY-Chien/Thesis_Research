@@ -1,11 +1,11 @@
-"""Drive SEER end-to-end inference on a dev set; report QA EM/F1 + retrieval rate.
+"""Drive SEEK end-to-end inference on a dev set; report QA EM/F1 + retrieval rate.
 
 Compares two operating modes:
   B  adapter-toggle  — LoRA on for decompose, off (pure base) for answer
   C  adapter-always  — LoRA on for both decompose AND answer
 
 Usage:
-    python run_seer.py --adapter <ckpt> --dev <dev.jsonl> --mode {B,C} \
+    python run_seek.py --adapter <ckpt> --dev <dev.jsonl> --mode {B,C} \
         [--tau 0.5] [--top-k 5] [--limit N] [--out <jsonl>]
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from seer.pipeline import run_seer  # noqa: E402
+from seek.pipeline import run_seek  # noqa: E402
 
 BASE = "/workspace/S113065528/RAG-DDR/models/Llama3-8B-Instruct"
 
@@ -63,6 +63,8 @@ def f1(pred: str, golds: list[str]) -> float:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--adapter", required=True)
+    ap.add_argument("--base", default=BASE,
+                    help="base model path (default Llama-3-8B; pass Qwen2.5-7B for that backbone)")
     ap.add_argument("--dev", required=True)
     ap.add_argument("--mode", choices=["B", "C"], required=True)
     ap.add_argument("--signal", choices=["max_ent", "mean_ent", "min_lp"],
@@ -80,20 +82,23 @@ def main() -> None:
                     help="if set, re-measure entropy AFTER retrieval; if the "
                          "answer is still uncertain (retrieval missed gold), "
                          "revert to the model's parametric pre-retrieval answer")
+    ap.add_argument("--direct-context-union", action="store_true",
+                    help="for decomposition steps, append original-question top-k "
+                         "evidence to each sub-question context")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--out", default=None, help="optional jsonl trace dump")
     args = ap.parse_args()
 
     open_retriever = None
     if args.corpus != "paragraphs":
-        from seer.retriever import OpenDomainBM25
+        from seek.retriever import OpenDomainBM25
         open_retriever = OpenDomainBM25(corpus_name=args.corpus)
 
-    tok = AutoTokenizer.from_pretrained(BASE)
+    tok = AutoTokenizer.from_pretrained(args.base)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
     base = AutoModelForCausalLM.from_pretrained(
-        BASE, torch_dtype=torch.bfloat16, device_map="cuda")
+        args.base, torch_dtype=torch.bfloat16, device_map="cuda")
     model = PeftModel.from_pretrained(base, args.adapter)
     model.eval()
 
@@ -110,11 +115,12 @@ def main() -> None:
     n_fallback = 0
 
     for i, r in enumerate(rows, 1):
-        trace = run_seer(model, tok, r, tau=args.tau, top_k=args.top_k,
+        trace = run_seek(model, tok, r, tau=args.tau, top_k=args.top_k,
                          mode=args.mode, signal=args.signal,
                          skip_decompose_tau=args.skip_decompose_tau,
                          post_retrieval_tau=args.post_retrieval_tau,
-                         open_retriever=open_retriever)
+                         open_retriever=open_retriever,
+                         direct_context_union=args.direct_context_union)
         if trace.skipped_decompose:
             n_skipped += 1
         elif not trace.steps:

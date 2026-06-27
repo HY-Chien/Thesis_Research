@@ -9,7 +9,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import font_manager as fm
 import numpy as np
-from seer.retriever import PerQuestionBM25, _tok
+from seek.retriever import PerQuestionBM25, _tok
 
 # --- CJK font (same Kaiti the thesis uses) ---
 FONT = "/home/S113065528/Research/Thesis/fonts/chinese/Kaiti.ttf"
@@ -120,7 +120,7 @@ print("saved fig_subtype_dist.png")
 
 # ===================== FIG D: 單一訊號分不出「自信對 vs 自信錯」 =====================
 # step1_output_100q/group_comparison.md(HI_correct vs HI_wrong, 100Q);n_uniq 來自 B2 row(memory)
-feats = [("max_ent\n(SEER gate 用的)", 0.488, "#d62728"),
+feats = [("max_ent\n(SEEK gate 用的)", 0.488, "#d62728"),
          ("mean_entropy", 0.586, "#e8772e"),
          ("min_margin", 0.579, "#e8772e"),
          ("first-ent mean-lp", 0.744, "#3a7fbf"),

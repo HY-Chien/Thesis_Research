@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-run SEER under DeepRAG's retrieval setting: open-domain BM25 over the shared
+# Re-run SEEK under DeepRAG's retrieval setting: open-domain BM25 over the shared
 # ES `wiki` index (psgs_w100, 21M), top-k=3. Everything else = canonical 12K run
 # (Mode C, max_ent gate tau=0.3, 3-dataset decomposer).
 set -euo pipefail
@@ -14,7 +14,7 @@ GPU=$1; shift
 for spec in "$@"; do
   ds="${spec%%:*}"; dev="${spec##*:}"
   echo "[GPU$GPU] START $ds  $(date +%T)"
-  CUDA_VISIBLE_DEVICES=$GPU python scripts/run_seer.py $COMMON \
+  CUDA_VISIBLE_DEVICES=$GPU python scripts/run_seek.py $COMMON \
       --dev "$dev" --out "results/${ds}_1000_${SUFFIX}.jsonl" \
       > "scripts/${SUFFIX}_${ds}.log" 2>&1
   echo "[GPU$GPU] DONE  $ds  $(date +%T)  ->  $(grep -E '^EM:|^F1:' scripts/${SUFFIX}_${ds}.log | tr '\n' ' ')"

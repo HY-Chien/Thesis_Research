@@ -1,22 +1,21 @@
 \babel@toc {english}{}\relax 
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {2.1}{\ignorespaces Multi-Hop QA Datasets Used in This Thesis}}{10}{table.caption.7}%
-\contentsline {table}{\numberline {2.2}{\ignorespaces Comparison of Adaptive RAG Methods}}{10}{table.caption.8}%
+\contentsline {table}{\numberline {2.1}{\ignorespaces Comparison of Adaptive RAG Methods}}{7}{table.caption.7}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {3.1}{\ignorespaces Decomposition Patterns by Dataset}}{14}{table.caption.10}%
-\contentsline {table}{\numberline {3.2}{\ignorespaces Decomposer Training Data Composition}}{17}{table.caption.11}%
+\contentsline {table}{\numberline {3.1}{\ignorespaces Decomposition Patterns by Dataset}}{15}{table.caption.17}%
+\contentsline {table}{\numberline {3.2}{\ignorespaces Decomposer Training Data Composition}}{19}{table.caption.21}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {4.1}{\ignorespaces Main Results: EM / F1 on 1000-question Dev Slice}}{23}{table.caption.12}%
-\contentsline {table}{\numberline {4.2}{\ignorespaces Threshold Sweep on MuSiQue 200}}{24}{table.caption.13}%
-\contentsline {table}{\numberline {4.3}{\ignorespaces Mode B vs Mode C}}{25}{table.caption.14}%
-\contentsline {table}{\numberline {4.4}{\ignorespaces Training Data Composition Ablation}}{26}{table.caption.15}%
-\contentsline {table}{\numberline {4.5}{\ignorespaces Synthesis Prompt Ablation}}{27}{table.caption.16}%
-\contentsline {table}{\numberline {4.6}{\ignorespaces Per-Dataset Retrieval Trigger Rate}}{27}{table.caption.17}%
-\contentsline {table}{\numberline {4.7}{\ignorespaces 2Wiki Per-Type Breakdown}}{28}{table.caption.18}%
-\contentsline {table}{\numberline {4.8}{\ignorespaces MuSiQue Per-Hop EM}}{29}{table.caption.19}%
+\contentsline {table}{\numberline {4.1}{\ignorespaces Main Results on Honest Wiki-21M}}{24}{table.caption.22}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces Answer-Containing Retrieval Recall}}{25}{table.caption.23}%
+\contentsline {table}{\numberline {4.3}{\ignorespaces Retrieval Necessity After Decomposition}}{25}{table.caption.24}%
+\contentsline {table}{\numberline {4.4}{\ignorespaces Threshold Sensitivity}}{26}{table.caption.25}%
+\contentsline {table}{\numberline {4.5}{\ignorespaces Title-Field Matching Ablation}}{27}{table.caption.26}%
+\contentsline {table}{\numberline {4.6}{\ignorespaces Original-Question Evidence Union Ablation}}{27}{table.caption.27}%
+\contentsline {table}{\numberline {4.7}{\ignorespaces Correct Answer Distribution Across Two Paths}}{28}{table.caption.28}%
+\contentsline {table}{\numberline {4.8}{\ignorespaces Oracle Direct-vs-Decompose Headroom}}{29}{table.caption.29}%
+\contentsline {table}{\numberline {4.9}{\ignorespaces Distractor-Pool Development Results}}{29}{table.caption.30}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {5.1}{\ignorespaces Training Cost Comparison: SEER vs DeepRAG}}{31}{table.caption.20}%
-\contentsline {table}{\numberline {5.2}{\ignorespaces EM-only Failure Examples: Verbose Spans}}{33}{table.caption.21}%
+\contentsline {table}{\numberline {5.1}{\ignorespaces Training Cost Comparison: SEEK vs DeepRAG}}{31}{table.caption.31}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }

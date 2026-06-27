@@ -28,4 +28,4 @@ SC(self-consistency)= 13.16(很高);20 次取樣 EM = 0/20
 
 - 教授要的正是「**單一 SC 分數以外、能分辨真信心 vs 自信幻覺的指標**」。
 - B3 證明:有一整類錯誤,**原則上**無法用信心/熵訊號偵測,需要 **QA-native 的句法-角色指標**。
-- 連結 [[research_skip_decompose_signal]]:這也是 SEER 的 entropy gate 在低熵尾端必然失效的根因之一。
+- 連結 [[research_skip_decompose_signal]]:這也是 SEEK 的 entropy gate 在低熵尾端必然失效的根因之一。

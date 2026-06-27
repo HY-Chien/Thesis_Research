@@ -33,8 +33,8 @@ from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from seer.answerer import ANSWER_INSTRUCTION  # noqa: E402
-from seer.retriever import PerQuestionBM25, format_context  # noqa: E402
+from seek.answerer import ANSWER_INSTRUCTION  # noqa: E402
+from seek.retriever import PerQuestionBM25, format_context  # noqa: E402
 
 BASE = "/workspace/S113065528/RAG-DDR/models/Llama3-8B-Instruct"
 

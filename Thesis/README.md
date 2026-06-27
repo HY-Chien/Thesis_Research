@@ -1,6 +1,6 @@
-# NTHU 論文範本 — SEER 使用指南
+# NTHU 論文範本 — SEEK 使用指南
 
-本目錄為清華大學 (NTHU) 圖書館 DSLIN 提供之 LaTeX 論文範本,已客製化為 **SEER (Sub-question Entropy-driven Efficient Retrieval)** 碩士論文骨架。本檔說明各資料夾用途與撰寫流程。
+本目錄為清華大學 (NTHU) 圖書館 DSLIN 提供之 LaTeX 論文範本,已客製化為 **SEEK (Self-certainty Evaluated Entropy-gated Knowledge-retrieval)** 碩士論文骨架。本檔說明各資料夾用途與撰寫流程。
 
 ---
 
@@ -27,7 +27,7 @@ Thesis/
 ### `front/` — 前置文件
 | 檔案 | 用途 | 是否需修改 |
 |------|------|-----------|
-| `Eng_Abstract.tex` | 英文摘要 (對應 `\chapter*{Abstract}`) | ✅ 已填入 SEER 摘要,可微調 |
+| `Eng_Abstract.tex` | 英文摘要 (對應 `\chapter*{Abstract}`) | ✅ 已填入 SEEK 摘要,可微調 |
 | `C_Abstract.tex` | 中文摘要 | ✅ 需與英文對齊 |
 | `acknowledgement.tex` | 誌謝 (實驗室、指導教授、家人) | ✅ 已填入基本骨架 |
 | `Nomenclature.tex` | 符號/縮寫表 (如 RAG、LLM、SFT 等) | ⬜ 視需要新增 |
@@ -41,13 +41,13 @@ Thesis/
 | 檔案 | 對應章 | 目前狀態 |
 |------|--------|---------|
 | `chapter01.tex` | 緒論 (Background / Motivation / Objectives) | ✅ 已有骨架,可再擴寫 |
-| `chapter02.tex` | Related Work (Adaptive-RAG / FLARE / DeepRAG + 對照表) | ✅ 已含 SEER 比較表 |
-| `chapter03.tex` | Methodology (SEER pipeline: decompose → probe → gate → synthesize) | ✅ 已完整撰寫 |
-| `chapter04.tex` | Experiments (資料集、實驗設定、主表、ablation) | ✅ 已完整撰寫 (主結果=12K 三資料集) |
+| `chapter02.tex` | Related Work (Adaptive-RAG / FLARE / DeepRAG + 對照表) | ✅ 已更新為 v2 verifier 定位 |
+| `chapter03.tex` | Methodology (SEEK v2: direct path + decompose path → training-free verifier) | ✅ 已完整撰寫 |
+| `chapter04.tex` | Experiments (honest wiki-21M 主表、verifier/router ablation) | ✅ 已完整撰寫 (主結果=v2 no-evidence verifier) |
 | `chapter05.tex` | Discussion (trigger rate、EM vs F1、failure case) | ✅ 已完整撰寫 |
 | `chapter06.tex` | Conclusions & Future Work | ✅ 已完整撰寫 |
 
-> **主結果設定:** 全篇以 **12K 三資料集 decomposer** (MuSiQue+2Wiki+PopQA) 為 "SEER (Ours)";8K 雙資料集版降為消融。改數字時請維持此一致性。
+> **主結果設定:** 全篇以 **12K 三資料集 decomposer + no-evidence tuned v2 verifier** 為 "SEEK (Ours)"。主表使用 honest wiki-21M pool；distractor pool 只能作開發/消融，不可與 DeepRAG 直接混表。
 
 每章透過 `main.tex` 的 `\input{contents/chapterXX}` 載入,**新增/刪除章節時記得同步 main.tex**。
 
@@ -93,9 +93,9 @@ Thesis/
 
 ### `figures/` — 圖檔
 - `nthu_thesis.cls` 已設定 `\graphicspath{{./figures/}}`,因此 `\includegraphics{name.png}` 會自動從這裡找。
-- 目前內含舊範本的範例圖 (`I2adsorption.png`、`ReactProbability.png`),**可全部換成 SEER pipeline 圖、結果圖**。
+- 目前內含舊範本的範例圖 (`I2adsorption.png`、`ReactProbability.png`),**可全部換成 SEEK pipeline 圖、結果圖**。
 - 建議圖檔:
-  1. SEER overall pipeline (decompose → probe → gate → synthesize)
+  1. SEEK overall pipeline (decompose → probe → gate → synthesize)
   2. Entropy distribution 直方圖 (retrieve vs skip)
   3. Trigger rate per dataset 長條圖
   4. EM/F1 對 τ 的折線圖 (ablation)
@@ -160,30 +160,30 @@ $BIN/pdflatex -interaction=nonstopmode main.tex   # 4. 修正 TOC/交叉引用
 
 ### Phase 1 — 範本客製化 (已完成)
 - [x] `main.tex` 填入學號、書名、年月、系所
-- [x] `front/Eng_Abstract.tex` / `front/C_Abstract.tex` 寫 SEER 摘要
+- [x] `front/Eng_Abstract.tex` / `front/C_Abstract.tex` 寫 SEEK 摘要
 - [x] `front/acknowledgement.tex` 寫誌謝
 - [x] `contents/chapter01.tex` 緒論骨架
 - [x] `contents/chapter02.tex` Related Work + 比較表
-- [x] `back/references.bib` 補入 SEER 引用
+- [x] `back/references.bib` 補入 SEEK 引用
 
 ### Phase 2 — 章節擴寫 (進行中)
-1. **Chapter 3 Methodology** — 對應 `Research/main_methodology/seer/pipeline.py`
+1. **Chapter 3 Methodology** — 對應 `Research/main_methodology/seek/pipeline.py`
    - 3.1 Problem Formulation
-   - 3.2 Decomposer (LoRA SFT on Llama3-8B,KG-triple `entity >> relation` 格式)
-   - 3.3 Per-step Entropy Probe (`max_ent` over first-entity span)
-   - 3.4 Retrieval Gate (τ=0.3, BM25 over Wikipedia)
-   - 3.5 Synthesize (terse-answer prompt)
-2. **Chapter 4 Experiments** — 對應 `Research/main_methodology/results/*.jsonl`
-   - 4.1 Datasets (MuSiQue / 2Wiki / HotpotQA / PopQA)
-   - 4.2 Baselines (Adaptive-RAG、FLARE、DeepRAG)
-   - 4.3 主表:EM / F1 / Trigger Rate
-   - 4.4 Ablation:τ 掃描、訓練資料配比 (8K vs 12K + PopQA)、terse prompt 效果
+   - 3.2 Direct path + decomposition path
+   - 3.3 Per-step entropy probe and decomposition-path retrieval gate
+   - 3.4 Synthesis + value-to-entity guard
+   - 3.5 Training-free verifier v2 (no evidence)
+2. **Chapter 4 Experiments** — 對應 `Research/main_methodology/RESULTS_MASTER.md` 與 `results/*.jsonl`
+   - 4.1 Honest wiki-21M setup
+   - 4.2 Main table: v2 verifier vs DeepRAG
+   - 4.3 Verifier evidence ablation、global entropy router failure
+   - 4.4 Distractor-pool development results、oracle headroom、failure breakdown
 3. **Chapter 5 Discussion** — EM vs F1 差距、over-decomposition、failure case
 4. **Chapter 6 Conclusions** — 收尾與 future work
 
 ### Phase 3 — 圖表
 - 把 `figures/` 中舊範本圖移除/取代
-- 結果圖可從 `Research/main_methodology/notebooks/` 或 `RESULTS_SEER.md` 匯出
+- 結果圖可從 `Research/main_methodology/notebooks/` 或 `RESULTS_SEEK.md` 匯出
 
 ### Phase 4 — 口試後收尾
 - 換入三份簽名 PDF (`Authorized agreement.pdf`、`Advisor Approval Form.pdf`、`Thesis Review Form.pdf`)
@@ -209,7 +209,7 @@ $BIN/pdflatex -interaction=nonstopmode main.tex   # 4. 修正 TOC/交叉引用
 
 | 來源 | 路徑 |
 |------|------|
-| SEER 主程式 | `/home/S113065528/Research/main_methodology/seer/` |
+| SEEK 主程式 | `/home/S113065528/Research/main_methodology/seek/` |
 | 實驗結果 | `/home/S113065528/Research/main_methodology/results/` |
 | 訓練設定 | `/home/S113065528/Research/main_methodology/configs/` |
 | LoRA checkpoints | `/home/S113065528/Research/main_methodology/checkpoints/` |

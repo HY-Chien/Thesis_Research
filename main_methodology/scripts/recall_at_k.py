@@ -1,4 +1,4 @@
-"""Measure BM25 recall@k of gold (is_supporting) paragraphs, using SEER's
+"""Measure BM25 recall@k of gold (is_supporting) paragraphs, using SEEK's
 actual sub-questions from a result trace.
 
 For each question:
@@ -13,7 +13,7 @@ Usage:
 """
 import argparse, json, sys
 sys.path.insert(0, ".")
-from seer.retriever import PerQuestionBM25
+from seek.retriever import PerQuestionBM25
 
 
 def load_jsonl(p):
@@ -53,7 +53,7 @@ def main():
         idx_of = {id(p): p["idx"] for p in paras}  # not needed; topk returns dicts
         bm = PerQuestionBM25(paras)
 
-        # sub-questions actually used by SEER; fall back to full question
+        # sub-questions actually used by SEEK; fall back to full question
         subqs = [s.get("sub_q") or s.get("raw_sub_q") for s in t.get("steps", [])]
         subqs = [s for s in subqs if s]
         if not subqs:

@@ -1,23 +1,33 @@
 \chapter{Related Work}
 \label{ch:related}
 
-\section{Retrieval-Augmented Generation}
+\section{Adaptive RAG}
+\label{sec:adaptive-rag}
 
-Retrieval-Augmented Generation (RAG)~\cite{rag_survey} augments a parametric language model with a non-parametric retriever, fetching external passages at inference time and concatenating them with the input prompt. The paradigm mitigates hallucination on long-tail and time-sensitive facts and underpins production assistants such as Bing Chat and Perplexity. However, the default ``always retrieve'' policy has two well-documented failure modes:
+Retrieval-Augmented Generation (RAG)~\cite{rag_survey} augments a parametric language model with a non-parametric retriever, allowing the model to condition its generation on external evidence rather than relying only on parameters learned during pretraining. A typical RAG pipeline can be described as five stages:
+
+\begin{enumerate}
+    \item \textbf{Indexing.} The source corpus is segmented into passages, and each passage is stored in a form that supports retrieval, such as sparse lexical indexes or dense vector representations.
+    \item \textbf{Query manipulation.} The input question may be rewritten, expanded, normalised, or decomposed so that the retriever can better match it with relevant evidence.
+    \item \textbf{Retrieval.} The system selects candidate passages from the indexed corpus, commonly using sparse lexical matching, dense vector similarity, or a hybrid retrieval strategy.
+    \item \textbf{Post-retrieval processing.} The initially retrieved passages may be filtered, reranked, compressed, or otherwise refined before they are passed to the generator.
+    \item \textbf{Generation.} The language model conditions on the selected evidence and produces the final answer, ideally grounding its output in the retrieved passages.
+\end{enumerate}
+
+This retrieve-then-generate paradigm is now widely used to make language model outputs more factual in question answering, explanation writing, and other knowledge-intensive tasks. Its central advantage is that factual evidence can be updated externally without retraining the language model. For multi-hop question answering, however, the quality of the retrieved evidence depends strongly on the query that is issued at each step: a single original question may not contain the intermediate entity needed to retrieve the next supporting passage.
+
+Despite its benefits, the default ``always retrieve'' policy has two well-documented failure modes:
 
 \begin{itemize}
     \item \textbf{Noise injection on easy queries.} For questions the model already knows (e.g.\ ``Who wrote \emph{Hamlet}?''), retrieved passages introduce distractor entities that can override correct parametric knowledge~\cite{hallucination_survey}.
     \item \textbf{Insufficient evidence on hard queries.} For multi-hop questions, a single retrieval pass rarely surfaces all bridging entities, leading to incomplete or compositionally wrong answers~\cite{ircot}.
 \end{itemize}
 
-These two failure modes motivate the three themes below: \emph{adaptive} retrieval addresses \emph{when} to retrieve, \emph{reasoning}-based RAG addresses \emph{how} to retrieve, and the \emph{knowledge boundary} literature studies the signal that a good gating decision must ultimately rely on.
+These two failure modes motivate adaptive retrieval: deciding \emph{when} retrieval is useful, \emph{how much} evidence to fetch, and what signal should determine the gate.
 
-\section{Adaptive Retrieval-Augmented Generation}
-\label{sec:adaptive-rag}
+Adaptive RAG methods decide per query (or per reasoning step) whether and how much to retrieve. They can be characterised along three axes: the \textbf{decision granularity} (question, sentence, token, or sub-question), the \textbf{signal} used to gate retrieval, and the \textbf{training cost} (training-free, SFT, RL, or DPO). Organising by the gating signal --- the most consequential axis for SEEK --- yields three families: \emph{classifier-based}, \emph{confidence-based}, and \emph{reasoning- and policy-based} gating.
 
-Adaptive RAG methods decide per query (or per reasoning step) whether and how much to retrieve. They can be characterised along three axes: the \textbf{decision granularity} (question / sentence / token / sub-question), the \textbf{signal} used to gate retrieval, and the \textbf{training cost} (training-free / SFT / RL or DPO). Organising by the gating signal --- the most consequential axis for SEER --- yields three families: \emph{classifier-based}, \emph{confidence-based}, and \emph{reasoning- and policy-based} gating.
-
-\subsection{Classifier-Based Gating}
+\paragraph{Classifier-based gating.}
 
 The first family trains a dedicated discriminator that inspects the query and emits a retrieval decision.
 
@@ -25,7 +35,7 @@ The first family trains a dedicated discriminator that inspects the query and em
 
 \textbf{SKR}~\cite{skr} learns a binary ``does the model know it?'' classifier from the model's own correctness on a calibration set. At inference, a query is classified as ``known'' (skip retrieval) or ``unknown'' (retrieve), making SKR effectively a binary version of Adaptive-RAG: cheaper than reflection-token methods, but unable to distinguish single-step from multi-step needs. Both classifier-based methods require an additional trained head and, more fundamentally, commit to a decision before the model has begun to reason.
 
-\subsection{Confidence- and Uncertainty-Based Gating}
+\paragraph{Confidence- and uncertainty-based gating.}
 
 The second family replaces the external classifier with an \emph{intrinsic} uncertainty signal read off the generation process, and is typically training-free.
 
@@ -33,9 +43,9 @@ The second family replaces the external classifier with an \emph{intrinsic} unce
 
 \textbf{DRAGIN}~\cite{dragin} extends FLARE with \emph{Real-time Information Need Detection} (RIND) and \emph{Query Formulation based on Self-attention} (QFS). RIND scores each generated token by combining token entropy, attention weight to subsequent tokens, and semantic content, triggering retrieval when the score exceeds a threshold; QFS then builds the query from the most-attended tokens in the preceding context rather than the raw lookahead. DRAGIN is training-free and improves over FLARE on 2WikiMultihopQA, HotpotQA, and IIRC, but inherits FLARE's token-level granularity mismatch and adds attention-extraction overhead.
 
-\textbf{SeaKR}~\cite{seakr} taps the residual stream directly, estimating uncertainty by aggregating the variance of hidden states across decoding steps; high variance triggers retrieval. The authors argue that internal variance captures factual uncertainty more faithfully than output-layer entropy, and add a re-ranking step that prefers passages which reduce hidden-state variance. SeaKR is reported as state-of-the-art among training-free methods on Natural Questions, HotpotQA, and 2WikiMultihopQA. Across this family, however, the gate ultimately depends on a hand-set threshold over a noisy uncertainty proxy --- the central tension SEER seeks to resolve with a sub-question-level entropy probe.
+\textbf{SeaKR}~\cite{seakr} taps the residual stream directly, estimating uncertainty by aggregating the variance of hidden states across decoding steps; high variance triggers retrieval. The authors argue that internal variance captures factual uncertainty more faithfully than output-layer entropy, and add a re-ranking step that prefers passages which reduce hidden-state variance. SeaKR is reported as state-of-the-art among training-free methods on Natural Questions, HotpotQA, and 2WikiMultihopQA. Across this family, however, the gate ultimately depends on a hand-set threshold over a noisy uncertainty proxy --- the central tension SEEK addresses by using entropy as one verifier signal rather than as a single hard global router.
 
-\subsection{Reasoning- and Policy-Based Gating}
+\paragraph{Reasoning- and policy-based gating.}
 
 The third family folds the retrieval decision into the model's own generation, learning it as part of a reasoning policy.
 
@@ -43,81 +53,16 @@ The third family folds the retrieval decision into the model's own generation, l
 
 \textbf{DeepRAG}~\cite{deeprag} models retrieval-augmented reasoning as a Markov Decision Process: at each sub-query the agent chooses between answering from parametric memory and issuing a retrieval call. Training has two stages --- \emph{Stage~I} uses binary tree search to roll out both branches per sub-query, producing a balanced SFT corpus that teaches both ``skip'' and ``retrieve'' patterns; \emph{Stage~II} (\emph{Chain of Calibration}) applies DPO-style preference learning over the traces. Trained on 4K HotpotQA + 1K 2WikiMultihopQA examples ($\approx$10K via tree augmentation) and evaluated out-of-distribution on PopQA, CAG, WebQuestions, and MuSiQue, DeepRAG achieves the strongest sub-question-level gating to date --- but at substantial cost: tree search is $O(2^{H})$ in the number of hops, the DPO stage requires careful pair construction, and the gate is a learned implicit policy with no externally interpretable score.
 
-Orthogonal to the gating signal, a complementary line of work treats the retrieval \emph{count} as a user-controllable knob: \textbf{Fast-or-Better}~\cite{fastorbetter} exposes a Pareto frontier between latency and accuracy rather than a single operating point, underscoring that adaptive retrieval is fundamentally a cost--accuracy trade-off. SEER positions itself within this family in spirit --- sub-question-level gating like DeepRAG --- but replaces the learned policy with an interpretable, training-cheap entropy probe, recovering the transparency of the confidence-based methods without their token-level granularity mismatch.
+Orthogonal to the gating signal, a complementary line of work treats the retrieval \emph{count} as a user-controllable knob: \textbf{Fast-or-Better}~\cite{fastorbetter} exposes a Pareto frontier between latency and accuracy rather than a single operating point, underscoring that adaptive retrieval is fundamentally a cost--accuracy trade-off. SEEK positions itself within this family in spirit --- sub-question-level reasoning like DeepRAG --- but replaces the learned policy with a training-free verifier that combines entropy, decomposition stability, and candidate agreement.
 
-\section{Reasoning in Retrieval-Augmented Generation}
-\label{sec:reasoning-rag}
-
-A parallel thread focuses on \emph{how} to retrieve and reason once retrieval is deemed necessary, independent of the gate.
-
-The foundational technique is \textbf{IRCoT}~\cite{ircot}, which interleaves chain-of-thought reasoning with retrieval: after each generated CoT sentence, the partial reasoning becomes the next query. IRCoT is the canonical ``multi-step'' implementation referenced by Adaptive-RAG and DeepRAG, but its retrieval count grows linearly in the CoT length, regardless of whether intermediate steps are factually difficult. \textbf{Question decomposition}~\cite{decompqa} instead explicitly splits a multi-hop question into atomic sub-questions before answering, treating decomposition as a separate seq-to-seq problem. SEER inherits this decomposition paradigm but couples it with per-sub-question entropy probing, avoiding both the linear cost of IRCoT and the policy-learning cost of DeepRAG.
-
-More recent work synthesises reasoning data to internalise the retrieve-and-reason loop. \textbf{Auto-RAG}~\cite{autorag} autonomously synthesises multi-turn retrieval--reasoning trajectories and fine-tunes on them, so that the model plans its own retrieval steps without hand-crafted prompts. \textbf{Search-o1}~\cite{searcho1} embeds retrieval inside a large reasoning model in an agentic loop, augmenting o1-style long-chain reasoning with on-demand search and a document-reasoning module that distils retrieved passages before they re-enter the chain. \textbf{AirRAG}~\cite{airrag} activates the model's intrinsic reasoning by combining Monte Carlo Tree Search with self-consistency to explore alternative solution paths. These methods substantially strengthen the reasoning side of RAG, but --- like DeepRAG --- they rely on heavy data synthesis or search-time expansion; SEER instead keeps the reasoning component a single lightweight SFT decomposer and concentrates its novelty in the gating signal.
-
-\section{Knowledge Boundary}
-\label{sec:knowledge-boundary}
-
-Every adaptive method above ultimately rests on a model's ability to recognise its own \emph{knowledge boundary} --- the line between what it reliably knows and what it must look up. A dedicated line of work studies this capacity directly, and we group it into three strands: \emph{self-knowledge elicitation}, \emph{uncertainty estimation}, and the \emph{interaction between the knowledge boundary and retrieval}.
-
-\paragraph{Self-knowledge and its calibration.} A first strand asks whether a model can introspect on what it knows. Kadavath et al.~\cite{kadavath2022} show that LLMs are, to a useful degree, calibrated: a model can be prompted to predict the probability \texttt{P(True)} that its own answer is correct, and these self-judgements correlate with actual accuracy --- though calibration degrades on out-of-distribution and adversarial questions. Yin et al.~\cite{yin2023} construct a ``SelfAware'' benchmark of answerable and unanswerable questions and find that LLMs only partially ``know what they don't know'': self-knowledge can be elicited but lags well behind human performance. From the supervised side, Kapoor et al.~\cite{kapoor2024} argue that models ``must be taught to know what they don't know'', demonstrating that lightweight calibration-tuning or probing substantially sharpens a model's estimate of its own uncertainty. Yin et al.~\cite{yin2024} formalise the notion of a knowledge boundary itself, proposing to benchmark a model by probing the frontier of its reliable knowledge rather than by aggregate accuracy alone.
-
-\paragraph{Uncertainty estimation as a boundary signal.} A second strand asks how to \emph{measure} the boundary at inference time. A naive token-probability or token-entropy signal conflates two kinds of uncertainty: \emph{epistemic} (the model genuinely does not know) and \emph{lexical} (many surface forms express the same fact). Kuhn et al.~\cite{semanticuncertainty} introduce \emph{semantic entropy}, which clusters multiple sampled answers by meaning before computing entropy, so that paraphrases of one correct answer do not register as uncertainty; Farquhar et al.~\cite{semanticentropy} scale this idea and show in \emph{Nature} that semantic entropy reliably detects confabulations across QA and biography generation. This line of work is the closest in spirit to SEER's gating signal: both read out the knowledge boundary from generation-time entropy. SEER deliberately adopts the cheaper \emph{token-level} entropy --- computed once per sub-question rather than over a cluster of samples --- trading a small amount of the semantic-entropy robustness for a single forward pass, which is what makes per-sub-question gating affordable in a multi-hop loop.
-
-\paragraph{The boundary under retrieval.} A third strand studies the boundary specifically in the RAG setting. Ren et al.~\cite{ren2023} show that retrieval augmentation not only injects evidence but also \emph{reshapes} the boundary: relevant passages let a model answer questions it could not before, while irrelevant or distracting passages can push a previously-correct answer over the boundary into error --- precisely the ``noise injection on easy queries'' failure mode of \S\ref{sec:adaptive-rag}. This makes a per-step boundary estimate, rather than a one-shot query-level one, essential when retrieval and reasoning are interleaved.
-
-These three strands form the conceptual foundation of SEER. The failure modes of \S\ref{sec:adaptive-rag} --- spurious retrieval on easy queries, missing retrieval on hard ones --- are all symptoms of a poorly localised knowledge boundary. Where confidence-based methods read an uncertainty proxy at the token or sentence level and policy-based methods bury the boundary inside a learned policy, SEER makes the boundary explicit at the \emph{sub-question} level: the token-entropy probe is a transparent scalar estimate of whether the model knows the answer to a given sub-question, directly operationalising the knowledge-boundary view as a tunable, inspectable gate.
-
-\section{Multi-Hop Question Answering Datasets}
-
-The evaluation of adaptive RAG hinges on datasets that span both single-hop and multi-hop complexity. Table~\ref{tab:datasets} summarises the four datasets used in this thesis.
-
-\subsection{HotpotQA}
-
-HotpotQA~\cite{hotpotqa} is the canonical multi-hop QA benchmark, containing 113K Wikipedia-based questions requiring 2-hop reasoning. Each example provides (a) the question, (b) the gold answer, (c) two gold-supporting paragraphs out of 10 distractors (in the \texttt{distractor} setting), and (d) sentence-level supporting facts. Questions fall into two compositional patterns: \emph{bridge} (the answer to sub-question 1 is the subject of sub-question 2) and \emph{comparison} (two entities are compared along a shared attribute). HotpotQA is a primary training source for DeepRAG and a standard evaluation set for nearly all adaptive RAG papers.
-
-\subsection{2WikiMultihopQA}
-
-2WikiMultihopQA~\cite{twowiki} constructs 192K multi-hop questions by leveraging Wikidata knowledge-graph paths, ensuring each question requires traversal of an explicit reasoning chain. It includes four question types (comparison, inference, compositional, and bridge-comparison) and provides KG-triple annotations alongside textual evidence. Compared to HotpotQA, 2WikiMultihopQA exhibits less surface-form leakage between the question and the supporting passages, making it a more reliable test of compositional reasoning.
-
-\subsection{MuSiQue}
-
-MuSiQue (\textbf{Mu}ltihop questions via \textbf{Si}ngle-hop \textbf{Que}stions)~\cite{musique} addresses two pathologies of earlier datasets: (i) shortcut answers via single-hop reasoning, and (ii) weak distractor selection. MuSiQue is built by composing 2--4 single-hop questions into chains using strict connectivity criteria, yielding 25K questions of 2-hop, 3-hop, and 4-hop varieties. Importantly, MuSiQue provides the \emph{decomposed} sub-questions as supervision, which makes it a natural training source for decomposer models such as the one used in SEER. Its high distractor difficulty makes it the hardest of the four datasets in this thesis.
-
-\subsection{PopQA}
-
-PopQA~\cite{popqa} is a \emph{single-hop} entity-centric QA dataset of 14K questions, each derived from a Wikidata subject--property--object triple. Critically, PopQA tags each entity with its \emph{popularity} (measured by monthly Wikipedia page views), enabling stratified evaluation of factual recall on long-tail entities. Despite being single-hop, PopQA exposes the over-decomposition failure mode of decomposer-based pipelines: trained on multi-hop data, a decomposer may emit two-step plans even when one step suffices, harming both EM and efficiency.
-
-\subsection{Single-Hop Open-Domain QA}
-
-For completeness, prior adaptive-RAG papers also evaluate on \textbf{Natural Questions (NQ)}~\cite{nq}, \textbf{TriviaQA}~\cite{triviaqa}, and \textbf{SQuAD}~\cite{squad}. These are single-hop datasets whose answers typically exist in a single Wikipedia paragraph, and they primarily test whether an adaptive method can correctly \emph{skip} retrieval rather than orchestrate it. This thesis follows the DeepRAG protocol of evaluating on PopQA as the representative single-hop test set.
-
-\begin{table}[h]
-    \centering
-    \caption[Multi-Hop QA Datasets Used in This Thesis]{Multi-hop QA datasets used in this thesis. \#hops indicates the typical reasoning depth; ``Decomp.'' indicates whether gold sub-questions are provided.}
-    \label{tab:datasets}
-    \setlength{\tabcolsep}{6pt}
-    \begin{tabular}{ l c c c l }
-        \toprule
-        Dataset & Size & \#hops & Decomp. & Source \\
-        \midrule
-        HotpotQA           & 113K & 2          & No  & Wikipedia (crowd) \\
-        2WikiMultihopQA    & 192K & 2          & No  & Wikipedia + Wikidata \\
-        MuSiQue            & 25K  & 2--4       & Yes & Composed single-hops \\
-        PopQA              & 14K  & 1          & Yes (triple) & Wikidata triples \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-\section{Summary of Related Work}
-
-Table~\ref{tab:related-work} summarises the key differences between SEER and existing adaptive RAG methods along the three axes introduced above. SEER occupies the under-explored region of \emph{sub-question-level gating with an interpretable, training-cheap signal}: only a single SFT pass is needed for the decomposer (no DPO, no tree search), and the entropy probe is a transparent scalar --- a direct estimate of the knowledge boundary (\S\ref{sec:knowledge-boundary}) --- that can be inspected and tuned per dataset.
+Table~\ref{tab:related-work} summarises the key differences between SEEK and existing adaptive RAG methods along the three axes introduced above. SEEK occupies the under-explored region of \emph{late verifier-based routing with interpretable, training-free signals}: only a single SFT pass is needed for the decomposer, and the final route is decided by transparent query-level diagnostics rather than a learned policy.
 
 \begin{table}[h]
     \centering
     \caption[Comparison of Adaptive RAG Methods]{Comparison of adaptive RAG methods along granularity, gating signal, interpretability, training cost, and decision unit.}
     \label{tab:related-work}
     \setlength{\tabcolsep}{6pt}
-    \begin{tabular}{ l c c c c c }
+\begin{tabular}{ l c c c c c }
         \toprule
         Method & Decomposer & Gating Signal & Interpretable & Training Cost & Granularity \\
         \midrule
@@ -128,7 +73,52 @@ Table~\ref{tab:related-work} summarises the key differences between SEER and exi
         SKR~\cite{skr}                  & None       & Binary self-knowledge       & Partial & Low            & Question \\
         SeaKR~\cite{seakr}              & None       & Hidden-state variance       & No      & None           & Sentence \\
         DeepRAG~\cite{deeprag}          & SFT        & Learned policy (SFT+DPO)    & No      & High           & Sub-Q \\
-        \textbf{SEER (Ours)}            & SFT        & Token entropy ($\tau$-gated) & \textbf{Yes} & \textbf{Low} (SFT only) & \textbf{Sub-Q} \\
+        \textbf{SEEK (Ours)}            & SFT        & Entropy-aware verifier       & \textbf{Yes} & \textbf{Low} (SFT only) & \textbf{Sub-Q + query} \\
         \bottomrule
     \end{tabular}
 \end{table}
+
+\section{Reasoning and Knowledge Boundaries in RAG}
+\label{sec:reasoning-rag}
+\label{sec:knowledge-boundary}
+
+A parallel thread focuses on \emph{how} to retrieve and reason once retrieval is deemed necessary, independent of the gate.
+
+The foundational technique is \textbf{IRCoT}~\cite{ircot}, which interleaves chain-of-thought reasoning with retrieval: after each generated CoT sentence, the partial reasoning becomes the next query. IRCoT is the canonical ``multi-step'' implementation referenced by Adaptive-RAG and DeepRAG, but its retrieval count grows linearly in the CoT length, regardless of whether intermediate steps are factually difficult. \textbf{Question decomposition}~\cite{decompqa} instead explicitly splits a multi-hop question into atomic sub-questions before answering, treating decomposition as a separate seq-to-seq problem. SEEK inherits this decomposition paradigm, but its final design does not make a hard pre-decomposition choice: it generates both direct and decomposed candidates, preserves original-question context for decomposed steps, and verifies which path is more reliable.
+
+More recent work synthesises reasoning data to internalise the retrieve-and-reason loop. \textbf{Auto-RAG}~\cite{autorag} autonomously synthesises multi-turn retrieval--reasoning trajectories and fine-tunes on them, so that the model plans its own retrieval steps without hand-crafted prompts. \textbf{Search-o1}~\cite{searcho1} embeds retrieval inside a large reasoning model in an agentic loop, augmenting o1-style long-chain reasoning with on-demand search and a document-reasoning module that distils retrieved passages before they re-enter the chain. \textbf{AirRAG}~\cite{airrag} activates the model's intrinsic reasoning by combining Monte Carlo Tree Search with self-consistency to explore alternative solution paths. These methods substantially strengthen the reasoning side of RAG, but --- like DeepRAG --- they rely on heavy data synthesis or search-time expansion; SEEK instead keeps the reasoning component a single lightweight SFT decomposer and concentrates its novelty in training-free verification.
+
+Every adaptive method above ultimately rests on a model's ability to recognise its own \emph{knowledge boundary} --- the line between what it reliably knows and what it must look up. A dedicated line of work studies this capacity directly, and we group it into three strands: \emph{self-knowledge elicitation}, \emph{uncertainty estimation}, and the \emph{interaction between the knowledge boundary and retrieval}.
+
+\paragraph{Self-knowledge and its calibration.} A first strand asks whether a model can introspect on what it knows. Kadavath et al.~\cite{kadavath2022} show that LLMs are, to a useful degree, calibrated: a model can be prompted to predict the probability \texttt{P(True)} that its own answer is correct, and these self-judgements correlate with actual accuracy --- though calibration degrades on out-of-distribution and adversarial questions. Yin et al.~\cite{yin2023} construct a ``SelfAware'' benchmark of answerable and unanswerable questions and find that LLMs only partially ``know what they don't know'': self-knowledge can be elicited but lags well behind human performance. From the supervised side, Kapoor et al.~\cite{kapoor2024} argue that models ``must be taught to know what they don't know'', demonstrating that lightweight calibration-tuning or probing substantially sharpens a model's estimate of its own uncertainty. Yin et al.~\cite{yin2024} formalise the notion of a knowledge boundary itself, proposing to benchmark a model by probing the frontier of its reliable knowledge rather than by aggregate accuracy alone.
+
+\paragraph{Uncertainty estimation as a boundary signal.} A second strand asks how to \emph{measure} the boundary at inference time. A naive token-probability or token-entropy signal conflates two kinds of uncertainty: \emph{epistemic} (the model genuinely does not know) and \emph{lexical} (many surface forms express the same fact). Kuhn et al.~\cite{semanticuncertainty} introduce \emph{semantic entropy}, which clusters multiple sampled answers by meaning before computing entropy, so that paraphrases of one correct answer do not register as uncertainty; Farquhar et al.~\cite{semanticentropy} scale this idea and show in \emph{Nature} that semantic entropy reliably detects confabulations across QA and biography generation. This line of work is the closest in spirit to SEEK's verifier signal: both read out the knowledge boundary from generation-time uncertainty. SEEK deliberately adopts the cheaper \emph{token-level} entropy and combines it with decomposition stability and candidate agreement, avoiding the brittleness of an entropy-only hard gate.
+
+\paragraph{The boundary under retrieval.} A third strand studies the boundary specifically in the RAG setting. Ren et al.~\cite{ren2023} show that retrieval augmentation not only injects evidence but also \emph{reshapes} the boundary: relevant passages let a model answer questions it could not before, while irrelevant or distracting passages can push a previously-correct answer over the boundary into error --- precisely the ``noise injection on easy queries'' failure mode of \S\ref{sec:adaptive-rag}. This makes a per-step boundary estimate, rather than a one-shot query-level one, essential when retrieval and reasoning are interleaved.
+
+These three strands form the conceptual foundation of SEEK. The failure modes of \S\ref{sec:adaptive-rag} --- spurious retrieval on easy queries, missing retrieval on hard ones, and confident hallucination under a hard entropy threshold --- are all symptoms of a poorly localised knowledge boundary. Where confidence-based methods read a single uncertainty proxy and policy-based methods bury the boundary inside a learned policy, SEEK makes the boundary inspectable through a late verifier: entropy, decomposition stability, and answer agreement jointly decide whether the direct or decomposed path should be trusted.
+
+\section{Evaluation Datasets}
+\label{sec:evaluation-datasets}
+
+The evaluation of adaptive RAG hinges on datasets that span both single-hop and multi-hop complexity. This thesis uses HotpotQA, 2WikiMultihopQA, MuSiQue, and PopQA to cover both multi-hop reasoning and single-hop factual recall.
+
+\paragraph{HotpotQA.}
+
+HotpotQA~\cite{hotpotqa} is the canonical multi-hop QA benchmark, containing 113K Wikipedia-based questions requiring 2-hop reasoning. Each example provides (a) the question, (b) the gold answer, (c) two gold-supporting paragraphs out of 10 distractors (in the \texttt{distractor} setting), and (d) sentence-level supporting facts. Questions fall into two compositional patterns: \emph{bridge} (the answer to sub-question 1 is the subject of sub-question 2) and \emph{comparison} (two entities are compared along a shared attribute). HotpotQA is a primary training source for DeepRAG and a standard evaluation set for nearly all adaptive RAG papers.
+
+\paragraph{2WikiMultihopQA.}
+
+2WikiMultihopQA~\cite{twowiki} constructs 192K multi-hop questions by leveraging Wikidata knowledge-graph paths, ensuring each question requires traversal of an explicit reasoning chain. It includes four question types (comparison, inference, compositional, and bridge-comparison) and provides KG-triple annotations alongside textual evidence. Compared to HotpotQA, 2WikiMultihopQA exhibits less surface-form leakage between the question and the supporting passages, making it a more reliable test of compositional reasoning.
+
+\paragraph{MuSiQue.}
+
+MuSiQue (\textbf{Mu}ltihop questions via \textbf{Si}ngle-hop \textbf{Que}stions)~\cite{musique} addresses two pathologies of earlier datasets: (i) shortcut answers via single-hop reasoning, and (ii) weak distractor selection. MuSiQue is built by composing 2--4 single-hop questions into chains using strict connectivity criteria, yielding 25K questions of 2-hop, 3-hop, and 4-hop varieties. Importantly, MuSiQue provides the \emph{decomposed} sub-questions as supervision, which makes it a natural training source for decomposer models such as the one used in SEEK. Its high distractor difficulty makes it the hardest of the four datasets in this thesis.
+
+\paragraph{PopQA.}
+
+PopQA~\cite{popqa} is a \emph{single-hop} entity-centric QA dataset of 14K questions, each derived from a Wikidata subject--property--object triple. Critically, PopQA tags each entity with its \emph{popularity} (measured by monthly Wikipedia page views), enabling stratified evaluation of factual recall on long-tail entities. Despite being single-hop, PopQA exposes the over-decomposition failure mode of decomposer-based pipelines: trained on multi-hop data, a decomposer may emit two-step plans even when one step suffices, harming both EM and efficiency.
+
+\paragraph{Single-hop open-domain QA.}
+
+For completeness, prior adaptive-RAG papers also evaluate on \textbf{Natural Questions (NQ)}~\cite{nq}, \textbf{TriviaQA}~\cite{triviaqa}, and \textbf{SQuAD}~\cite{squad}. These are single-hop datasets whose answers typically exist in a single Wikipedia paragraph, and they primarily test whether an adaptive method can correctly \emph{skip} retrieval rather than orchestrate it. This thesis follows the DeepRAG protocol of evaluating on PopQA as the representative single-hop test set.

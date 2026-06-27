@@ -22,7 +22,7 @@ COMMON="--adapter $ADAPTER --mode C --signal max_ent --tau 0.3 --top-k 3"
 for spec in "$@"; do
   ds="${spec%%:*}"; rest="${spec#*:}"; corpus="${rest%%:*}"; dev="${rest#*:}"
   echo "[GPU$GPU lane$LANE] START $ds corpus=$corpus  $(date +%T)"
-  CUDA_VISIBLE_DEVICES=$GPU python scripts/run_seer.py $COMMON $FB \
+  CUDA_VISIBLE_DEVICES=$GPU python scripts/run_seek.py $COMMON $FB \
       --corpus "$corpus" --dev "$dev" \
       --out "results/${ds}_1000_${SUFFIX}.jsonl" \
       > "scripts/${SUFFIX}_${ds}.log" 2>&1

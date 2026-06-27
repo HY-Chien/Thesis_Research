@@ -1,7 +1,7 @@
-"""Convert deeprag_compare PopQA top1000 → SEER-compatible jsonl with BM25-retrieved paragraphs.
+"""Convert deeprag_compare PopQA top1000 → SEEK-compatible jsonl with BM25-retrieved paragraphs.
 
 For each question we pre-fetch top-K passages from the local `wiki` (psgs_w100, ~21M docs)
-Elasticsearch index. SEER's PerQuestionBM25 will then re-rank these per sub-question.
+Elasticsearch index. SEEK's PerQuestionBM25 will then re-rank these per sub-question.
 This matches DeepRAG's "global Wikipedia BM25" protocol.
 """
 from __future__ import annotations

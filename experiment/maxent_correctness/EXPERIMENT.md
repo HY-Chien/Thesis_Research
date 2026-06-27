@@ -15,7 +15,7 @@
 - 低 MAX_ENTROPY → 模型「有把握」→ 傾向答對
 - 高 MAX_ENTROPY → 模型「在猶豫」→ 傾向答錯
 
-這同時是 SEER 拿熵當 gate / skip-decompose router 的理論依據:熵必須真的帶有
+這同時是 SEEK 拿熵當 gate / skip-decompose router 的理論依據:熵必須真的帶有
 「模型知不知道自己在說什麼」的訊號,gate 才有意義。
 
 ---

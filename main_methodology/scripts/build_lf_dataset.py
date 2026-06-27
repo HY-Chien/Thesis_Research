@@ -1,9 +1,9 @@
 """Convert a gold SFT jsonl into LLaMA-Factory alpaca-format training data.
 
-The SEER decomposer learns: complex multi-hop question -> ordered list of
+The SEEK decomposer learns: complex multi-hop question -> ordered list of
 atomic sub-questions. Dependencies are expressed inline with MuSiQue `#N`
 placeholders (e.g. "When was #1 founded?"). The decomposer does NOT predict
-sub-answers — those come later from SEER's entropy-probing step.
+sub-answers — those come later from SEEK's entropy-probing step.
 
 Input  : musique_gold_sft_4000.jsonl  (rows carry `gold_decomposition`)
 Output : a JSON array of {instruction, input, output} for LLaMA-Factory.

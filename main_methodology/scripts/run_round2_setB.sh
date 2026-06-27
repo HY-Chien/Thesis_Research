@@ -37,7 +37,7 @@ for row in "${CONFIGS[@]}"; do
   out="results/${ds}_1000_${suffix}.jsonl"
   log="scripts/r2_${suffix}_${ds}.log"
   echo "[GPU0-B] START $ds $suffix skip=$skip $(date +%T)" | tee -a "$SUMMARY"
-  CUDA_VISIBLE_DEVICES=0 python scripts/run_seer.py $BASE \
+  CUDA_VISIBLE_DEVICES=0 python scripts/run_seek.py $BASE \
       --skip-decompose-tau "$skip" --dev "$dev" --out "$out" > "$log" 2>&1 || \
     echo "  !! FAILED $ds $suffix (see $log)" | tee -a "$SUMMARY"
   res=$(grep -E '^EM:|^F1:|^skipped:' "$log" 2>/dev/null | tr '\n' ' ')

@@ -35,7 +35,9 @@ class PerQuestionBM25:
         corpus = [c or ["_"] for c in corpus]
         self.bm25 = BM25Okapi(corpus)
 
-    def topk(self, query: str, k: int = 5) -> list[dict]:
+    def topk(self, query: str, k: int = 5, title_field=None) -> list[dict]:
+        # title_field accepted for a uniform interface with OpenDomainBM25;
+        # ignored here — the per-question pool already prepends title to body.
         scores = self.bm25.get_scores(_tok(query))
         ranked = sorted(range(len(scores)), key=lambda i: -scores[i])
         return [self.paragraphs[i] for i in ranked[:k]]
@@ -65,12 +67,22 @@ class OpenDomainBM25:
     index). Constructed once and shared across all questions."""
 
     def __init__(self, corpus_name: str = "wiki",
-                 host: str = "localhost", port: int = 9200):
+                 host: str = "localhost", port: int = 9200,
+                 query_title_field_too: bool = True):
         from elasticsearch_retriever import ElasticsearchRetriever
         self._r = ElasticsearchRetriever(host=host, port=port)
         self.corpus_name = corpus_name
+        # Match the `title` field as well as `paragraph_text`. Titles are highly
+        # informative for finding the right ARTICLE (DeepRAG's BM25 does this);
+        # leaving it off handicaps open-domain multi-hop recall. Default ON.
+        self.query_title_field_too = query_title_field_too
 
-    def topk(self, query: str, k: int = 3) -> list[dict]:
+    def topk(self, query: str, k: int = 3, title_field=None) -> list[dict]:
+        # title_field: per-call override of title matching. None -> instance
+        # default. PATH-AWARE use: True for short decompose sub-queries (≈ an
+        # entity/title, title match surfaces the right article), False for the
+        # long single-step original question (title match injects stray hits).
+        tf = self.query_title_field_too if title_field is None else title_field
         # Retry with backoff: under concurrent GPUs the shared ES can 429 /
         # time out. A single failed query must NOT crash a 1000-row run — retry
         # a few times, then degrade gracefully to empty context.
@@ -80,7 +92,8 @@ class OpenDomainBM25:
             try:
                 return self._r.retrieve_paragraphs(
                     self.corpus_name, query_text=query,
-                    max_hits_count=k, max_buffer_count=max(100, k))[:k]
+                    max_hits_count=k, max_buffer_count=max(100, k),
+                    query_title_field_too=tf)[:k]
             except Exception as e:  # noqa: BLE001 — ES 429/timeout under load
                 last = e
                 time.sleep(2 ** attempt)

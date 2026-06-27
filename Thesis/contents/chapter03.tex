@@ -1,74 +1,89 @@
 \chapter{Methodology}
 \label{ch:method}
 
-This chapter presents \textbf{SEER} (\textbf{S}ub-question \textbf{E}ntropy-driven \textbf{E}fficient \textbf{R}etrieval), a sub-question-level adaptive RAG framework. Section~\ref{sec:overview} gives an end-to-end overview. Sections~\ref{sec:decomposer}--\ref{sec:synthesize} describe each pipeline stage. Section~\ref{sec:training} details the LoRA training protocol for the decomposer, and Section~\ref{sec:modes} explains the two inference modes (B / C) used for ablation.
+This chapter presents \textbf{SEEK} (\textbf{S}elf-certainty \textbf{E}valuated \textbf{E}ntropy-gated \textbf{K}nowledge-retrieval), a lightweight adaptive RAG framework that treats question decomposition as a routing problem. Earlier versions of SEEK used entropy as a hard skip-decomposition gate. The final system instead runs both a direct path and a decomposition path, preserves original-question evidence inside decomposed steps, and chooses between the candidate answers using a training-free verifier. Section~\ref{sec:overview} gives the end-to-end overview. Sections~\ref{sec:decomposer}--\ref{sec:synthesize} describe the decomposition path, Section~\ref{sec:verifier} describes the verifier, and Sections~\ref{sec:training}--\ref{sec:modes} give the training and implementation details.
 
 \section{Overview}
 \label{sec:overview}
 
-Given a question $q$ and a candidate paragraph pool $\mathcal{P}_q$ (the standard multi-hop QA evaluation setup), SEER produces a final answer $\hat{a}$ in four stages:
+Given a question $q$ and an open-domain retrieval corpus $\mathcal{P}$, SEEK produces a final answer $\hat{a}$ through two candidate-generation paths followed by a verifier:
 
 \begin{enumerate}
-    \item \textbf{Decompose.} The decomposer $\mathcal{D}_\theta$ maps $q$ to an ordered list of atomic sub-questions $\{s_1, s_2, \ldots, s_n\}$ in a knowledge-graph-triple notation, with explicit cross-references between steps.
-    \item \textbf{Per-step probe.} For each sub-question $s_i$, the answerer $\mathcal{A}_\theta$ generates a tentative answer $\tilde{a}_i$ without retrieval and emits a token-level confidence signal $\sigma_i$.
-    \item \textbf{Gate.} If $\sigma_i \geq \tau$ (high uncertainty), the BM25 retriever fetches the top-$k$ paragraphs from $\mathcal{P}_q$ for $s_i$, and $\mathcal{A}_\theta$ re-answers $s_i$ conditioned on the retrieved context to produce $a_i$. Otherwise $a_i := \tilde{a}_i$ (parametric memory only).
-    \item \textbf{Synthesize.} The synthesizer (same model as $\mathcal{A}_\theta$) takes $q$ together with all sub-answers $\{(s_i, a_i)\}$ and emits the final terse answer $\hat{a}$.
+    \item \textbf{Direct path.} The answerer directly answers the original question $q$ with BM25 evidence retrieved from $\mathcal{P}$, producing a direct candidate $a^{\mathrm{dir}}$ and a token-level entropy score $\sigma^{\mathrm{dir}}$ over the generated answer span.
+    \item \textbf{Decomposition path.} The decomposer $\mathcal{D}_\theta$ maps $q$ to ordered sub-questions $\{s_1, \ldots, s_n\}$. Each sub-question is answered sequentially, with placeholder substitution, entropy probing, conditional retrieval, original-question evidence union, and a final synthesis step that produces $a^{\mathrm{dec}}$.
+    \item \textbf{Training-free verifier.} A deterministic verifier compares $a^{\mathrm{dir}}$ and $a^{\mathrm{dec}}$ using query-level signals: direct-answer confidence, decomposition stability, post-synthesis confidence, and answer agreement. It returns either $a^{\mathrm{dir}}$ or $a^{\mathrm{dec}}$ as $\hat{a}$.
 \end{enumerate}
 
-The decomposer and answerer share a single Llama3-8B-Instruct backbone with a LoRA adapter (rank 16) trained on the decomposition task only. All gating happens at inference time --- no policy is learned for the retrieve / skip decision.
+The final operating point is the \textbf{training-free verifier with type-aware fallback}: it uses only signals naturally emitted during inference and does not require an additional classifier, DPO, tree search, or gold-answer supervision. Evidence-support variants are evaluated as ablations in Chapter~\ref{ch:exp}, but are not used in the main method because lexical support is not globally stable for compositional reasoning.
+
 
 \begin{figure}[h]
     \centering
-    % \includegraphics[width=\textwidth]{figures/seer_pipeline.pdf}
-    \caption[SEER Pipeline]{SEER pipeline: a question is decomposed into KG-triple sub-questions, each probed for token-level entropy, gated against threshold $\tau$, optionally re-answered with retrieved context, and finally synthesized into a terse answer.}
+    \fbox{\begin{minipage}{0.92\linewidth}
+    \centering
+    Original question $q$\\[3pt]
+    $\downarrow$\\[3pt]
+    \textbf{Direct path}: original-question retrieval produces $a^{\mathrm{dir}}$\\[3pt]
+    \textbf{Decomposition path}: sub-question plan, entropy-gated retrieval, and original-question evidence union produce $a^{\mathrm{dec}}$\\[3pt]
+    $\downarrow$\\[3pt]
+    Training-free verifier selects the final answer.
+    \end{minipage}}
+    \caption[SEEK Pipeline]{SEEK pipeline: the system generates a direct answer and a decomposed answer, preserves original-question evidence inside the decomposition path, and uses a training-free verifier to select the final answer.}
     \label{fig:pipeline}
 \end{figure}
 
 \section{Problem Formulation}
 
-Let $\mathcal{M}_\theta$ be a pretrained language model and $r(s, \mathcal{P}) \to \mathcal{P}_{\text{top-}k}$ a retriever over a paragraph pool $\mathcal{P}$. A retrieval-augmented QA system produces an answer $\hat{a} = \mathcal{M}_\theta(q, c)$ where $c$ is a (possibly empty) context. We define a per-sub-question \emph{retrieval policy} $\pi: \mathcal{S} \to \{0, 1\}$ which decides, for each sub-question $s$, whether to invoke the retriever. The optimisation goal is:
+Let $\mathcal{M}_\theta$ be a pretrained language model, $r(q, \mathcal{P}, k)$ a BM25 retriever over an open-domain corpus $\mathcal{P}$, and $\mathcal{D}_\theta(q)$ a decomposer that emits sub-questions. A conventional retrieve-then-read system produces one answer from one path. SEEK instead constructs two candidates:
 
 \[
-    \min_\pi \;\; \mathbb{E}_{(q, a^*)}\!\left[ \mathcal{L}(\hat{a}, a^*) + \lambda \cdot \mathbb{E}_{s \in \mathcal{D}(q)}\!\left[ \pi(s) \right] \right],
+    a^{\mathrm{dir}} = \mathcal{M}_\theta(q, r(q, \mathcal{P}, k)),
+\]
+\[
+    a^{\mathrm{dec}} = \mathrm{Synth}\left(q, \{(s_i, a_i)\}_{i=1}^{n}\right), \quad \{s_i\}_{i=1}^{n}=\mathcal{D}_\theta(q).
 \]
 
-where $\mathcal{L}$ is an answer-correctness loss (e.g.\ $1 - \text{EM}$), $\mathcal{D}(q)$ is the decomposition of $q$, and $\lambda > 0$ trades off accuracy against retrieval cost. SEER does \emph{not} learn $\pi$; instead it instantiates $\pi$ as a simple threshold rule on a model-derived confidence signal, sidestepping the policy-learning cost of DeepRAG~\cite{deeprag}.
+The final decision is a verifier $v$:
+
+\[
+    \hat{a}=v\left(q, a^{\mathrm{dir}}, a^{\mathrm{dec}}, z^{\mathrm{dir}}, z^{\mathrm{dec}}\right),
+\]
+
+where $z^{\mathrm{dir}}$ and $z^{\mathrm{dec}}$ are inference-time diagnostic signals such as entropy, unresolved placeholders, and candidate agreement. Unlike DeepRAG~\cite{deeprag}, SEEK does not learn $v$ through tree-search rollouts or preference optimisation. The verifier is a transparent rule set designed to approximate the oracle choice between direct and decomposed reasoning.
 
 \section{Stage 1: Sub-Question Decomposer}
 \label{sec:decomposer}
 
 \subsection{Output Format}
 
-The decomposer is instructed to emit one sub-question per line, prefixed with \texttt{\#}$\langle i \rangle$\texttt{:}. Each sub-question is expressed as a \emph{knowledge-graph triple} fragment:
+The decomposer emits one sub-question per line, prefixed with \texttt{\#}$\langle i \rangle$\texttt{:}. Each sub-question is expressed as a compact knowledge-graph fragment:
 
 \begin{center}
     \texttt{\#}$i$\texttt{: }$\langle$\emph{entity}$\rangle$\texttt{ >> }$\langle$\emph{relation}$\rangle$
 \end{center}
 
-When a sub-question depends on the answer of an earlier step, the placeholder \texttt{\#}$j$ (with $j < i$) substitutes for the unresolved entity. For example, the question ``\emph{Where was the director of the film X born?}'' decomposes to:
+When a sub-question depends on an earlier answer, the placeholder \texttt{\#}$j$ refers to step $j$. For example:
 
 \begin{verbatim}
 #1: X >> director
 #2: #1 >> place of birth
 \end{verbatim}
 
-At inference, placeholders are resolved sequentially: once $a_1$ is determined, \texttt{\#}$1$ in $s_2$ is rewritten as $a_1$ before the answerer is invoked. The KG-triple notation has three benefits over free-form natural-language sub-questions: (i) it is compact and consistent across datasets, reducing decoding variance; (ii) it matches the underlying structure of Wikidata-derived datasets (PopQA, 2WikiMultihopQA); and (iii) it makes downstream entropy probing semantically meaningful --- the answer span IS the object entity of the triple.
+At inference, placeholders are resolved sequentially: once $a_1$ is produced, \texttt{\#1} in $s_2$ is rewritten as $a_1$ before retrieval and answering. The KG-triple notation is compact, consistent across datasets, and aligned with Wikidata-style supervision in 2WikiMultihopQA and PopQA.
 
 \subsection{Decomposer Prompt}
 
 The decomposer is prompted with a fixed instruction:
 
 \begin{quote}\small\itshape
-Decompose the following multi-hop question into an ordered list of atomic sub-questions. Each sub-question must be answerable in a single retrieval/reasoning step. When a sub-question depends on the answer of an earlier one, refer to that step with a \texttt{\#N} placeholder (e.g.\ \texttt{\#1}). Output one sub-question per line, prefixed with \texttt{\#<index>:}
+Decompose the following question into an ordered list of atomic sub-questions. Each sub-question must be answerable in a single retrieval and reasoning step. When a sub-question depends on the answer of an earlier one, refer to that step with a \texttt{\#N} placeholder. Output one sub-question per line, prefixed with \texttt{\#<index>:}
 \end{quote}
 
 \subsection{Decomposition Examples by Dataset}
 
-Different datasets exhibit distinct decomposition topologies (Table~\ref{tab:decomp-examples}):
-
 \begin{table}[h]
     \centering
-    \caption[Decomposition Patterns by Dataset]{Representative decomposition patterns produced by the SEER decomposer.}
+    \caption[Decomposition Patterns by Dataset]{Representative decomposition patterns produced by the SEEK decomposer.}
     \label{tab:decomp-examples}
     \setlength{\tabcolsep}{6pt}
     \small
@@ -82,7 +97,7 @@ Different datasets exhibit distinct decomposition topologies (Table~\ref{tab:dec
         \addlinespace
         2WikiMultihopQA & comparison & \texttt{\#1: A >> date of birth} \newline \texttt{\#2: B >> date of birth} \\
         \addlinespace
-        MuSiQue (4-hop) & compositional chain & \texttt{\#1: X >> capital} \newline \texttt{\#2: \#1 >> mayor} \newline \texttt{\#3: \#2 >> party} \newline \texttt{\#4: \#3 >> founder} \\
+        MuSiQue & compositional chain & \texttt{\#1: X >> capital} \newline \texttt{\#2: \#1 >> mayor} \newline \texttt{\#3: \#2 >> party} \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -90,86 +105,96 @@ Different datasets exhibit distinct decomposition topologies (Table~\ref{tab:dec
 \section{Stage 2: Token-Level Confidence Probe}
 \label{sec:probe}
 
-For each resolved sub-question $s_i$, the answerer produces a tentative answer $\tilde{a}_i$ by greedy decoding (\texttt{do\_sample=False}) under a constraint prompt that forces an answer-only emission:
+Both the direct path and each sub-question answer use an answer-only prompt:
 
 \begin{quote}\small\itshape
 Answer the question with the answer phrase only. No explanation, no preamble, no full sentence --- just the answer.
 \end{quote}
 
-This prompt is critical: by forbidding preamble and explanation, the generated span IS the answer entity, so token-level confidence probes the model's certainty about the \emph{factual} target rather than about boilerplate. During generation, the per-step softmax distribution $p_t = \mathrm{softmax}(\mathrm{logits}_t)$ is captured for each generated token $t$, and three confidence signals are computed:
+During greedy decoding, SEEK records the softmax distribution $p_t=\mathrm{softmax}(\mathrm{logits}_t)$ for each generated token $t$ and computes:
 
 \begin{align}
-    \sigma^{\text{max-ent}}  &= \max_t H(p_t), \quad &\text{(maximum per-token entropy)} \\
-    \sigma^{\text{mean-ent}} &= \frac{1}{T} \sum_t H(p_t), \quad &\text{(mean per-token entropy)} \\
-    \sigma^{\text{min-lp}}   &= \min_t \log p_t(y_t),  \quad &\text{(minimum log-prob of chosen token)}
+    \sigma^{\text{max-ent}}  &= \max_t H(p_t), \\
+    \sigma^{\text{mean-ent}} &= \frac{1}{T}\sum_t H(p_t), \\
+    \sigma^{\text{min-lp}}   &= \min_t \log p_t(y_t),
 \end{align}
 
-where $H(p) = -\sum_v p(v) \log p(v)$ and $y_t$ is the chosen token at step $t$. EOS tokens are excluded. Higher entropy (or lower log-prob) indicates higher uncertainty. The default signal in SEER is $\sigma^{\text{max-ent}}$, which empirically correlates best with answer-span uncertainty in pilot studies.
+where $H(p)=-\sum_v p(v)\log p(v)$ and EOS tokens are excluded. The default diagnostic signal is maximum token entropy. In the decomposition path, this entropy controls per-step retrieval. In the v2 verifier, it is used at the query level to decide whether the direct answer is confident enough to rescue a failed decomposition.
 
-\section{Stage 3: Retrieval Gate}
+\section{Stage 3: Decomposition-Path Retrieval Gate}
 \label{sec:gate}
 
-The retrieval decision per sub-question is a thresholded comparison:
+Within the decomposition path, retrieval remains sub-question-level. For a resolved sub-question $s_i$, the answerer first produces a tentative parametric answer $\tilde{a}_i$ and entropy $\sigma_i$. The retriever is invoked when:
 
 \[
-    \pi(s_i) = \mathbb{1}[\sigma_i \geq \tau] \quad \text{for entropy signals (max-ent / mean-ent)},
-\]
-\[
-    \pi(s_i) = \mathbb{1}[\sigma_i \leq \tau] \quad \text{for log-prob signal (min-lp)}.
+    \pi(s_i)=\mathbb{1}[\sigma_i \geq \tau],
 \]
 
-When $\pi(s_i) = 1$, the retriever fetches the top-$k$ paragraphs and the answerer re-runs with the retrieved context. When $\pi(s_i) = 0$, the tentative parametric answer $\tilde{a}_i$ is adopted as $a_i$. The threshold $\tau$ is a single, dataset-agnostic hyperparameter --- set to $\tau = 0.3$ for max-entropy in all main experiments (justified in Chapter~\ref{ch:exp}). This unified $\tau$ design is a deliberate choice: tuning $\tau$ per dataset would constitute test-time leakage, weakening the claim that SEER generalises across query distributions.
+with $\tau=0.3$ for max-entropy in the final system. If $\pi(s_i)=1$, BM25 retrieves top-$k$ passages and the answerer re-answers $s_i$ with context; otherwise $\tilde{a}_i$ is kept. This local gate reduces unnecessary retrieval inside the decomposition path, but it is no longer the final routing mechanism for the whole question.
+
+\subsection{Original-Question Evidence Union}
+\label{sec:direct-context-union}
+
+A decomposed sub-question is often shorter and more entity-centric than the original question, which improves retrieval precision but can remove global clues such as comparison targets or disambiguating conditions. To preserve this context, the final system augments each retrieved sub-question context with evidence retrieved from the original question:
+
+\[
+    C_i = r(s_i, \mathcal{P}, k) \cup r(q, \mathcal{P}, k).
+\]
+
+The union is deduplicated before answering. This operation does not change the decomposer or train a new retriever; it simply keeps the original-question evidence available when answering each decomposed step. Chapter~\ref{ch:exp} shows that this is the main improvement from the path-aware baseline to the final system, especially on HotpotQA and 2WikiMultihopQA.
+
 
 \subsection{Retriever}
 
-The retriever is BM25-Okapi~\cite{rag_survey} (via the \texttt{rank\_bm25} library) over the per-question candidate paragraph pool $\mathcal{P}_q$, matching the evaluation protocol of Adaptive-RAG~\cite{adaptiverag} and DeepRAG~\cite{deeprag}. Each candidate paragraph is tokenised by lower-cased word boundaries; the paragraph title is prepended to its body before indexing (titles carry strong entity signal for KG-triple queries). The retrieved context is rendered as a numbered block:
-
-\begin{verbatim}
-[1] <title-1>
-<body-1>
-
-[2] <title-2>
-<body-2>
-...
-\end{verbatim}
-
-Top-$k$ is fixed to $k = 5$ in all experiments.
-
-\subsection{Optional Skip-Decompose Probe}
-
-For predominantly single-hop datasets (e.g.\ PopQA), the decomposer can over-decompose --- emitting two-step plans for one-step questions. SEER supports an optional \emph{skip-decompose probe}: before decomposition, the answerer is asked the \emph{original} question with retrieved context, and if its confidence signal indicates high certainty ($\sigma < \tau_{\text{skip}}$), the answer is returned directly. This branch is ablated in Chapter~\ref{ch:exp} but disabled in the main results to keep the gating policy unified.
+The final experiments use an honest open-domain Wikipedia corpus: the shared Elasticsearch \texttt{wiki} index over \texttt{psgs\_w100} with approximately 21M passages, matching DeepRAG's retrieval setting. We use BM25 top-$k=8$ for HotpotQA, 2WikiMultihopQA, and MuSiQue, and top-$k=3$ for PopQA. Earlier per-question distractor-pool results are retained only as development and ablation evidence. The final implementation uses a path-aware title policy: title matching is disabled for long original-question direct retrieval and enabled for short decomposed sub-question retrieval.
 
 \section{Stage 4: Synthesis}
 \label{sec:synthesize}
 
-The final answer is produced by a synthesis pass that conditions on the original question and all $(s_i, a_i)$ pairs. The synthesis prompt encodes three answer-shaping rules learned from error analysis on multi-hop benchmarks:
+The decomposed answer $a^{\mathrm{dec}}$ is produced by a synthesis pass over the original question and all $(s_i,a_i)$ pairs. The prompt encodes three answer-shaping rules derived from error analysis:
 
 \begin{enumerate}
-    \item \textbf{Comparison questions} (``which X is older / taller / earlier'') return the matching \emph{entity}, not the value being compared.
-    \item \textbf{Yes/No questions} (``do X and Y share a country?'') return ``Yes'' or ``No'' based on agreement between sub-answers.
-    \item \textbf{Terse-span rule.} Strip qualifiers, dates strip to year-only when the question asks ``when''. This rule directly addresses the EM/F1 gap observed in pilot experiments, where verbose answers (e.g.\ ``Conservative politician and soldier'' for gold ``politician'') lost EM despite high F1.
+    \item \textbf{Comparison questions} return the matching entity, not the compared value.
+    \item \textbf{yes-or-no questions} return ``Yes'' or ``No'' based on agreement between sub-answers.
+    \item \textbf{Terse-span rule} strips unnecessary modifiers and keeps answer spans short for EM compatibility.
 \end{enumerate}
 
-The full synthesis instruction (excerpted from \texttt{seer/pipeline.py}) includes four worked few-shot examples covering comparison, Yes/No, single-fact, and ``when'' questions. The synthesizer emits the final span directly without any explanation, allowing standard SQuAD EM / F1 metrics to be applied without post-processing.
+The implementation also includes a value-to-entity guard for comparison failures: if synthesis emits a value such as a year but the question asks which entity satisfies a comparison, the system maps the value back to the owning entity when this mapping is unambiguous.
+
+\section{Stage 5: Training-Free Verifier v2}
+\label{sec:verifier}
+
+The verifier chooses between the direct candidate and the decomposed candidate. It is intentionally conservative: decomposition remains the default because it improves multi-hop retrieval, and the verifier switches to the direct answer only when the direct path is confident and the decomposition path shows signs of instability. The final implementation additionally applies a conservative type-aware fallback that corrects a small number of answer-type mismatches without rerunning generation or training a router.
+
+\paragraph{Signals.} The verifier uses four query-level signals:
+
+\begin{itemize}
+    \item \textbf{Direct-answer entropy} $\sigma^{\mathrm{dir}}$: low entropy suggests the direct answer may be reliable.
+    \item \textbf{Decomposition post-entropy} $\sigma^{\mathrm{dec}}$: high entropy after decomposition and synthesis suggests the decomposed answer is unstable.
+    \item \textbf{Structural validity}: unresolved placeholders, empty sub-answers, or malformed sub-questions indicate decomposition failure.
+    \item \textbf{Candidate agreement}: normalised string agreement between $a^{\mathrm{dir}}$ and $a^{\mathrm{dec}}$ is treated as mutual support.
+\end{itemize}
+
+\paragraph{Rule.} The verifier accepts agreement immediately; otherwise it chooses direct when the direct answer is confident and decomposition is unstable, and chooses decomposition in the remaining cases. The deployed thresholds are \texttt{direct\_entropy\_tau=0.4} and \texttt{decomp\_post\_entropy\_tau=0.8}. The type-aware fallback is a deterministic refinement: it only changes the final route when answer type, direct entropy, decomposition post-entropy, and entity-fragment signals consistently indicate that the direct answer should be preferred. No dataset name, gold answer, trained classifier, or evidence-label supervision is used.
+
+\paragraph{Evidence support.} We also evaluated evidence-aware variants that score whether the final answer or chain answers are lexically supported by retrieved passages. These variants are not part of the final method: they slightly improve HotpotQA but consistently hurt 2Wiki and MuSiQue, showing that lexical support is not a reliable global routing signal for compositional questions.
 
 \section{Training Protocol}
 \label{sec:training}
 
-Only the decomposer requires training; the answerer reuses the same adapter (Mode C) or runs on the base model (Mode B, see Section~\ref{sec:modes}).
+Only the decomposer requires training. The answerer, synthesizer, and verifier are training-free at the routing stage.
 
 \subsection{Backbone and LoRA Configuration}
 
 \begin{itemize}
     \item \textbf{Backbone:} Llama-3-8B-Instruct.
-    \item \textbf{Adapter type:} LoRA~\cite{lora} on all linear modules (\texttt{lora\_target=all}).
-    \item \textbf{Rank / Alpha / Dropout:} $r = 16$, $\alpha = 32$, dropout $= 0.05$.
+    \item \textbf{Adapter type:} LoRA~\cite{lora} on all linear modules.
+    \item \textbf{Rank, Alpha, and Dropout:} $r=16$, $\alpha=32$, dropout $=0.05$.
     \item \textbf{Precision:} bf16.
-    \item \textbf{Context length:} 1024 tokens (decomposition outputs are short).
+    \item \textbf{Context length:} 1024 tokens.
 \end{itemize}
 
 \subsection{Training Data}
-
-Decomposer training data is constructed in the Alpaca instruction-tuning format. Three sources are used:
 
 \begin{table}[h]
     \centering
@@ -180,66 +205,60 @@ Decomposer training data is constructed in the Alpaca instruction-tuning format.
         \toprule
         Source & \#samples & Decomposition source \\
         \midrule
-        MuSiQue       & 4{,}000 & Gold sub-questions (provided by dataset) \\
-        2WikiMultihopQA & 4{,}000 & GPT-OSS-20B distillation with hop-count check \\
-        PopQA           & 4{,}000 & 1-step triple (\texttt{\#1: subj >> prop}) \\
+        MuSiQue & 4{,}000 & Gold sub-questions \\
+        2WikiMultihopQA & 4{,}000 & Evidence-triple conversion \\
+        PopQA & 4{,}000 & 1-step triples \\
         \midrule
-        Total           & 12{,}000 & \\
+        Total & 12{,}000 & \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-The PopQA contribution serves a specific purpose: by including single-hop samples in training, the decomposer learns that a one-step plan is a valid output, directly mitigating the over-decomposition failure mode discussed in Section~\ref{sec:gate}. This design choice is a deliberate trade-off rather than a free improvement. Including PopQA recovers single-hop accuracy substantially (PopQA exact-match rises from $14.2$ to $39.8$, Chapter~\ref{ch:exp}), but it mildly degrades the multi-hop benchmarks relative to a decomposer trained on multi-hop data alone (most visibly on 2WikiMultihopQA). SEER adopts the three-source decomposer as its default precisely because it yields a \emph{single, unified} model that performs acceptably across both single- and multi-hop query distributions without any per-dataset switching --- which is the central robustness claim of this work. The accuracy cost of this unification is quantified and discussed in Chapter~\ref{ch:exp} and Chapter~\ref{ch:discussion}.
+The PopQA component teaches the decomposer that a one-step plan is valid. This improves single-hop robustness, but Chapter~\ref{ch:exp} shows that it also creates negative transfer on some multi-hop datasets. The verifier is introduced precisely because no single hard decomposition policy is optimal across all query types.
 
 \subsection{Optimisation}
 
-LoRA is trained with the LLaMA-Factory framework~\cite{llamafactory}:
-
-\begin{itemize}
-    \item \textbf{Effective batch size:} 16 ($4 \times 4$ gradient accumulation).
-    \item \textbf{Learning rate:} $1 \times 10^{-4}$ with cosine schedule, $10\%$ warmup.
-    \item \textbf{Epochs:} 3.
-    \item \textbf{Total steps:} $\sim$2{,}250.
-    \item \textbf{Wall time:} $\sim$38 minutes on a single A6000 (48GB) GPU.
-\end{itemize}
+LoRA is trained with LLaMA-Factory~\cite{llamafactory}: effective batch size 16, learning rate $1\times10^{-4}$ with cosine decay and 10\% warmup, 3 epochs, and approximately 38 minutes on one A6000 GPU.
 
 \section{Inference Modes}
 \label{sec:modes}
 
-Two inference modes are evaluated to disentangle the contribution of the LoRA adapter at \emph{answer time}:
+Two adapter modes were evaluated during development:
 
 \begin{description}
-    \item[\textbf{Mode B (adapter-toggle).}] The LoRA adapter is enabled for decomposition and synthesis but \emph{disabled} for the answerer probe and re-answer steps. This isolates the decomposer's contribution: the answerer behaves as pure base Llama3-8B-Instruct.
-    \item[\textbf{Mode C (adapter-always).}] The LoRA adapter is enabled for all stages. This is the default used in main results, since the decomposition LoRA does not appear to degrade answer-only generation in pilot tests.
+    \item[\textbf{Mode B.}] LoRA is enabled for decomposition and synthesis but disabled for sub-question answering.
+    \item[\textbf{Mode C.}] LoRA is enabled for decomposition and sub-question answering. This is the final default because it outperformed Mode B in pilot experiments.
 \end{description}
 
-Both modes share the same gating logic; they differ only in which weights produce $\tilde{a}_i$ and $a_i$.
+For final synthesis, the adapter is disabled (\textbf{synthOFF}) because the base instruction model produces shorter and more stable final spans.
 
 \section{Implementation Summary}
 
-The end-to-end SEER inference loop is summarised as Algorithm~\ref{alg:seer}. Code lives in \texttt{Research/main\_methodology/seer/} (\texttt{pipeline.py}, \texttt{answerer.py}, \texttt{retriever.py}).
+Algorithm~\ref{alg:seek} summarises the final inference loop. Code lives in the \texttt{seek} module used by the main methodology code.
 
 \begin{algorithm}[h]
-\caption{SEER inference for one question $q$}
-\label{alg:seer}
+\caption{SEEK v2 inference for one question $q$}
+\label{alg:seek}
 \begin{algorithmic}[1]
-\Require question $q$, paragraph pool $\mathcal{P}_q$, threshold $\tau$, top-$k$
-\State $\{s_1, \ldots, s_n\} \gets \mathcal{D}_\theta(q)$ \Comment{decompose}
-\State $A \gets \emptyset$ \Comment{answers dict for placeholder resolution}
-\For{$i = 1$ to $n$}
-    \State $s_i \gets \textsc{Resolve}(s_i, A)$ \Comment{substitute \texttt{\#}$j$ with $A[j]$}
-    \State $(\tilde{a}_i, \sigma_i) \gets \mathcal{A}_\theta(s_i, \emptyset)$ \Comment{probe without context}
-    \If{$\sigma_i \geq \tau$}
-        \State $c_i \gets r(s_i, \mathcal{P}_q, k)$ \Comment{retrieve}
-        \State $a_i \gets \mathcal{A}_\theta(s_i, c_i)$ \Comment{re-answer with context}
+\Require question $q$, corpus $\mathcal{P}$, entropy threshold $\tau$, top-$k$
+\State $(a^{\mathrm{dir}}, \sigma^{\mathrm{dir}}) \gets \textsc{DirectAnswer}(q, r(q,\mathcal{P},k))$
+\State $\{s_1,\ldots,s_n\}\gets \mathcal{D}_\theta(q)$
+\State $A\gets\emptyset$
+\For{$i=1$ to $n$}
+    \State $s_i\gets\textsc{Resolve}(s_i,A)$
+    \State $(\tilde{a}_i,\sigma_i)\gets\mathcal{A}_\theta(s_i,\emptyset)$
+    \If{$\sigma_i\geq\tau$}
+        \State $c_i\gets r(s_i,\mathcal{P},k) \cup r(q,\mathcal{P},k)$
+        \State $a_i\gets\mathcal{A}_\theta(s_i,c_i)$
     \Else
-        \State $a_i \gets \tilde{a}_i$
+        \State $a_i\gets\tilde{a}_i$
     \EndIf
-    \State $A[i] \gets a_i$
+    \State $A[i]\gets a_i$
 \EndFor
-\State $\hat{a} \gets \textsc{Synthesize}(q, \{(s_i, a_i)\}_{i=1}^n)$
+\State $(a^{\mathrm{dec}},\sigma^{\mathrm{dec}},z^{\mathrm{dec}})\gets\textsc{Synthesize}(q,\{(s_i,a_i)\}_{i=1}^{n})$
+\State $\hat{a}\gets\textsc{Verifier}(a^{\mathrm{dir}},a^{\mathrm{dec}},\sigma^{\mathrm{dir}},\sigma^{\mathrm{dec}},z^{\mathrm{dec}})$
 \State \Return $\hat{a}$
 \end{algorithmic}
 \end{algorithm}
 
-The next chapter evaluates this pipeline on four QA benchmarks and ablates the decomposer training data, gating signal, and threshold.
+The next chapter evaluates this final dual-path system against DeepRAG under the honest wiki-21M retrieval protocol and reports the older distractor-pool experiments separately as development diagnostics.

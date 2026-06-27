@@ -8,7 +8,7 @@ samples: the `mean_max_ent` field) correlate with whether the answer is correct?
 
 Data
 ----
-Self-consistency sampling results (`*_msample.jsonl`) produced by the SEER pipeline.
+Self-consistency sampling results (`*_msample.jsonl`) produced by the SEEK pipeline.
 Each row has:
     - mean_max_ent : per-question MAX_ENTROPY signal (mean over SC samples of the
                      max per-token entropy of the sampled answer)

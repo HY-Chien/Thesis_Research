@@ -1,0 +1,39 @@
+### model — Qwen2.5-7B-Instruct (matches DeepRAG's second backbone)
+model_name_or_path: /workspace/hf_cache/hub/models--Qwen--Qwen2.5-7B-Instruct/snapshots/a09a35458c702b33eeacc393d103063234e8bc28
+trust_remote_code: true
+
+### method — same recipe as the Llama-3 12K decomposer
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: all
+
+### dataset — same 12K three-source decomposition data
+dataset: musique_decomp,twowiki_decomp,popqa_decomp
+dataset_dir: /home/S113065528/LLaMA-Factory/data
+template: qwen
+cutoff_len: 1024
+overwrite_cache: true
+preprocessing_num_workers: 16
+dataloader_num_workers: 4
+
+### output
+output_dir: /home/S113065528/Research/main_methodology/checkpoints/qwen25-7b-decomposer-musique-2wiki-popqa
+logging_steps: 20
+save_steps: 2000
+plot_loss: true
+overwrite_output_dir: true
+report_to: none
+
+### train — identical hyperparameters to the Llama-3 run
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 4
+learning_rate: 1.0e-4
+num_train_epochs: 3.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+seed: 42
