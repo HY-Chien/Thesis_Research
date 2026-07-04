@@ -7,8 +7,13 @@
 > wiki21M_oracle_direct_decompose_full, decompose_vs_direct_2x2, recall_ab_m3}.md`。
 > 原始 JSONL 結果仍在 `results/`,本檔只整併文字彙整。
 >
-> 最後更新:2026-06-27。2026-06-27 整理 6/25 thesis presentation 的最新敘事記憶；
-> 2026-06-23 新增 HotpotQA failure analysis、conservative date-comparison synthesis guard、direct-context union ablation；
+> 最後更新:2026-07-03。2026-07-03 新增跨資料集 decomposition failure taxonomy
+> (`results/decomp_failure_taxonomy.md`)與 PopQA confidence-popularity bias 分析
+> (`experiment/maxent_correctness/confidence_popularity_bias.md`);
+> 2026-07-01 新增 efficiency 成本框架:
+> SEEK 的主要效率主張改為 training-free adaptive routing,不宣稱推論檢索次數一定少於 DeepRAG；
+> 2026-06-27 整理 6/25 thesis presentation 的最新敘事記憶；
+> 2026-06-23 新增 HotpotQA failure analysis、conservative date-comparison synthesis guard、original-question evidence union ablation；
 > 主表 headline JSONL 尚未覆寫者維持原 canonical。
 > 前置階段(SC-gated / confident-hallucination,
 > `Research/EXPERIMENTS_SUMMARY.md`、`deeprag_compare/`、`experiment/`)是**另一個主題**,
@@ -58,33 +63,88 @@ synthesis 選錯 entity」的乾淨錯誤。既有 path-aware trace 的 offline 
 HotpotQA **31.8/41.2 → 32.1/41.7**, 2Wiki **46.9/53.5 → 47.8/54.4**,
 MuSiQue/PopQA 不變。此為小幅 synthesis fix。
 
-**2026-06-23 direct-context union ablation(正式 1000Q,四資料集全跑 → 新 canonical 候選):**
+**2026-07-03 incremental update(offline replay,不改主表):** 新增
+`results/decomp_failure_taxonomy.md`(`scripts/analyze_decomp_failure_taxonomy.py`),
+把 HotpotQA failure analysis 的 2x2 + coverage cross-tab + 失敗分類泛化到
+2Wiki/MuSiQue(HotpotQA 重放數字與原分析完全一致,自洽)。跨資料集結論:
+(1) decomposition-path 錯誤的最大宗都是 `retrieval_gap_both`(兩路 full-coverage@10
+皆未達成):HotpotQA 47% / 2Wiki 64% / MuSiQue 68%——瓶頸是 BM25 檢索,非 decomposer;
+(2) `constraint_loss`(sub-q 丟失原題 disambiguating 限制)幾乎是 HotpotQA 專屬
+(10% vs 2Wiki 1% / MuSiQue 2%),對應 evidence union 對 HotpotQA 最有效(+5.5 EM);
+(3) `synthesis_failure`(step 已含 gold 但 synthesis 選錯)跨三資料集穩定 15–18%,
+是 synthesis guard 的目標質量;(4) verifier 結構性偏 decompose:decomp-only 抓到
+91–95%、direct-only 只 24–51%(2Wiki/MuSiQue 是正確取捨,HotpotQA 相反)。
+另新增 PopQA confidence-popularity bias 分析(`experiment/maxent_correctness/
+confidence_popularity_bias.md`):信心值與 entity popularity 無相關(bias 假說否證,
+Spearman |rho|<0.05 n.s.,wrong-only 子集亦然),AUROC(ent→wrong) 跨 popularity 分層
+穩定 0.72–0.75;confident hallucination 的本質是 deterministic wrong path,
+非 popularity bias;唯一 popularity-skewed 的是 metric artifact(熱門實體的
+zero-entropy「錯誤」28% 可被 alias 救回,稀有實體 0%)。
+
+**2026-06-23 original-question evidence union(正式 1000Q,四資料集全跑；修正版 ablation 口徑):**
 每個 decomposed sub-question 的 evidence = sub-q top-k ∪ original-question top-k(去重),
-保留原題 disambiguating clues。此 run 使用目前 pipeline(date-comparison guard 已 inline),
-單一 dataset-agnostic 規則(與 path-aware 同性質,非 per-dataset cherry-pick)。相對舊
-canonical path-aware:
+保留原題 disambiguating clues。這個設計只改 **decomposition path 的 step context**；direct path
+本身沒有 union。因此 union 的乾淨 ablation 不應把 final verifier 選 direct 的題一起混進同一張表,
+而應比較同一批題目的 **decomposed candidate**:path-aware baseline vs `--direct-context-union`。
 
-| Dataset | base EM | directctx EM | ΔEM | decomp-path EM | direct-only headroom |
-|---------|--------:|-------------:|----:|---------------:|---------------------:|
-| HotpotQA| 31.8    | **34.3**     | **+2.5** | 25.0→30.5 | 151→111 |
-| 2Wiki   | 46.9    | **49.9**     | **+3.0** | 47.2→50.2 |  55→39  |
-| MuSiQue | 24.6    | **24.8**     | +0.2 | 24.7→25.5 |  37→31  |
-| PopQA   | 51.8    | **52.0**     | +0.2 | 51.5→52.9 |  39→28  |
-| **AVG** | **38.8**| **40.2**     | **+1.5** | | |
+| Dataset | decomp w/o union EM/F1 | decomp + union EM/F1 | ΔEM/F1 | Interpretation |
+|---------|-------------------------:|-----------------------:|-------:|---|
+| HotpotQA| 25.00 / 33.42 | **30.50 / 39.49** | **+5.50 / +6.07** | 原題 comparison / entity clues 對 sub-step 最有幫助 |
+| 2Wiki   | 47.20 / 53.63 | **50.20 / 56.65** | **+3.00 / +3.03** | sub-q title retrieval + 原題約束互補 |
+| MuSiQue | 24.70 / 33.10 | **25.50 / 33.40** | +0.80 / +0.30 | 小幅補 context loss |
+| PopQA   | 51.50 / 53.68 | **52.90 / 55.20** | +1.40 / +1.52 | 單跳題也不傷 decomp candidate |
+| **AVG** | **37.10 / 43.46** | **39.78 / 46.19** | **+2.68 / +2.73** | union 的 path-local 效果 |
 
-**零退步、3/4 上升(HotpotQA/2Wiki 大漲,MuSiQue/PopQA 微升)→ weakly Pareto-dominant,
-有資格升格為新全域 canonical。** 機制一致:每個資料集 decomp-path EM 都升、direct-only
-headroom 都縮,即「把原問題證據還給每個 sub-step,補回 decomposition 丟掉的 disambiguating
-context」。F1(已算):HotpotQA 41.2→44.3、2Wiki 53.5→56.4;MuSiQue/PopQA F1 ≈ base(EM 僅 +0.2)。
-HotpotQA oracle 40.1→41.6、2Wiki oracle 52.7→54.1。HotpotQA 仍低於 DeepRAG 40.7 EM
-(gap −8.9→−6.4);剩餘瓶頸為 over-decomposition、retrieval drift 與 both-wrong bottleneck。
-檔:`results/{hotpotqa,2wiki,musique,popqa}_1000_verify_v2_pathaware_directctx.jsonl`;
-跑法:`scripts/run_{ds}_union_ablation.sh`(`run_seek_dual.py --direct-context-union`)。
+**答辯/論文口徑:** 這不是「拿 direct path 的答案去幫 decompose path」,而是
+**original-question evidence preservation**。上路 direct candidate 仍是「原問題→直接答案」;
+下路 decompose candidate 仍是「原問題→sub-questions→逐步回答→synthesis」。兩路會共享
+`r(q)` 取回的原問題文章,但下路另外有 sub-question title-on retrieval、step answers 與 final
+synthesis,所以答案生成路徑仍不同；共享的是證據來源,不是 decision path 或 final answer。
+
+Full-system 成績可作為 final candidate 結果,但不要拿來當 union 的唯一 ablation 證據:
+
+| Dataset | path-aware verifier | + union verifier | + union + type-aware final |
+|---------|--------------------:|-----------------:|---------------------------:|
+| HotpotQA| 31.8 / 41.2 | 34.3 / 44.3 | **35.5 / 46.1** |
+| 2Wiki   | 46.9 / 53.5 | 49.9 / 56.4 | **50.0 / 56.6** |
+| MuSiQue | 24.6 / 33.5 | 24.8 / 32.9 | **24.7 / 33.1** |
+| PopQA   | 51.8 / 54.2 | 52.0 / 54.8 | **51.9 / 54.7** |
+| **AVG** | **38.8 / 45.6** | **40.2 / 47.1** | **40.5 / 47.6** |
+
+Final candidate 的 verifier 實際選路比例(老師建議補的「上路/下路比例」):
+
+| Dataset | direct path selected | decompose path selected |
+|---------|---------------------:|------------------------:|
+| HotpotQA| 274 / 1000 = **27.4%** | 726 / 1000 = **72.6%** |
+| 2Wiki   | 65 / 1000 = **6.5%** | 935 / 1000 = **93.5%** |
+| MuSiQue | 182 / 1000 = **18.2%** | 818 / 1000 = **81.8%** |
+| PopQA   | 37 / 1000 = **3.7%** | 963 / 1000 = **96.3%** |
+| **Pooled** | 558 / 4000 = **14.0%** | 3442 / 4000 = **86.1%** |
+
+**Slide 44 修正版(針對截圖 `Original-question Evidence Union Ablation`):** 這頁現在的表是
+full-system before/after,會混入 verifier 最後選 direct 的題,因此不適合作為 union ablation 主證據。
+建議改成以下版面:
+
+- Goal: Test whether the decomposition path should preserve original-question evidence.
+- Evidence union: for each sub-question, answer with `sub-question top-k ∪ original-question top-k`.
+- Main table title: **Decomposition-path effect** 或 **Decomposed candidate only**。
+- 主表放 decomp candidate EM/F1:HotpotQA `25.00/33.42→30.50/39.49(+5.50/+6.07)`,
+  2Wiki `47.20/53.63→50.20/56.65(+3.00/+3.03)`,
+  MuSiQue `24.70/33.10→25.50/33.40(+0.80/+0.30)`,
+  PopQA `51.50/53.68→52.90/55.20(+1.40/+1.52)`,
+  AVG `37.10/43.46→39.78/46.19(+2.68/+2.73)`。
+- 若想保留原本截圖的 `31.8→34.3 / 46.9→49.9` 等數字,放在右下角小字:
+  "Full-system verifier score also improves, but it includes final path selection and is not the clean
+  union ablation." 不要把舊 full-system F1 誤放進主 ablation 表。
+
+檔:`results/{hotpotqa,2wiki,musique,popqa}_1000_verify_v2_pathaware_directctx.jsonl`,
+`results/*_pathaware_directctx_typeaware_replay.jsonl`;跑法:
+`scripts/run_{ds}_union_ablation.sh`(`run_seek_dual.py --direct-context-union`)。
 
 **2026-06-23 type-aware verifier offline replay:**針對 `auto_fallback_decomp`
 過度偏向 decompose 的問題,新增 `scripts/replay_typeaware_verifier.py` 做不重跑 LLM 的
 direct/decomp 選擇重評估。保守規則(只在 answer type、direct entropy、decomp post-entropy
-與 entity-fragment 訊號足夠時改選 direct)在 direct-context union trace 上:
+與 entity-fragment 訊號足夠時改選 direct)在 original-question evidence union trace 上:
 HotpotQA **34.3/44.3 → 35.5/46.1**(+1.2 EM,+1.9 F1),2Wiki
 **49.9/56.4 → 50.0/56.6**(+0.1 EM,+0.2 F1),MuSiQue
 **24.8/32.9 → 24.7/33.1**(-0.1 EM,+0.2 F1),PopQA
@@ -498,7 +558,101 @@ EM / F1(皆 alias-aware、post-replay):
 ---
 
 
-### 4.8 6/25 thesis presentation memory（答辯敘事版）
+### 4.8 Efficiency: training-free adaptation, not lower inference retrieval(2026-07-01)
+
+**修正後的效率主張:** SEEK 不應宣稱「推論時比 DeepRAG 省檢索」。在 honest wiki-21M、1000 題、canonical
+verify_v2 / original-question evidence union 口徑下,SEEK 的每題檢索次數在 HotpotQA 與 2Wiki 反而高於 DeepRAG,
+只有 MuSiQue 較低。更乾淨、可防守的主張是:SEEK 的 adaptive routing/gating/verifier 是
+**training-free** 的,不需要 DeepRAG 式的額外 policy/router 訓練流程;推論成本則應誠實描述為
+「與 DeepRAG 同量級,且資料集相依」。
+
+每題檢索次數對照(1000Q, honest wiki-21M, canonical verify_v2;direct path retrieval = 0.000,
+SEEK 檢索全來自 decomp path,且 100% 題目都跑 decomp path):
+
+| Dataset | SEEK EM | SEEK retrievals/q | DeepRAG retrievals/q | Difference | Interpretation |
+|---|---:|---:|---:|---:|---|
+| HotpotQA | 34.3 | 2.078 | 1.716 | +21% | SEEK retrieves more |
+| 2Wiki | 49.9 | 2.341 | 1.451 | +61% | SEEK retrieves more |
+| MuSiQue | 24.8 | 1.840 | 2.273 | -19% | SEEK retrieves less |
+| PopQA | 52.0 | 0.993 | — | — | DeepRAG paper no direct retrieval/q comparison |
+
+**因此不可寫:** "SEEK reduces retrieval cost compared with DeepRAG" 或 "SEEK is cheaper at inference"。
+三個多跳資料集中只有 MuSiQue 支持此說法;HotpotQA/2Wiki 都相反。此外,SEEK 還多跑一條
+direct answer path(即使 direct retrieval 為 0),所以 wall-clock LLM forward cost 也不能假設更低。
+
+**可寫、且應作為主效率論點:訓練成本(quantified)。** SEEK 的優勢不是「每題必定少查幾次」,而是
+**大幅簡化的離線訓練 pipeline**。以下數字兩邊都可查證:SEEK 側為本專案實測(HF `train_results.json` /
+`adapter_config.json`,見 `main_methodology/checkpoints/`);DeepRAG 側為其官方 repo(`~/DeepRAG`)的
+訓練腳本與資料建構腳本所載之組態。
+
+**重要澄清(資料盤點,2026-07-01):** 我們對 DeepRAG **只復現了推論**——用其釋出的模型
+`xinyan233333/DeepRAG-8b` 在 `Research/deeprag_compare/` 跑評測(這就是 EM / avg_retrievals /
+elapsed_min 的來源)。**我們從未跑過 DeepRAG 的訓練 pipeline**:全系統搜尋無任何 DeepRAG 訓練
+checkpoint、無 `construct/` 輸出、無 trainer_state / train_results / training log。此外 `~/DeepRAG/data/`
+內的 `sft_new.jsonl`(4K×2)、`dpo_new.jsonl`(1K×2) **是餵進 tree-search 的種子問題(question/
+context/answer),不是 tokenized 訓練序列**;真正的訓練序列(tree-search trajectory,
+`construct/sft/tokenized_dataset`)不在磁碟上。因此 DeepRAG 的**真實訓練 wall-clock 與精確 training-token
+數都無法從現有資料取得**,除非實際照其腳本跑一次訓練;下表 DeepRAG 的 wall-clock / FLOPs 一律為
+同 `total_flos` 口徑的**數量級估算並明標假設**,不是實測。
+
+**(a) 梯度訓練對照**
+
+| 項目 | SEEK decomposer(canonical) | DeepRAG policy |
+|---|---|---|
+| 微調方式 | **LoRA** (r=16, α=32, 7 個 proj 模組) | **全參數** (`finetuning_type full`, DeepSpeed ZeRO-3) |
+| base model | LLaMA-3-8B-Instruct | **LLaMA-3-8B-Instruct**(同底,見下註) |
+| 訓練階段 | 1 階段(SFT) | **2 階段(SFT + DPO)** |
+| epochs | 3 | 1 (SFT) + **8 (DPO)** |
+| 訓練樣本 | 12K decomposition(直接可訓練) | 8K 種子問題→tree-search trajectory(未釋出) + 2K 種子→DPO pairs |
+| 硬體需求 | **單 GPU** | 多 GPU ZeRO-3 sharding |
+| 可訓練參數 | LoRA adapter(≈ base 的 <1%) | 100%(整個 7B) |
+| 產出檔 | 小型 adapter(可插拔) | 完整 7B checkpoint |
+| **實測 wall-clock** | **37.9 分(2272.9 s,單卡)** | 未公布;全參數 7B 之 SFT(1ep)+DPO(8ep)為數 GPU-hours 量級 |
+| **train FLOPs** | **2.40e17**(實測 HF total_flos) | ≈ 3.3e17(同口徑估算,SFT ~4.7e16 + DPO ~2.8e17) |
+
+**梯度訓練本身兩邊同量級**(FLOPs 約 1.4×),因此**不可宣稱「SEEK 訓練快一個數量級」**。真正的
+不對稱在下面兩點。
+
+**註(base model / 模型角色):** 我們基準比較的釋出模型 `xinyan233333/DeepRAG-8b` 為
+**Llama-3-8B-Instruct** 系(README 明列為主要 recipe、`scripts/launch/run.sh` 與 `scripts/inference/run.sh`
+皆載入 `Meta-Llama-3-8B-Instruct`、`training/stage2.sh` 用 `--template llama3`)。**這與 SEEK decomposer
+同一 base(Llama-3-8B-Instruct),故訓練成本為同底比較。** 注意 DeepRAG 資料建構用到兩個不同角色的模型:
+(i) 被訓練的**主策略模型** = Llama-3-8B(`run.sh`, 8 ports);(ii) tree-search 的 **follow-up 子問題
+生成器** = Qwen2.5-72B(`run-72b.sh`),與主模型是否 8B 無關,即走 Llama-3-8B 路線仍需 72B teacher →
+72B 死結不因換底而消失。其 `training/stage1.sh` / filter 腳本內出現的 `Qwen2.5-7B-Instruct` 路徑研判為
+repo 內殘留或另一 backbone 變體,非我們基準的那顆模型。
+
+**(b) DeepRAG 獨有、SEEK 完全省掉的成本**
+
+1. **偏好優化階段(DPO):** DeepRAG 需要額外一整個 8-epoch 全參數 DPO 階段來校準檢索決策
+   (chain of calibration);SEEK 無此階段。
+2. **Trajectory 資料建構(最昂貴、最具區別性):** DeepRAG 的 SFT 資料來自對每個訓練問題做
+   **binary-tree search**(`srag-sample`),每題展開多條「retrieve / 不 retrieve」rollout 分支 →
+   每題數次至數十次 LLM 生成;且其官方腳本需另外**架設 1 個 72B follow-up 模型 + 至多 8 個 7B
+   vLLM server**(`scripts/launch/run-72b.sh`、`data-construct/stage1.sh` 開 8 個 port、
+   `num_processes 64`)。相對地 **SEEK 的 SFT 資料 = 每題向 OSS teacher 取 1 次 decomposition**
+   (`datasets/*/oss-120b`,`oss-20b`),無 tree search、無 preference pair 建構、無 serving 叢集。
+3. **無檢索決策器重訓:** DeepRAG 訓練的是「何時檢索」的策略,換資料集需重跑 data-construct + 兩階段
+   訓練;SEEK 的 sub-question retrieval gate、direct-vs-decompose selection、type-aware fallback
+   全是 inference-time confidence/consistency rules,零額外訓練、免逐資料集重訓。
+
+**一句話量化:** SEEK 的離線成本 = 一顆單卡、38 分鐘、<1% 參數的 LoRA decomposer;DeepRAG 的離線成本 =
+一個需要 72B+8×7B 叢集跑 tree-search 建資料、再做全參數 SFT + 8-epoch 全參數 DPO 的兩階段 policy-learning
+pipeline。差距不在梯度小時數(同量級),而在**省掉 DPO 階段 + 省掉 tree-search trajectory 資料建構與其
+serving 叢集 + 免逐資料集重訓檢索決策器**。
+
+**論文/答辯口徑:** SEEK is a lightweight adaptive RAG framework whose routing, gating, and verification are
+training-free; its only trained component is a single LoRA decomposer (~38 min, single GPU, <1% params).
+DeepRAG instead learns a retrieval *policy* via binary-tree-search trajectory construction (requiring a
+72B + 8×7B serving cluster) followed by full-parameter SFT and 8-epoch DPO. The saving is not fewer
+retrieval calls at inference (comparable, dataset-dependent) nor an order-of-magnitude fewer gradient
+FLOPs (also comparable), but the elimination of the DPO stage, the trajectory data-construction pipeline,
+and any per-dataset retraining of a retrieval decision-maker.
+
+---
+
+
+### 4.9 6/25 thesis presentation memory（答辯敘事版）
 
 來源：`Research/Thesis/6_25_ThesisPresentation_FULL_speaker_script.md`，尤其 Part 4 Analysis 與 final Q&A notes。此節是 presentation-facing memory，用來固定答辯口徑；若與舊 canonical 小節不一致，以本節作為 6/25 簡報敘事的最新版本。
 
@@ -507,12 +661,12 @@ EM / F1(皆 alias-aware、post-replay):
 **SEEK 的 6/25 簡報定位：lightweight, interpretable, dual-path adaptive RAG。**
 - Only trained component：12K three-source LoRA decomposer，學 structured sub-question plan。
 - Sub-question retrieval gate：max entropy 決定每個 sub-question 是否 retrieve，定位為 efficiency knob，不宣稱勝過 always retrieve。
-- Context preservation：direct-context union 把 original-question evidence 加回 decomposed steps，補回 decomposition 丟掉的全局線索。
+- Context preservation：original-question evidence union 把原問題檢索到的文章加回 decomposed steps，補回 decomposition 丟掉的全局線索；它共享的是 evidence，不共享 direct answer。
 - Final selection：training-free verifier 同時看 direct answer 與 decomposed answer，用 confidence 與 consistency signals 選 final answer；不訓練額外 router，不做 DeepRAG 式 tree-search policy learning。
 
-**6/25 presentation-facing main system：direct-context union + type-aware verifier replay。** 口頭簡報主表採用 SEER/SEEK final candidate：τ=0.3、direct-context union、type-aware verifier replay，平均 **40.52 EM / 47.61 F1**，高於 DeepRAG 平均 **38.45 EM / 45.75 F1**。逐資料集口徑：HotpotQA **35.50 / 46.11**（仍輸 DeepRAG 40.7 / 51.5）、2Wiki **50.00 / 56.58**（贏 DeepRAG 48.1 / 53.3）、MuSiQue **24.70 / 33.06**（贏 DeepRAG 22.5 / 30.4）、PopQA **51.90 / 54.71**（贏 DeepRAG 42.5 / 47.8）。
+**6/25 presentation-facing main system：original-question evidence union + type-aware verifier replay。** 口頭簡報主表採用 SEER/SEEK final candidate：τ=0.3、original-question evidence union、type-aware verifier replay，平均 **40.52 EM / 47.61 F1**，高於 DeepRAG 平均 **38.45 EM / 45.75 F1**。逐資料集口徑：HotpotQA **35.50 / 46.11**（仍輸 DeepRAG 40.7 / 51.5）、2Wiki **50.00 / 56.58**（贏 DeepRAG 48.1 / 53.3）、MuSiQue **24.70 / 33.06**（贏 DeepRAG 22.5 / 30.4）、PopQA **51.90 / 54.71**（贏 DeepRAG 42.5 / 47.8）。
 
-**Analysis slide 45：direct path 與 decomposition path 是互補的。** 2Wiki、MuSiQue、PopQA 呈現 decomposition-dominant：2Wiki decompose-only `361` vs direct-only `39`；MuSiQue decompose-only `184` vs direct-only `31`。這支持 decomposition 對需要 intermediate entity 的 multi-hop QA 有價值。HotpotQA 則不同，direct-only `111`、decompose-only `113` 幾乎打平，代表 direct path 和 decomposition path 各自救不同題。Both-wrong 仍是大瓶頸：HotpotQA `584`、MuSiQue `714`，說明剩餘錯誤不能只靠 router 解決，仍需要更好的 retrieval、reranking、decomposition quality 或 final synthesis。
+**Analysis slide 45：先講 final verifier 選路比例，再講兩路互補。** Final candidate 實際選 direct/decompose 的比例為 HotpotQA `27.4% / 72.6%`、2Wiki `6.5% / 93.5%`、MuSiQue `18.2% / 81.8%`、PopQA `3.7% / 96.3%`，pooled 為 `14.0% / 86.1%`。這說明系統大多數題仍走下路 decomposition；上路 direct 是保留給 HotpotQA 或 decomposition 不穩時的 context-preserving candidate。Answer-level 2x2 則顯示兩路互補：2Wiki、MuSiQue、PopQA 呈現 decomposition-dominant（2Wiki decompose-only `361` vs direct-only `39`；MuSiQue `184` vs `31`），HotpotQA direct-only `111`、decompose-only `113` 幾乎打平。Both-wrong 仍是大瓶頸：HotpotQA `584`、MuSiQue `714`，說明剩餘錯誤不能只靠 router 解決，仍需要更好的 retrieval、reranking、decomposition quality 或 final synthesis。
 
 **Analysis slide 46：oracle gap 量化 routing headroom。** Direct EM 與 Decomp EM 是固定路徑，Current Router EM 是 SEEK verifier 選出的結果，Oracle EM 是事後用 gold answer 選路徑的不可部署 upper bound。HotpotQA direct `30.30`、decomp `30.50`、current router `35.50`、oracle `41.60`，剩餘 gap 為 `+6.10 EM`。2Wiki、MuSiQue、PopQA 也有約 `+3.8` 到 `+4.1 EM` 的 oracle gap。答辯重點：SEEK 並未宣稱 rule-based verifier 完全解決 routing；相反地，oracle gap 是 thesis novelty 的分析證據，說明 direct-vs-decompose routing 本身仍有明確 headroom。
 
@@ -526,6 +680,15 @@ EM / F1(皆 alias-aware、post-replay):
 
 **一句話收束：** SEEK 的貢獻不是單純提出 question decomposition，而是把 decomposition 放進 direct-vs-decompose routing framework；用 entropy-gated sub-question retrieval、original-question context preservation 與 training-free verifier，在不訓練 policy router 的情況下取得可解釋、輕量且具競爭力的 adaptive RAG。
 
+### 4.10 Gate signal 選擇的文獻核對與四資料集全訊號比較（2026-07-02）
+
+詳見 `results/gate_signal_paper_fidelity_and_analysis.md`；數據 `results/gate_signal_replay_analysis.md`（4 datasets × 8 signals × n=1000，paired-bootstrap 95% CI）。
+
+- **「MAQA/TARG 都說 entropy 差」是誤記**：MAQA (NAACL 2025 Findings) 結論 entropy 是 white-box 最佳（AUROC 71.18 vs margin 63.82）；只有 TARG (arXiv:2511.09803) 主張 margin > mean-entropy，且是在單跳、整題 20-token draft 的設定。
+- **實作忠實度已核對**：`maqa_margin` = first-token top1−top2 softmax margin（同 MAQA）；`targ_unc` = prefix-mean exp(−logit_gap/β)，k=20、β=3（同 TARG 預設）。
+- **結果**：max_ent macro AUROC(need) 0.689 為全訊號最佳；HotpotQA 上顯著贏所有 margin/TARG 訊號；PopQA（TARG 自用資料集）上 entropy 贏 targ_unc Δ=+0.106（p<0.001），直接反轉 TARG 結論；MuSiQue 上 min_lp≈max_ent（不顯著）；2Wiki 全訊號近隨機（資料集問題，非訊號選擇問題）。
+- **論文口徑**：採 max_ent 有文獻（MAQA）與自家四資料集復現（含 TARG 忠實設定）雙重支撐。
+
 
 ## 5. 待辦 / 限制 / 已完成
 
@@ -535,7 +698,7 @@ EM / F1(皆 alias-aware、post-replay):
 - synthesis value→entity guard(2026-06-11,零 regression)
 - HotpotQA failure analysis(2026-06-23):direct-only 151 > decomp-only 98,代表性錯誤案例與改善方向已整理至 `results/hotpotqa_failure_analysis.md`
 - conservative date-comparison synthesis guard(2026-06-23,offline replay):HotpotQA +0.3 EM/+0.5 F1,2Wiki +0.9 EM/+0.9 F1,MuSiQue/PopQA 0 regression
-- direct-context union ablation(2026-06-23,formal 1000Q,current pipeline):HotpotQA 31.8/41.2→34.3/44.3(+2.5 EM; union-only 約 +2.2),2Wiki 46.9/53.5→49.9/56.4(+3.0 EM; union-only 約 +2.1)
+- original-question evidence union ablation(2026-06-23,formal 1000Q,current pipeline):正確隔離口徑為 decomp candidate EM,HotpotQA 25.0→30.5(+5.5),2Wiki 47.2→50.2(+3.0),MuSiQue 24.7→25.5(+0.8),PopQA 51.5→52.9(+1.4);full-system reference 為 HotpotQA 31.8/41.2→34.3/44.3,2Wiki 46.9/53.5→49.9/56.4
 - type-aware verifier offline replay(2026-06-23):final candidate avg 40.5/47.6;HotpotQA 34.3/44.3→35.5/46.1,2Wiki 49.9/56.4→50.0/56.6
 - honest wiki-21M round-1 sweep + round-2 router + verifier v1/v2/v3
 - verifier v2 定為最終法
@@ -545,12 +708,12 @@ EM / F1(皆 alias-aware、post-replay):
 - **Entropy skip-decompose 全域 τ 行不通**:同 τ=2.0 套全部 → PopQA +12.4 但 MuSiQue −17.9、2Wiki −15.6(多跳 false-confident,skip rate 73–87%)。最終不開 option C。
 - **單一全域 router τ 無法跨 dataset**(§3.3);需 per-query verifier 或更強信號(self-consistency variance、Top-1/Top-2 gap)。
 - **evidence support 無全域 win**(§3.2)。
-- **HotpotQA honest pool 仍輸**:direct-context union 已把 HotpotQA 31.8/41.2 拉到 34.3/44.3,證明保留原題 disambiguating clues 有用;但仍低於 DeepRAG 40.7/51.5。主瓶頸仍是 over-decomposition、open-domain retrieval query drift / BM25 full-coverage 與 both-wrong 題,非單純 gate。
+- **HotpotQA honest pool 仍輸**:original-question evidence union 先把 decomp candidate 25.0 EM 拉到 30.5 EM,full-system 再從 31.8/41.2 到 34.3/44.3,證明保留原題 disambiguating clues 有用;但 final 仍低於 DeepRAG 40.7/51.5。主瓶頸仍是 over-decomposition、open-domain retrieval query drift / BM25 full-coverage 與 both-wrong 題,非單純 gate。
 
 ### 🔭 未動 / 可選
 - MuSiQue 4hop 強化(過採樣 4hop 訓練;自然分佈僅 6%)
 - 將 conservative type-aware verifier replay 整合為 `run_seek_dual.py --typeaware-fallback` optional mode,再決定是否升 canonical
-- direct-context union follow-up:補 MuSiQue/PopQA regression check;再試 rerank/limit union evidence,避免 context 變長造成 lost cases(HotpotQA −21,2Wiki −47)
+- original-question evidence union follow-up:補 MuSiQue/PopQA regression check;再試 rerank/limit union evidence,避免 context 變長造成 lost cases(HotpotQA −21,2Wiki −47)
 - open-domain M3 recall A/B(需 ES;見 ES-heap-fix)
 - 2Wiki/HotpotQA τ 掃描(目前只 τ=0.3)
 - Bamboogle 125 test、LLM-as-Judge metric(PopQA 很多是語意對格式錯)
