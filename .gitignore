@@ -1,9 +1,40 @@
-# 忽略特定副檔名資料檔案與日誌
+# =========================
+# 您原有的設定 (已修正副檔名語法)
+# =========================
 *.log
 *.png
 *.csv
 *.pyc
 __pycache__/
 experiment/cache/
-*json
-*jsonl
+*.json
+*.jsonl
+
+
+# 實驗輸出與快取資料夾
+*_output/
+*_output_*/
+calibration_output/
+.ipynb_checkpoints/
+
+# 2. 機器學習常見大型檔案 (避免撐爆 GitHub 容量)
+*.pkl
+*.npy
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.parquet
+
+# 論文 (LaTeX) 編譯暫存檔
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+.env
+.vscode/
+.idea/
+.DS_Store

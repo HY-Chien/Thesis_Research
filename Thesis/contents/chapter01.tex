@@ -1,0 +1,18 @@
+\chapter{Introduction}
+
+\section{Background and Motivation}
+
+Large language models (LLMs) often hallucinate when queried about recent, obscure, or proprietary information outside their training scope. Retrieval-Augmented Generation (RAG) addresses this by fetching relevant external evidence, reducing factually unsupported answers~\cite{rag_survey, hallucination_survey}. However, applying RAG indiscriminately creates two problems. For simple questions, unnecessary retrieval can inject distracting evidence and increase latency. For complex multi-hop questions, a single retrieval step often fails to surface the intermediate entities needed for reasoning.
+
+Adaptive RAG therefore needs to decide not only \emph{whether} retrieval is useful, but also \emph{when to trust decomposition}. Decomposition can sharpen retrieval queries, but it can also remove the original question's comparison targets, entity pairs, or disambiguating clues. This thesis frames adaptive RAG as a \emph{decomposition-routing problem}: the system should control retrieval at the sub-question level while preserving the original-question path as a competing candidate.
+
+\section{Research Objectives}
+
+This thesis introduces SEEK (Self-certainty Evaluated Entropy-gated Knowledge-retrieval), a lightweight adaptive RAG framework built around training-free verifier routing. The objectives are:
+
+\begin{itemize}
+    \item Build a compact KG-triple decomposer that converts multi-hop questions into atomic \texttt{entity >> relation} sub-questions.
+    \item Use token-level entropy as an interpretable confidence signal, while showing that entropy alone is insufficient as a global hard router.
+    \item Generate both direct and decomposed candidate answers, preserve original-question evidence inside decomposed steps, and select the final answer with a training-free verifier based on confidence, answer type, decomposition stability, and candidate agreement.
+    \item Evaluate the final system under the honest wiki-21M retrieval protocol used by DeepRAG, showing where a lightweight verifier can match or exceed a learned retrieval policy and where routing headroom remains.
+\end{itemize}

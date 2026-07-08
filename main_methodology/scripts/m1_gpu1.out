@@ -1,0 +1,4 @@
+[GPU1] START 2wiki  22:59:57
+[GPU1] DONE  2wiki  23:04:07  -> EM:           21.1%
+[GPU1] START popqa  23:04:07
+[GPU1] DONE  popqa  23:07:52  -> EM:           31.1%

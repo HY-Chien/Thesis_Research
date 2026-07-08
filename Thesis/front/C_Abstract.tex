@@ -1,0 +1,8 @@
+本研究提出 SEEK (Self-certainty Evaluated Entropy-gated Knowledge-retrieval)，一個用於開放領域問答的輕量化自適應檢索增強生成 (Retrieval-Augmented Generation, RAG) 框架。傳統 RAG 對所有問題採用固定檢索策略：簡單問題可能因不必要的檢索引入雜訊，多跳問題則可能因單次檢索無法找到中介證據而回答失敗。既有自適應方法不是在問題層級做過於粗糙的路由，就是在詞元層級使用嘈雜的不確定性訊號，或像 DeepRAG 一樣透過樹搜尋與偏好最佳化學習昂貴的子問題決策策略。
+
+SEEK 使用一個以 KG-triple 格式表示的分解器，透過單次 LoRA SFT 在 12K 筆 MuSiQue、2WikiMultihopQA 與 PopQA 混合資料上訓練。最終版本不再把熵值當成單一硬性 skip gate，而是同時產生 direct answer 與 decomposed answer，並將 original-question evidence 加回 decomposed sub-question context，最後由 training-free verifier 搭配保守的 type-aware fallback 選擇最終答案。這種 late-routing 設計保留了熵訊號的可解釋性，同時避免單一全域閾值在跨資料集時的不穩定。
+
+在與 DeepRAG 對齊的 honest wiki-21M 檢索設定下，SEEK 平均達到 40.52 EM 與 47.61 F1，高於 DeepRAG 的 38.45 EM 與 45.75 F1。分資料集來看，SEEK 在 2WikiMultihopQA 達到 50.00 EM、MuSiQue 達到 24.70 EM、PopQA 達到 51.90 EM，皆高於 DeepRAG；HotpotQA 則為 35.50 EM，仍低於 DeepRAG 的 40.70 EM。分析顯示 direct path 與 decomposition path 具有互補性，oracle direct-vs-decompose routing 仍有 3.8 到 6.1 EM 的提升空間，而 entropy 適合作為 sub-question retrieval signal，但不能被視為 correctness guarantee。
+
+\bigskip
+\noindent\textbf{關鍵字：}檢索增強生成、自適應檢索、多跳問答、熵、驗證器路由、大型語言模型
