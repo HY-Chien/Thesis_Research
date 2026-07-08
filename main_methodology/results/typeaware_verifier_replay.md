@@ -37,7 +37,7 @@ python scripts/replay_typeaware_verifier.py \
   --out results/hotpotqa_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl
 ```
 
-## Main Result: Direct-context Union Runs
+## Main Result: Original-Question Evidence Union Runs
 
 Metrics below are recomputed with the original dev-file aliases.
 
@@ -49,7 +49,7 @@ Metrics below are recomputed with the original dev-file aliases.
 | PopQA directctx | 52.0 / 54.8 | **51.9 / 54.7** | -0.1 / -0.1 | 7 | +0 / -1 |
 | **Average** | **40.3 / 47.1** | **40.5 / 47.6** | **+0.3 / +0.5** | - | - |
 
-HotpotQA oracle headroom after direct-context union is 41.6 EM. The type-aware
+HotpotQA oracle headroom after original-question evidence union is 41.6 EM. The type-aware
 replay reduces oracle-missed direct-only cases from 62 to 36, but increases
 decomp-only misses from 11 to 25. This is a useful but conservative verifier
 refinement; it improves the four-dataset average while keeping non-HotpotQA
@@ -58,7 +58,7 @@ regressions at about 0.1 EM.
 ## Regression Check: Canonical Path-aware Runs
 
 These are offline replays on existing canonical path-aware traces, without
-direct-context union.
+original-question evidence union.
 
 | Dataset | Base EM | Type-aware replay EM | Delta |
 |---|---:|---:|---:|
@@ -75,7 +75,7 @@ for this regression check.
 
 The aggressive HotpotQA-only replay can reach about 35.9 EM, but hurts 2Wiki
 badly. The conservative rule is safer: it improves HotpotQA by 0.9 to 1.2 EM
-depending on whether direct-context union is used, while keeping 2Wiki stable.
+depending on whether original-question evidence union is used, while keeping 2Wiki stable.
 
 Recommended next step:
 

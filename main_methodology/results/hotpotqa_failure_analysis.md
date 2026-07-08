@@ -277,7 +277,7 @@ reported score better match semantic correctness.
 
 ## Recommended Next Experiments
 
-1. HotpotQA direct-context union ablation:
+1. HotpotQA original-question evidence union ablation:
    run decomposition answering with each step seeing both sub-question top-k and
    original-question top-k evidence.
 

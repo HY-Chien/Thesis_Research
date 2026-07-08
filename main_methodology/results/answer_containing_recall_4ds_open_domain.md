@@ -1,19 +1,21 @@
 # Four-dataset Open-domain Answer-containing Retrieval Recall
 
-Date: 2026-06-24
+Date: 2026-07-06
 
-Setting: final open-domain wiki retrieval condition. Original-question retrieval uses paragraph text only; decomposed sub-question retrieval uses title + paragraph text, matching path-aware retrieval.
+Setting: final open-domain wiki retrieval condition, recomputed with the same answer-containing recall implementation family as the MuSiQue gold-decomposition diagnostic. Original-question retrieval uses paragraph text only; decomposed sub-question retrieval uses title + paragraph text, matching path-aware retrieval.
 
-`answer-containing hit@k` means that the retrieved passages contain the gold answer or one of its aliases. Yes/no questions are excluded because yes/no strings are not meaningful evidence strings.
+`answer-containing hit@k` means that the retrieved passages contain the gold answer or one of its aliases in the passage title or text. Yes/no questions are excluded because yes/no strings are not meaningful evidence strings.
+
+Note: this file is a unified rerun for the four-dataset figure. Compare numbers within this file; do not mix them with older saved runs or with the MuSiQue-only oracle arms.
 
 ## Main Table, k=5
 
 | Dataset | N eval | Original-query hit@5 | Decomposed-query hit@5 | Union hit@5 | Decomp - Original |
 |---|---:|---:|---:|---:|---:|
-| 2Wiki | 917 | 31.73 | **62.38** | **65.32** | +30.64 |
-| HotpotQA | 941 | 46.55 | **56.54** | **65.25** | +9.99 |
-| MuSiQue | 1000 | 16.90 | **37.40** | **41.60** | +20.50 |
-| PopQA | 1000 | 68.10 | **68.70** | **73.30** | +0.60 |
+| 2Wiki | 917 | 32.61 | **60.63** | **64.89** | +28.03 |
+| HotpotQA | 941 | 47.40 | **52.92** | **64.61** | +5.53 |
+| MuSiQue | 1000 | 19.00 | **38.80** | **43.90** | +19.80 |
+| PopQA | 1000 | 71.20 | **71.10** | **75.90** | -0.10 |
 
 ## k Sweep
 
@@ -23,11 +25,11 @@ N eval = 917; skipped yes/no = 83; sub-question counts = `{1: 8, 2: 698, 3: 2, 4
 
 | k | Original | Decomp | Union | Decomp - Original | Decomp-only | Original-only |
 |---:|---:|---:|---:|---:|---:|---:|
-| 1 | 17.45 | 49.40 | 51.36 | +31.95 | 311 | 18 |
-| 3 | 26.94 | 58.23 | 61.29 | +31.30 | 315 | 28 |
-| 5 | 31.73 | 62.38 | 65.32 | +30.64 | 308 | 27 |
-| 8 | 37.40 | 65.21 | 68.27 | +27.81 | 283 | 28 |
-| 10 | 40.02 | 66.52 | 69.25 | +26.50 | 268 | 25 |
+| 1 | 17.99 | 48.53 | 51.15 | +30.53 | 304 | 24 |
+| 3 | 27.92 | 57.03 | 61.07 | +29.12 | 304 | 37 |
+| 5 | 32.61 | 60.63 | 64.89 | +28.03 | 296 | 39 |
+| 8 | 38.39 | 63.03 | 67.72 | +24.65 | 269 | 43 |
+| 10 | 41.22 | 64.78 | 69.03 | +23.56 | 255 | 39 |
 
 ### HotpotQA
 
@@ -35,11 +37,11 @@ N eval = 941; skipped yes/no = 59; sub-question counts = `{1: 9, 2: 749, 3: 135,
 
 | k | Original | Decomp | Union | Decomp - Original | Decomp-only | Original-only |
 |---:|---:|---:|---:|---:|---:|---:|
-| 1 | 27.52 | 45.27 | 50.48 | +17.75 | 216 | 49 |
-| 3 | 40.38 | 52.92 | 60.04 | +12.54 | 185 | 67 |
-| 5 | 46.55 | 56.54 | 65.25 | +9.99 | 176 | 82 |
-| 8 | 51.01 | 59.51 | 68.76 | +8.50 | 167 | 87 |
-| 10 | 53.24 | 60.57 | 70.14 | +7.33 | 159 | 90 |
+| 1 | 28.16 | 40.91 | 48.57 | +12.75 | 192 | 72 |
+| 3 | 41.13 | 49.10 | 58.98 | +7.97 | 168 | 93 |
+| 5 | 47.40 | 52.92 | 64.61 | +5.53 | 162 | 110 |
+| 8 | 52.50 | 56.32 | 69.50 | +3.83 | 160 | 124 |
+| 10 | 54.73 | 57.92 | 71.31 | +3.19 | 156 | 126 |
 
 ### MuSiQue
 
@@ -47,11 +49,11 @@ N eval = 1000; skipped yes/no = 0; sub-question counts = `{1: 3, 2: 963, 3: 33, 
 
 | k | Original | Decomp | Union | Decomp - Original | Decomp-only | Original-only |
 |---:|---:|---:|---:|---:|---:|---:|
-| 1 | 7.30 | 21.10 | 23.40 | +13.80 | 161 | 23 |
-| 3 | 12.30 | 32.70 | 36.00 | +20.40 | 237 | 33 |
-| 5 | 16.90 | 37.40 | 41.60 | +20.50 | 247 | 42 |
-| 8 | 21.40 | 41.20 | 45.20 | +19.80 | 238 | 40 |
-| 10 | 23.20 | 44.70 | 48.60 | +21.50 | 254 | 39 |
+| 1 | 8.50 | 22.00 | 24.50 | +13.50 | 160 | 25 |
+| 3 | 14.10 | 34.70 | 38.30 | +20.60 | 242 | 36 |
+| 5 | 19.00 | 38.80 | 43.90 | +19.80 | 249 | 51 |
+| 8 | 23.60 | 42.70 | 47.60 | +19.10 | 240 | 49 |
+| 10 | 25.60 | 46.00 | 50.90 | +20.40 | 253 | 49 |
 
 ### PopQA
 
@@ -59,8 +61,12 @@ N eval = 1000; skipped yes/no = 0; sub-question counts = `{1: 1000}`.
 
 | k | Original | Decomp | Union | Decomp - Original | Decomp-only | Original-only |
 |---:|---:|---:|---:|---:|---:|---:|
-| 1 | 51.50 | 57.50 | 61.70 | +6.00 | 102 | 42 |
-| 3 | 63.50 | 65.70 | 70.10 | +2.20 | 66 | 44 |
-| 5 | 68.10 | 68.70 | 73.30 | +0.60 | 52 | 46 |
-| 8 | 71.70 | 72.30 | 76.40 | +0.60 | 47 | 41 |
-| 10 | 73.40 | 74.10 | 77.70 | +0.70 | 43 | 36 |
+| 1 | 54.20 | 60.00 | 64.30 | +5.80 | 101 | 43 |
+| 3 | 66.30 | 68.00 | 72.70 | +1.70 | 64 | 47 |
+| 5 | 71.20 | 71.10 | 75.90 | -0.10 | 47 | 48 |
+| 8 | 75.10 | 74.60 | 79.40 | -0.50 | 43 | 48 |
+| 10 | 77.00 | 76.40 | 80.70 | -0.60 | 37 | 43 |
+
+## Interpretation
+
+The unified rerun supports the same qualitative conclusion as the earlier four-dataset figure: decomposition substantially improves answer-containing retrieval on the multi-hop datasets, with the largest gains on 2Wiki and MuSiQue. PopQA remains a near-single-hop case, so the retrieval gain is small. This table should be used for the four-dataset figure when presenting it next to the MuSiQue gold-decomposition diagnostic.

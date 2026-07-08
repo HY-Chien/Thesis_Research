@@ -1,4 +1,4 @@
-"""Ablation: is retrieval-after-decomposition useful, and is the entropy gate a
+"""Ablation: is retrieval-after-decomposition useful, and is the confidence gate a
 useful retrieve-or-not signal?
 
 Answers two questions the thesis must defend:
@@ -6,9 +6,9 @@ Answers two questions the thesis must defend:
   Q1  拆解後 RAG 有用?   decompose+retrieve  vs  decompose+NO-retrieve(never-RAG)
   Q2  信心指標判斷要不要 RAG 有用?
         (a) gate(tau) vs always-RAG : same EM, fewer retrievals? (efficiency)
-        (b) does entropy DISCRIMINATE the steps/questions that need retrieval?
-            AUROC(question max-entropy -> never-RAG answer is WRONG) and
-            retrieval-rescue rate stratified by entropy quartile.
+        (b) does the selected signal DISCRIMINATE steps/questions that need retrieval?
+            AUROC(question uncertainty -> never-RAG answer is WRONG) and
+            retrieval-rescue rate stratified by uncertainty quartile.
 
 Usage:
   python scripts/ablate_rag_usefulness.py \
@@ -18,7 +18,7 @@ Usage:
       --name "MuSiQue-200 (distractor)"
 
 never/always optional; with only --gate you still get its EM + retr-rate.
-AUROC needs --never (its per-question entropy + correctness are the labels)."""
+AUROC needs --never (its per-question uncertainty + correctness are the labels)."""
 from __future__ import annotations
 
 import argparse
@@ -29,6 +29,25 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from seek.verifier import exact_match, token_f1  # noqa: E402
 
+HIGHER_IS_UNCERTAIN_SIGNALS = {"max_ent", "mean_ent", "targ_unc"}
+
+
+def _infer_signal(rows: list[dict] | None) -> str | None:
+    for row in rows or []:
+        sig = row.get("signal")
+        if sig:
+            return str(sig)
+    return None
+
+
+def _question_uncertainty(steps: list[dict], signal: str) -> float:
+    vals = [_step_signal(s) for s in steps]
+    if not vals:
+        return 0.0
+    if signal in HIGHER_IS_UNCERTAIN_SIGNALS:
+        return max(vals)
+    return -min(vals)
+
 
 def _golds(row: dict) -> list[str]:
     g = row.get("gold")
@@ -37,13 +56,12 @@ def _golds(row: dict) -> list[str]:
     return g if isinstance(g, list) else [g]
 
 
-def _step_entropy(step: dict) -> float:
-    """Robust to schema drift: newer files use max_ent/signal_value, the early
-    tauInf dump used a single 'entropy' key. We want the gating signal
-    (token max-entropy)."""
-    for k in ("max_ent", "signal_value", "entropy"):
+def _step_signal(step: dict) -> float:
+    """Robust to schema drift: newer files use signal_value; early tauInf dumps
+    used entropy only. Prefer the actual gating signal for metric comparisons."""
+    for k in ("signal_value", "max_ent", "entropy"):
         v = step.get(k)
-        if v is not None and v >= 0:
+        if v is not None and (k == "signal_value" or v >= 0):
             return float(v)
     return 0.0
 
@@ -93,12 +111,11 @@ def auroc(scores: list[float], labels: list[int]) -> float:
     return (wins + 0.5 * ties) / (len(pos) * len(neg))
 
 
-def discrimination(never: list[dict], retr: list[dict], retr_name: str):
-    """Per-question: entropy (from never-RAG run, = parametric signal) vs whether
-    never-RAG is wrong; then how often the retrieval run RESCUES the wrong ones,
-    split by entropy quartile."""
+def discrimination(never: list[dict], retr: list[dict], retr_name: str, signal: str):
+    """Per-question uncertainty vs whether never-RAG is wrong; then how often
+    the retrieval run RESCUES the wrong ones, split by uncertainty quartile."""
     by_id_r = {(r.get("id") or r.get("question")): r for r in retr}
-    qent, never_wrong, rescued = [], [], []
+    qsig, never_wrong, rescued = [], [], []
     for r in never:
         key = r.get("id") or r.get("question")
         if key not in by_id_r:
@@ -106,19 +123,19 @@ def discrimination(never: list[dict], retr: list[dict], retr_name: str):
         steps = r.get("steps") or []
         if not steps:
             continue
-        ent = max(_step_entropy(s) for s in steps)
+        unc = _question_uncertainty(steps, signal)
         nw = 0 if _em(r) else 1
         rc = _em(by_id_r[key])
-        qent.append(ent)
+        qsig.append(unc)
         never_wrong.append(nw)
         rescued.append(rc)
-    a = auroc(qent, never_wrong)
+    a = auroc(qsig, never_wrong)
     # quartile rescue: among never-WRONG questions, fraction the retrieval run fixes
-    paired = sorted(zip(qent, never_wrong, rescued), key=lambda x: x[0])
+    paired = sorted(zip(qsig, never_wrong, rescued), key=lambda x: x[0])
     qs = len(paired) // 4 or 1
-    print(f"  AUROC(entropy -> never-RAG wrong)        = {a:.3f}   (>0.5 = entropy flags the right questions)")
-    print(f"  retrieval source = {retr_name}")
-    print(f"  {'entropy quartile':22} {'n_wrong':>8} {'rescued':>8} {'rescue%':>8} {'mean_ent':>9}")
+    print(f"  AUROC(uncertainty -> never-RAG wrong)   = {a:.3f}   (>0.5 = signal flags the right questions)")
+    print(f"  signal = {signal}; retrieval source = {retr_name}")
+    print(f"  {'uncertainty quartile':22} {'n_wrong':>8} {'rescued':>8} {'rescue%':>8} {'mean_unc':>9}")
     for qi in range(4):
         chunk = paired[qi * qs: (qi + 1) * qs] if qi < 3 else paired[qi * qs:]
         wrong = [(e, r) for e, nw, r in chunk if nw == 1]
@@ -135,13 +152,22 @@ def main():
     ap.add_argument("--gate")
     ap.add_argument("--always")
     ap.add_argument("--name", default="(unnamed)")
+    ap.add_argument("--signal", default=None,
+                    help="selected gate signal; inferred from traces when present")
     args = ap.parse_args()
 
     never, gate, always = load(args.never), load(args.gate), load(args.always)
+    signal = args.signal
+    if signal is None:
+        for rows in (never, gate, always):
+            signal = _infer_signal(rows)
+            if signal is not None:
+                break
+    signal = signal or "max_ent"
     print(f"\n=== {args.name} ===")
     print(f"{'condition':28} {'n':>4} {'EM':>6} {'F1':>6} {'retr%':>7}")
     for label, rows in [("never-RAG (decompose only)", never),
-                        ("entropy-gate (tau)", gate),
+                        ("confidence-gate (tau)", gate),
                         ("always-RAG (every step)", always)]:
         if rows is None:
             continue
@@ -149,11 +175,11 @@ def main():
         print(f"{label:28} {b['n']:4d} {b['em']:6.1f} {b['f1']:6.1f} {b['retr']:7.1f}")
 
     if never and gate:
-        print("\n-- Q2(b) entropy discrimination (gate as retrieval source) --")
-        discrimination(never, gate, "gate")
+        print("\n-- Q2(b) signal discrimination (gate as retrieval source) --")
+        discrimination(never, gate, "gate", signal)
     elif never and always:
-        print("\n-- Q2(b) entropy discrimination (always-RAG as retrieval source) --")
-        discrimination(never, always, "always-RAG")
+        print("\n-- Q2(b) signal discrimination (always-RAG as retrieval source) --")
+        discrimination(never, always, "always-RAG", signal)
 
 
 if __name__ == "__main__":

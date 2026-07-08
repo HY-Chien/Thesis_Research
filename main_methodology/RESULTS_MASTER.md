@@ -7,7 +7,10 @@
 > wiki21M_oracle_direct_decompose_full, decompose_vs_direct_2x2, recall_ab_m3}.md`。
 > 原始 JSONL 結果仍在 `results/`,本檔只整併文字彙整。
 >
-> 最後更新:2026-07-03。2026-07-03 新增跨資料集 decomposition failure taxonomy
+> 最後更新:2026-07-04。2026-07-04 新增 direct-only confidence-gated RAG baseline
+> (§4.11,`results/direct_gate_ablation.md`):不拆解、只用 max_ent gate 檢索,
+> best-τ 仍輸 decompose+gate +12~+29 EM(HotpotQA 例外)→ 拆解貢獻不可被 gate 取代;
+> 2026-07-03 新增跨資料集 decomposition failure taxonomy
 > (`results/decomp_failure_taxonomy.md`)與 PopQA confidence-popularity bias 分析
 > (`experiment/maxent_correctness/confidence_popularity_bias.md`);
 > 2026-07-01 新增 efficiency 成本框架:
@@ -120,6 +123,12 @@ Final candidate 的 verifier 實際選路比例(老師建議補的「上路/下�
 | MuSiQue | 182 / 1000 = **18.2%** | 818 / 1000 = **81.8%** |
 | PopQA   | 37 / 1000 = **3.7%** | 963 / 1000 = **96.3%** |
 | **Pooled** | 558 / 4000 = **14.0%** | 3442 / 4000 = **86.1%** |
+
+**2026-07-04 addendum(`scripts/analyze_union_ablation_pathlocal.py` → `results/union_ablation_pathlocal_summary.md`,全離線重算,decomp EM 與本節主表逐格吻合):**
+(1) 選路比例三階段:before union(pathaware `choice`)direct = HotpotQA 18.1% / 2Wiki 6.8% / MuSiQue 8.8% / PopQA 5.5%;after union 降為 13.2/4.8/7.3/3.0%(union 讓 verifier 更信任 decompose);type-aware replay 再撥回 direct 成上表 final 比例。
+(2) decomp candidate gained/lost(union 0→1 / 1→0):HotpotQA +80/−25、2Wiki +84/−54、MuSiQue +43/−35、PopQA +46/−32——lost cases 對應 L§follow-up 的 rerank/limit union evidence。
+(3) 子集檢查(只看 final 選 decomp 的題,老師字面口徑):HotpotQA(726 題)31.13→38.57(+7.44)、2Wiki(935)48.66→52.30(+3.64)、MuSiQue(818)28.00→28.61(+0.61)、PopQA(963)52.23→53.69(+1.45)——方向與主表一致,結論不因口徑而反轉。
+(4) 投影片修訂稿:`slides/p43_union_ablation_revision.md`(主表換 decomp-candidate-only、加選路比例表、含「仍是兩條 path」答辯講稿)。
 
 **Slide 44 修正版(針對截圖 `Original-question Evidence Union Ablation`):** 這頁現在的表是
 full-system before/after,會混入 verifier 最後選 direct 的題,因此不適合作為 union ablation 主證據。
@@ -688,6 +697,55 @@ and any per-dataset retraining of a retrieval decision-maker.
 - **實作忠實度已核對**：`maqa_margin` = first-token top1−top2 softmax margin（同 MAQA）；`targ_unc` = prefix-mean exp(−logit_gap/β)，k=20、β=3（同 TARG 預設）。
 - **結果**：max_ent macro AUROC(need) 0.689 為全訊號最佳；HotpotQA 上顯著贏所有 margin/TARG 訊號；PopQA（TARG 自用資料集）上 entropy 贏 targ_unc Δ=+0.106（p<0.001），直接反轉 TARG 結論；MuSiQue 上 min_lp≈max_ent（不顯著）；2Wiki 全訊號近隨機（資料集問題，非訊號選擇問題）。
 - **論文口徑**：採 max_ent 有文獻（MAQA）與自家四資料集復現（含 TARG 忠實設定）雙重支撐。
+
+### 4.11 Direct-only confidence-gated RAG baseline——拆解的貢獻無法被 gate 取代（2026-07-04）
+
+詳見 `results/direct_gate_ablation.md`。回答「**不拆解、只用信心度決定要不要 RAG** 能走多遠」
+（slide p39–41 的缺角對照）。Baseline:原問題先無 context 答 + 量 `max_ent`,
+`max_ent ≥ τ` 才檢索(honest wiki-21M,同主表 config);實作 = 新 parametric probe
+(`scripts/run_direct_norag_probe.py` → `{ds}_1000_direct_norag.jsonl`)+ 離線 replay
+既有 direct+always-RAG traces(`scripts/replay_direct_gate.py`,τ=0 精確重現
+30.3/18.0/10.2/37.1 ✓,greedy 下與 live 等價,τ 全曲線免費)。
+
+2×3 矩陣(EM,decompose 三欄 = §4.6):
+
+| Dataset | Dir-never | Dir-gate best-τ | Dir-always | Dec-never | **Dec-gate** | Dec-always |
+|---|---:|---:|---:|---:|---:|---:|
+| HotpotQA | 18.2 | 30.7 @0.3 | 30.3 | 15.7 | 25.0 | 25.1 |
+| 2Wiki | 12.6 | 18.6 @0.4 | 18.0 | 29.4 | **47.2** | 47.1 |
+| MuSiQue | 5.9 | 10.8 @0.8 | 10.2 | 9.6 | **24.7** | 25.0 |
+| PopQA | 22.4 | 39.2 @2.0 | 37.1 | 24.2 | **51.5** | 51.4 |
+
+**結論**:(1) 就算給 direct-gate 事後最佳 τ,2Wiki/MuSiQue/PopQA 仍輸 decompose+gate
+**+12.3~+28.6 EM**——不拆解時 gate 只能在兩個(多跳常常都錯的)候選間二選一;
+(2) 不是訊號差:query-level AUROC(max_ent→parametric 錯) 0.72–0.81,但 gate 相對
+always 只擠出 ≤+0.6 EM(PopQA +2.1)——天花板是單 query 檢索 coverage(§4.4),
+把候選變好的是拆解不是 gate;(3) Dec-never 也贏 Dir-never(2Wiki 29.4 vs 12.6),
+拆解連 parametric-only 都幫;(4) HotpotQA 例外與 §3.3/§4.2 敘事一致
+(direct 本來就強),且 full SEEK verifier 31.8 ≥ direct-gate 30.7,完整系統不輸。
+
+### 4.12 2×2 象限內信心度分析——both-correct 是真信心,both-wrong 有 10–29% 是自信答錯（2026-07-04）
+
+詳見 `results/quadrant_confidence_analysis.md`;圖 `Thesis/figures/fig_quadrant_confidence.png`
+(slide p45 的後續:各象限的 entropy 分布)。腳本 `scripts/analyze_quadrant_confidence.py`
+(離線,同 p45 的 typeaware replay traces,象限 n 精確重現 p45 ✓)。訊號:direct =
+`skip_probe_ent`,decomp = max step `max_ent`。
+
+- **both_correct 不是猜對**:direct entropy pooled 0.49 vs both_wrong 1.40
+  (AUROC 0.782、d=+0.89;PopQA 0.819),四資料集大多呈 both_correct → direct_only →
+  decomp_only → both_wrong 單調上升。
+- **decomp 路徑 entropy 恆高(~3 nats)、象限分離差**(pooled AUROC 0.588;mean_ent 0.503
+  =無訊號)——per-step entropy 是好的 retrieval gate 訊號(§4.10)但不是 question-level
+  correctness 訊號。
+- **自信答錯(confidently-wrong)**:both_wrong 中 direct entropy ≤ both_correct 中位數的
+  比例 = PopQA 9.5% / MuSiQue 16.5% / HotpotQA 18.3% / 2Wiki 28.8%(decomp 訊號更糟
+  28–48%)——這部分任何 entropy 閾值都抓不到,量化 slide p47 的
+  「low entropy ≠ correct」。
+- **分歧象限靠 entropy 互比 ≈ 亂猜**:raw 比較退化(尺度不同,幾乎永遠選 direct);
+  z-score 後命中率 45–69%(近擲硬幣)。現行 verifier 在 decomp_only 命中 78–96% 但
+  direct_only 只 7–68%——優勢來自 decomp prior + 規則檢查,不是信心訊號本身。
+- **結論**:信心度能回答「這題可能對不對」(accept/abstain),回答不了「該走哪條路」;
+  p46 的 oracle routing gap(+3.8~+6.1 EM)無法靠比較兩路 entropy 關閉。
 
 
 ## 5. 待辦 / 限制 / 已完成

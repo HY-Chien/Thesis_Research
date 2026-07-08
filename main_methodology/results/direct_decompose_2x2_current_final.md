@@ -4,6 +4,16 @@ Setting: current final candidate traces with path-aware retrieval, original-ques
 
 This is an answer-level analysis. It is different from retrieval coverage: a passage can contain the gold answer string, while the final decomposed answer can still be wrong because of decomposition drift, reasoning error, or synthesis error.
 
+Final verifier path selection rate:
+
+| Dataset | Direct selected | Decompose selected |
+|---|---:|---:|
+| HotpotQA | 274 / 1000 = **27.4%** | 726 / 1000 = **72.6%** |
+| 2Wiki | 65 / 1000 = **6.5%** | 935 / 1000 = **93.5%** |
+| MuSiQue | 182 / 1000 = **18.2%** | 818 / 1000 = **81.8%** |
+| PopQA | 37 / 1000 = **3.7%** | 963 / 1000 = **96.3%** |
+| **Pooled** | 558 / 4000 = **14.0%** | 3442 / 4000 = **86.1%** |
+
 | Dataset | N | Both correct | Direct-only | Decomp-only | Both wrong | Direct EM | Decomp EM | Oracle EM | Decomp-only - Direct-only |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 2Wiki | 1000 | 141 | 39 | 361 | 459 | 18.00 | 50.20 | 54.10 | +322 |

@@ -1,7 +1,37 @@
 \chapter{Methodology}
 \label{ch:method}
 
-This chapter presents \textbf{SEEK} (\textbf{S}elf-certainty \textbf{E}valuated \textbf{E}ntropy-gated \textbf{K}nowledge-retrieval), a lightweight adaptive RAG framework that treats question decomposition as a routing problem. Earlier versions of SEEK used entropy as a hard skip-decomposition gate. The final system instead runs both a direct path and a decomposition path, preserves original-question evidence inside decomposed steps, and chooses between the candidate answers using a training-free verifier. Section~\ref{sec:overview} gives the end-to-end overview. Sections~\ref{sec:decomposer}--\ref{sec:synthesize} describe the decomposition path, Section~\ref{sec:verifier} describes the verifier, and Sections~\ref{sec:training}--\ref{sec:modes} give the training and implementation details.
+This chapter presents \textbf{SEEK} (\textbf{S}elf-certainty \textbf{E}valuated \textbf{E}ntropy-gated \textbf{K}nowledge-retrieval), a lightweight adaptive RAG framework that treats question decomposition as a routing problem. Earlier versions of SEEK used entropy as a hard skip-decomposition gate. The final system instead runs both a direct path and a decomposition path, preserves original-question evidence inside decomposed steps, and chooses between the candidate answers using a training-free verifier. Section~\ref{sec:design-observations} summarises the empirical observations that motivated this design. Section~\ref{sec:overview} gives the end-to-end overview. Sections~\ref{sec:decomposer}--\ref{sec:synthesize} describe the decomposition path, Section~\ref{sec:verifier} describes the verifier, and Sections~\ref{sec:training}--\ref{sec:modes} give the training and implementation details.
+
+\section{Empirical Design Motivation}
+\label{sec:design-observations}
+
+SEEK was developed from a set of empirical observations about where adaptive RAG succeeds and fails. These observations are evaluated in detail in Chapter~\ref{ch:exp}; here they are used to motivate the final system design.
+
+\begin{table}[h]
+    \centering
+    \caption[Empirical Motivation for SEEK Design]{Empirical observations that motivate the final SEEK design.}
+    \label{tab:design-motivation}
+    \setlength{\tabcolsep}{5pt}
+    \small
+    \begin{tabular}{ p{3.2cm} p{5.2cm} p{5.0cm} }
+        \toprule
+        Design choice & Observation & Resulting decision \\
+        \midrule
+        Use decomposition for retrieval & Decomposed queries improve answer-containing hit@5 by +10.0 on HotpotQA, +30.6 on 2Wiki, and +20.5 on MuSiQue. & Make sub-question retrieval the main multi-hop evidence acquisition path. \\
+        \addlinespace
+        Retrieve after decomposition & Removing retrieval after decomposition loses 9.3 to 27.3 EM across datasets. & Treat decomposition as a query-planning step, not as a substitute for external evidence. \\
+        \addlinespace
+        Avoid a single global entropy router & Maximum entropy is useful, but confident wrong answers remain: 9.5\% to 28.8\% of both-wrong questions look as confident as both-correct questions. & Use entropy as one verifier signal rather than as a hard whole-question skip gate. \\
+        \addlinespace
+        Preserve original-question evidence & Short sub-questions can drop comparison targets or disambiguating clues; original-question evidence union improves the decomposed candidate by up to +5.5 EM. & Add original-question evidence to each decomposed step while keeping direct and decomposed answers separate. \\
+        \addlinespace
+        Keep both answer paths & Direct-only and decompose-only wins coexist, especially on HotpotQA where the two columns are nearly tied. & Generate both candidates and perform late training-free verification. \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+These observations imply that adaptive RAG is more than a retrieve-or-skip problem. A useful system must decide whether a question should be answered directly, decomposed into sharper retrieval queries, or repaired with original-question context after decomposition. This motivates the dual-path architecture used throughout the rest of the thesis.
 
 \section{Overview}
 \label{sec:overview}
@@ -141,7 +171,7 @@ A decomposed sub-question is often shorter and more entity-centric than the orig
     C_i = r(s_i, \mathcal{P}, k) \cup r(q, \mathcal{P}, k).
 \]
 
-The union is deduplicated before answering. This operation does not change the decomposer or train a new retriever; it simply keeps the original-question evidence available when answering each decomposed step. Chapter~\ref{ch:exp} shows that this is the main improvement from the path-aware baseline to the final system, especially on HotpotQA and 2WikiMultihopQA.
+The union is deduplicated before answering. This operation does not change the decomposer or train a new retriever; it simply keeps the original-question evidence available when answering each decomposed step. Although these original-question passages are also the evidence source for the direct candidate, the two answer paths remain distinct: the direct path answers the original question directly, whereas the decomposition path still performs sub-question retrieval, step answering, and final synthesis. Thus the union shares evidence, not the direct answer or the final routing decision. Chapter~\ref{ch:exp} evaluates this operation as a decomposition-path ablation, especially on HotpotQA and 2WikiMultihopQA.
 
 
 \subsection{Retriever}

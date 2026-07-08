@@ -4,7 +4,7 @@
 
 Large language models (LLMs) often hallucinate when queried about recent, obscure, or proprietary information outside their training scope. Retrieval-Augmented Generation (RAG) addresses this by fetching relevant external evidence, reducing factually unsupported answers~\cite{rag_survey, hallucination_survey}. However, applying RAG indiscriminately creates two problems. For simple questions, unnecessary retrieval can inject distracting evidence and increase latency. For complex multi-hop questions, a single retrieval step often fails to surface the intermediate entities needed for reasoning.
 
-Adaptive RAG therefore needs to decide not only \emph{whether} retrieval is useful, but also \emph{when to trust decomposition}. Decomposition can sharpen retrieval queries, but it can also remove the original question's comparison targets, entity pairs, or disambiguating clues. This thesis therefore frames adaptive RAG as a \emph{decomposition-routing problem}: the system should control retrieval at the sub-question level while preserving the original-question path as a competing candidate.
+Adaptive RAG therefore needs to decide not only \emph{whether} retrieval is useful, but also \emph{when to trust decomposition}. Decomposition can sharpen retrieval queries, but it can also remove the original question's comparison targets, entity pairs, or disambiguating clues. This thesis frames adaptive RAG as a \emph{decomposition-routing problem}: the system should control retrieval at the sub-question level while preserving the original-question path as a competing candidate.
 
 \section{Research Objectives}
 

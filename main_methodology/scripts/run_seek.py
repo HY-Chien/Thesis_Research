@@ -67,8 +67,15 @@ def main() -> None:
                     help="base model path (default Llama-3-8B; pass Qwen2.5-7B for that backbone)")
     ap.add_argument("--dev", required=True)
     ap.add_argument("--mode", choices=["B", "C"], required=True)
-    ap.add_argument("--signal", choices=["max_ent", "mean_ent", "min_lp"],
+    ap.add_argument("--signal",
+                    choices=["max_ent", "mean_ent", "min_lp",
+                             "maqa_margin", "mean_margin", "max_margin",
+                             "targ_unc", "targ_logit_gap"],
                     default="max_ent")
+    ap.add_argument("--targ-prefix-k", type=int, default=8,
+                    help="number of generated prefix tokens for TARG-style logit-gap averaging")
+    ap.add_argument("--targ-beta", type=float, default=1.0,
+                    help="temperature beta for TARG uncertainty exp(-gap / beta)")
     ap.add_argument("--tau", type=float, default=0.8)
     ap.add_argument("--top-k", type=int, default=5)
     ap.add_argument("--corpus", default="paragraphs",
@@ -82,6 +89,9 @@ def main() -> None:
                     help="if set, re-measure entropy AFTER retrieval; if the "
                          "answer is still uncertain (retrieval missed gold), "
                          "revert to the model's parametric pre-retrieval answer")
+    ap.add_argument("--post-retrieval-drop-tau", type=float, default=None,
+                    help="if set, accept retrieved answer only when the chosen "
+                         "uncertainty signal drops by at least this amount")
     ap.add_argument("--direct-context-union", action="store_true",
                     help="for decomposition steps, append original-question top-k "
                          "evidence to each sub-question context")
@@ -117,8 +127,11 @@ def main() -> None:
     for i, r in enumerate(rows, 1):
         trace = run_seek(model, tok, r, tau=args.tau, top_k=args.top_k,
                          mode=args.mode, signal=args.signal,
+                         targ_prefix_k=args.targ_prefix_k,
+                         targ_beta=args.targ_beta,
                          skip_decompose_tau=args.skip_decompose_tau,
                          post_retrieval_tau=args.post_retrieval_tau,
+                         post_retrieval_drop_tau=args.post_retrieval_drop_tau,
                          open_retriever=open_retriever,
                          direct_context_union=args.direct_context_union)
         if trace.skipped_decompose:
@@ -140,6 +153,10 @@ def main() -> None:
                 "question": r["question"],
                 "gold": r["answer"],
                 "pred": trace.final_answer,
+                "signal": args.signal,
+                "tau": args.tau,
+                "targ_prefix_k": args.targ_prefix_k,
+                "targ_beta": args.targ_beta,
                 "skipped_decompose": trace.skipped_decompose,
                 "skip_probe_ent": trace.skip_probe_ent,
                 "em": int(e),
@@ -159,7 +176,8 @@ def main() -> None:
     print(f"\nadapter: {args.adapter}")
     print(f"dev:     {args.dev}  ({n} rows)")
     print(f"mode:    {args.mode}   signal={args.signal}   tau={args.tau}   "
-          f"top_k={args.top_k}   skip_decompose_tau={args.skip_decompose_tau}")
+          f"top_k={args.top_k}   skip_decompose_tau={args.skip_decompose_tau}   "
+          f"targ_prefix_k={args.targ_prefix_k}   targ_beta={args.targ_beta}")
     print(f"EM:           {em_sum/n:.1%}")
     print(f"F1:           {f1_sum/n:.1%}")
     print(f"retrieval:    {retr_steps}/{total_steps} steps = "

@@ -1,0 +1,199 @@
+"""Path-local analysis of the original-question evidence union ablation.
+
+Offline only (no LLM calls). For each dataset, compares the decomposed
+candidate before vs after `--direct-context-union`:
+
+  before: results/{ds}_1000_verify_v2_pathaware.jsonl
+  after:  results/{ds}_1000_verify_v2_pathaware_directctx.jsonl
+  final:  results/{ds}_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl
+
+Reports
+  1. decomp candidate EM/F1 before vs after (the clean union ablation)
+  2. verifier routing proportions (direct vs decomp) at all three stages
+  3. gained/lost question counts (decomp_em 0->1 / 1->0)
+  4. subset check: decomp EM restricted to questions the final verifier
+     routed to the decompose path
+
+Usage: python scripts/analyze_union_ablation_pathlocal.py
+Writes results/union_ablation_pathlocal_summary.md
+"""
+
+from __future__ import annotations
+
+import json
+import importlib.util
+import sys
+from collections import Counter
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+_VERIFIER_SPEC = importlib.util.spec_from_file_location(
+    "_seek_verifier",
+    ROOT / "seek" / "verifier.py",
+)
+if _VERIFIER_SPEC is None or _VERIFIER_SPEC.loader is None:
+    raise ImportError("Could not load seek/verifier.py")
+_seek_verifier = importlib.util.module_from_spec(_VERIFIER_SPEC)
+sys.modules[_VERIFIER_SPEC.name] = _seek_verifier
+_VERIFIER_SPEC.loader.exec_module(_seek_verifier)
+exact_match = _seek_verifier.exact_match
+token_f1 = _seek_verifier.token_f1
+
+RESULTS = ROOT / "results"
+DATASETS = ["hotpotqa", "2wiki", "musique", "popqa"]
+LABELS = {"hotpotqa": "HotpotQA", "2wiki": "2Wiki", "musique": "MuSiQue", "popqa": "PopQA"}
+# Same dev files the runs scored against (gold = answer + answer_aliases; the
+# trace's `gold` field only stores the primary answer, which under-scores
+# MuSiQue/PopQA).
+DEV_FILES = {
+    "hotpotqa": "datasets/hotpotqa/raw/dev_first1000.jsonl",
+    "2wiki": "datasets/2wiki/raw/dev_first1000.jsonl",
+    "musique": "datasets/musique/raw/dev_first1000.jsonl",
+    "popqa": "datasets/popqa/raw/dev.jsonl",
+}
+
+
+def load(path: Path) -> dict[str, dict]:
+    rows = {}
+    with path.open() as f:
+        for line in f:
+            d = json.loads(line)
+            rows[str(d["id"])] = d
+    return rows
+
+
+def load_golds(ds: str) -> dict[str, list[str]]:
+    golds = {}
+    with (ROOT / DEV_FILES[ds]).open() as f:
+        for line in f:
+            d = json.loads(line)
+            golds[str(d["id"])] = [d["answer"]] + (d.get("answer_aliases") or [])
+    return golds
+
+
+def decomp_scores(
+    rows: dict[str, dict], golds: dict[str, list[str]], ids: list[str]
+) -> tuple[float, float]:
+    em = sum(exact_match(rows[i]["decomp_pred"] or "", golds[i]) for i in ids)
+    f1 = sum(token_f1(rows[i]["decomp_pred"] or "", golds[i]) for i in ids)
+    n = len(ids)
+    return 100 * em / n, 100 * f1 / n
+
+
+def routing(rows: dict[str, dict], key: str = "choice") -> tuple[int, int]:
+    c = Counter(r[key] for r in rows.values())
+    return c["direct"], c["decomp"]
+
+
+def main() -> None:
+    main_tbl, route_tbl, flip_tbl, subset_tbl = [], [], [], []
+    pooled_route = Counter()
+
+    for ds in DATASETS:
+        before = load(RESULTS / f"{ds}_1000_verify_v2_pathaware.jsonl")
+        after = load(RESULTS / f"{ds}_1000_verify_v2_pathaware_directctx.jsonl")
+        final = load(RESULTS / f"{ds}_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl")
+        golds = load_golds(ds)
+        ids = sorted(set(before) & set(after) & set(final))
+        assert len(ids) == len(before) == len(after) == len(final), f"{ds}: id mismatch"
+        n = len(ids)
+
+        b_em, b_f1 = decomp_scores(before, golds, ids)
+        a_em, a_f1 = decomp_scores(after, golds, ids)
+        for tag, rows, em in [("before", before, b_em), ("after", after, a_em)]:
+            stored = 100 * sum(rows[i]["decomp_em"] for i in ids) / n
+            assert abs(stored - em) < 0.05, f"{ds} {tag}: recomputed EM {em:.2f} != stored {stored:.2f}"
+        main_tbl.append((LABELS[ds], b_em, b_f1, a_em, a_f1))
+
+        rb, ra = routing(before), routing(after)
+        rf = routing(final, key="replay_choice")
+        pooled_route.update({"direct": rf[0], "decomp": rf[1]})
+        route_tbl.append((LABELS[ds], n, rb, ra, rf))
+
+        gained = sum(1 for i in ids if not before[i]["decomp_em"] and after[i]["decomp_em"])
+        lost = sum(1 for i in ids if before[i]["decomp_em"] and not after[i]["decomp_em"])
+        flip_tbl.append((LABELS[ds], gained, lost))
+
+        sub = [i for i in ids if final[i]["replay_choice"] == "decomp"]
+        sb_em, _ = decomp_scores(before, golds, sub)
+        sa_em, _ = decomp_scores(after, golds, sub)
+        subset_tbl.append((LABELS[ds], len(sub), sb_em, sa_em))
+
+    lines = [
+        "# Original-question Evidence Union — Path-local Ablation Summary",
+        "",
+        "Generated by `scripts/analyze_union_ablation_pathlocal.py` (offline replay of",
+        "`*_1000_verify_v2_pathaware{,_directctx,_directctx_typeaware_replay}.jsonl`, N=1000 each).",
+        "",
+        "## 1. Clean ablation: decomposed candidate only (union touches nothing else)",
+        "",
+        "| Dataset | decomp w/o union EM/F1 | decomp + union EM/F1 | ΔEM / ΔF1 |",
+        "|---|---:|---:|---:|",
+    ]
+    avg = [0.0] * 4
+    for name, b_em, b_f1, a_em, a_f1 in main_tbl:
+        avg = [avg[0] + b_em, avg[1] + b_f1, avg[2] + a_em, avg[3] + a_f1]
+        lines.append(
+            f"| {name} | {b_em:.2f} / {b_f1:.2f} | **{a_em:.2f} / {a_f1:.2f}** "
+            f"| {a_em - b_em:+.2f} / {a_f1 - b_f1:+.2f} |"
+        )
+    avg = [x / len(main_tbl) for x in avg]
+    lines.append(
+        f"| **AVG** | {avg[0] + 1e-9:.2f} / {avg[1] + 1e-9:.2f} | **{avg[2] + 1e-9:.2f} / {avg[3] + 1e-9:.2f}** "
+        f"| {avg[2] - avg[0] + 1e-9:+.2f} / {avg[3] - avg[1] + 1e-9:+.2f} |"
+    )
+
+    lines += [
+        "",
+        "## 2. Verifier routing proportions (direct / decompose)",
+        "",
+        "| Dataset | before union (`choice`) | after union (`choice`) | final (type-aware `replay_choice`) |",
+        "|---|---:|---:|---:|",
+    ]
+    for name, n, rb, ra, rf in route_tbl:
+        lines.append(
+            f"| {name} | {rb[0] / n:.1%} / {rb[1] / n:.1%} | {ra[0] / n:.1%} / {ra[1] / n:.1%} "
+            f"| **{rf[0] / n:.1%} / {rf[1] / n:.1%}** |"
+        )
+    tot = pooled_route["direct"] + pooled_route["decomp"]
+    lines.append(
+        f"| **Pooled (final)** | | | **{pooled_route['direct'] / tot:.1%} / {pooled_route['decomp'] / tot:.1%}** |"
+    )
+
+    lines += [
+        "",
+        "## 3. Question-level flips on the decomposed candidate (union effect)",
+        "",
+        "| Dataset | gained (0→1) | lost (1→0) | net |",
+        "|---|---:|---:|---:|",
+    ]
+    for name, gained, lost in flip_tbl:
+        lines.append(f"| {name} | +{gained} | −{lost} | {gained - lost:+d} |")
+
+    lines += [
+        "",
+        "## 4. Subset check: only questions the final verifier routed to decompose",
+        "",
+        "| Dataset | N (decomp-routed) | decomp EM w/o union | decomp EM + union | ΔEM |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for name, n_sub, sb_em, sa_em in subset_tbl:
+        lines.append(f"| {name} | {n_sub} | {sb_em:.2f} | **{sa_em:.2f}** | {sa_em - sb_em:+.2f} |")
+
+    lines += [
+        "",
+        "Reproduce traces: `run_seek_dual.py` (before) / `run_seek_dual.py --direct-context-union` (after)",
+        "+ `scripts/replay_typeaware_verifier.py` (final).",
+        "",
+    ]
+
+    out = RESULTS / "union_ablation_pathlocal_summary.md"
+    out.write_text("\n".join(lines))
+    print("\n".join(lines))
+    print(f"wrote {out}")
+
+
+if __name__ == "__main__":
+    main()

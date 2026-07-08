@@ -9,7 +9,7 @@ size: 16:9
 進度簡報(前半段):實驗 → 對應教授方向 1 & 2。
 預覽/匯出:VS Code 裝 Marp for VS Code 外掛,右上角可匯出 PDF / PPTX。
 數字全部對齊 results/ 下實際檔案(2026-06 重跑;2026-06-11 套用合成 value→entity guard 後重評分)。
-2026-06-23 最新增量見 `RESULTS_MASTER.md`:HotpotQA failure analysis + conservative date-comparison synthesis guard + direct-context union ablation(HotpotQA +2.5 EM,2Wiki +3.0 EM)。D3/D4 本簡報不談。
+2026-06-23 最新增量見 `RESULTS_MASTER.md`:HotpotQA failure analysis + conservative date-comparison synthesis guard + original-question evidence union ablation(HotpotQA decomp EM +5.5, 2Wiki +3.0)。D3/D4 本簡報不談。
 -->
 
 # SEEK:以不確定性驅動的自適應檢索與分解
@@ -324,7 +324,7 @@ direct 與 decompose **兩條都檢索**(direct = 原問題單跳 RAG;decompose 
 1. 把 **B1/B2/B3 偵測器直接套到 SEEK skip 子集** → 閉合「router 負面 ↔ confident hallucination」最後一哩
 2. ✅ **Oracle 上界(已做)**:verifier 拆解選擇的反事實 2×2 + oracle gap(+3.6~+8.3 EM)已算出;殘餘增益全卡在 dirOnly(該走單跳卻拆解)格,證明「gap 來自熵分不開的尾端,非調 threshold 能救」→ 待補:逐題質化讀
 3. ✅ **HotpotQA 質化讀 / failure analysis(已做 6/23)**:direct-only、decomposition/retrieval/synthesis 三類與 3 個代表案例已整理;date-comparison synthesis guard 已實作
-4. **honest pool 的 query 改寫 / direct-context union**:下一個真正可能推動 HotpotQA 的槓桿
+4. **honest pool 的 query 改寫 / original-question evidence union**:下一個真正可能推動 HotpotQA 的槓桿
 
 > D3(推理鏈脆弱)/ D4(Agent Tool Use)本階段暫不納入,先把 D1 + D2 做紮實。
 > 範例:`slides/examples/ex1~ex4`;圖:`slides/figures/`;數字:`results/` 與 `deeprag_compare/check/`。

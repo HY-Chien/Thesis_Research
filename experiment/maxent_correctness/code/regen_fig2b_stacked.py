@@ -127,11 +127,18 @@ def fig_bar_contrast(ent, cor, n_bins=8):
                     va="center", color="white", fontweight="bold",
                     fontsize=11, zorder=4)
 
+    # Median entropy of each bin, annotated above the bar (the first bins all
+    # have median 0.00, which looked odd as x-tick labels).
+    for i, c in enumerate(centers):
+        ax.text(x[i], 101.5, f"med\n{c:.2f}", ha="center", va="bottom",
+                color="#555555", fontsize=10, linespacing=1.1, zorder=4)
+
     ax.set_xticks(x)
-    ax.set_xticklabels([f"{c:.2f}" for c in centers])
-    ax.set_xlabel("MAX_ENTROPY bin (median value, low → high)", fontsize=13)
+    ax.set_xticklabels([f"Bin {i + 1}" for i in range(len(centers))])
+    ax.set_xlabel("MAX_ENTROPY bin (equal-frequency, low → high)", fontsize=13)
     ax.set_ylabel("Proportion (%)", fontsize=13)
-    ax.set_ylim(0, 100)
+    ax.set_ylim(0, 112)
+    ax.set_yticks(np.arange(0, 101, 20))
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 

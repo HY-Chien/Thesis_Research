@@ -26,6 +26,17 @@ DECOMP_INSTRUCTION = (
 STEP_RE = re.compile(r"^#(\d+):\s*(.*)$")
 REF_RE = re.compile(r"#(\d+)")
 
+HIGHER_IS_UNCERTAIN_SIGNALS = {"max_ent", "mean_ent", "targ_unc"}
+LOWER_IS_UNCERTAIN_SIGNALS = {
+    "min_lp", "maqa_margin", "mean_margin", "max_margin", "targ_logit_gap"}
+SIGNAL_NAMES = HIGHER_IS_UNCERTAIN_SIGNALS | LOWER_IS_UNCERTAIN_SIGNALS
+
+
+def _higher_is_uncertain_signal(signal: str) -> bool:
+    if signal not in SIGNAL_NAMES:
+        raise ValueError(f"unknown confidence signal: {signal}")
+    return signal in HIGHER_IS_UNCERTAIN_SIGNALS
+
 
 @dataclass
 class StepTrace:
@@ -36,10 +47,16 @@ class StepTrace:
     max_ent: float
     mean_ent: float
     min_lp: float
+    maqa_margin: float
+    mean_margin: float
+    max_margin: float
+    targ_logit_gap: float
+    targ_unc: float
     signal_value: float   # the gating signal chosen for this run
     retrieved: bool
     final_answer: str
     post_signal_value: float = -1.0  # signal AFTER retrieval (-1 if not retrieved)
+    retrieval_signal_drop: float = 0.0  # positive means retrieval made the signal more confident
     used_fallback: bool = False      # retrieval didn't help -> reverted to parametric
 
 
@@ -326,16 +343,20 @@ def _synthesize(model, tok, original_q: str,
 def run_seek(model, tok, row: dict, *, tau: float = 0.8,
              top_k: int = 5, mode: str = "B",
              signal: str = "max_ent",
+             targ_prefix_k: int = 8,
+             targ_beta: float = 1.0,
              skip_decompose_tau: float | None = None,
              post_retrieval_tau: float | None = None,
+             post_retrieval_drop_tau: float | None = None,
              open_retriever=None,
              title_mode: str = "pathaware",
              direct_context_union: bool = False) -> SeekTrace:
     """Run SEEK on one dev row.
 
     Gate rule:
-      signal == "max_ent" or "mean_ent" — retrieve when value >= tau (high = uncertain)
-      signal == "min_lp"               — retrieve when value <= tau (low  = uncertain)
+      max_ent / mean_ent / targ_unc retrieve when value >= tau (high = uncertain)
+      min_lp / maqa_margin / mean_margin / max_margin / targ_logit_gap
+        retrieve when value <= tau (low = uncertain)
 
     If skip_decompose_tau is set:
       Probe the original question with retrieved context first. If the answer's
@@ -349,9 +370,8 @@ def run_seek(model, tok, row: dict, *, tau: float = 0.8,
       HotpotQA cases where the decomposed query drops disambiguating clues.
     """
     assert mode in ("B", "C")
-    assert signal in ("max_ent", "mean_ent", "min_lp")
     assert title_mode in ("off", "global", "pathaware")
-    higher_is_uncertain = signal in ("max_ent", "mean_ent")
+    higher_is_uncertain = _higher_is_uncertain_signal(signal)
     # title-field matching per query type (ablation control):
     #   off       -> never match title
     #   global    -> always match title (DeepRAG / IRCoT default)
@@ -373,7 +393,9 @@ def run_seek(model, tok, row: dict, *, tau: float = 0.8,
         # single-step / direct path retrieves with the long ORIGINAL question.
         ctx = format_context(retriever.topk(question, k=top_k, title_field=title_direct)) if retriever else None
         with _answer_ctx(model, mode):
-            probe = answer_with_entropy(model, tok, question, context=ctx)
+            probe = answer_with_entropy(
+                model, tok, question, context=ctx,
+                targ_prefix_k=targ_prefix_k, targ_beta=targ_beta)
         sig = probe.signal(signal)
         confident = (sig < skip_decompose_tau) if higher_is_uncertain else (sig > skip_decompose_tau)
         if confident:
@@ -399,11 +421,14 @@ def run_seek(model, tok, row: dict, *, tau: float = 0.8,
     for sid, raw_sub_q in parsed:
         resolved = _substitute(raw_sub_q, answers)
         with _answer_ctx(model, mode):
-            res = answer_with_entropy(model, tok, resolved)
+            res = answer_with_entropy(
+                model, tok, resolved,
+                targ_prefix_k=targ_prefix_k, targ_beta=targ_beta)
         sig = res.signal(signal)
         retrieved = (sig >= tau) if higher_is_uncertain else (sig <= tau)
         final_ans = res.text
         post_sig = -1.0
+        signal_drop = 0.0
         used_fallback = False
         if retrieved and retriever:
             # decompose sub-query ≈ an entity/title.
@@ -411,9 +436,21 @@ def run_seek(model, tok, row: dict, *, tau: float = 0.8,
             hits = _merge_hits(subq_hits, direct_context_hits)
             ctx = format_context(hits)
             with _answer_ctx(model, mode):
-                post = answer_with_entropy(model, tok, resolved, context=ctx)
+                post = answer_with_entropy(
+                    model, tok, resolved, context=ctx,
+                    targ_prefix_k=targ_prefix_k, targ_beta=targ_beta)
             post_sig = post.signal(signal)
-            if post_retrieval_tau is not None:
+            signal_drop = sig - post_sig if higher_is_uncertain else post_sig - sig
+            if post_retrieval_drop_tau is not None:
+                # Evidence-conditioned uncertainty reduction: accept retrieved
+                # context only if it makes the answer sufficiently more certain.
+                helped = signal_drop >= post_retrieval_drop_tau
+                if helped:
+                    final_ans = post.text
+                else:
+                    final_ans = res.text
+                    used_fallback = True
+            elif post_retrieval_tau is not None:
                 # Second probe: did the retrieved context actually resolve the
                 # uncertainty? If the post-retrieval answer is STILL uncertain
                 # (signal past the threshold the wrong way), the retrieval likely
@@ -432,9 +469,12 @@ def run_seek(model, tok, row: dict, *, tau: float = 0.8,
         trace.steps.append(StepTrace(
             step_id=sid, raw_sub_q=raw_sub_q, sub_q=resolved,
             tentative=res.text, max_ent=res.max_ent, mean_ent=res.mean_ent,
-            min_lp=res.min_lp, signal_value=sig,
-            retrieved=retrieved, final_answer=final_ans,
-            post_signal_value=post_sig, used_fallback=used_fallback))
+            min_lp=res.min_lp, maqa_margin=res.maqa_margin,
+            mean_margin=res.mean_margin, max_margin=res.max_margin,
+            targ_logit_gap=res.targ_logit_gap, targ_unc=res.targ_unc,
+            signal_value=sig, retrieved=retrieved, final_answer=final_ans,
+            post_signal_value=post_sig, retrieval_signal_drop=signal_drop,
+            used_fallback=used_fallback))
 
     # Final synthesis runs with the decomposer LoRA DISABLED: the adapter is
     # trained to emit decompositions, so with it on the synthesis step echoes

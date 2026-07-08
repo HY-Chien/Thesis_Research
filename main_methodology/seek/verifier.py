@@ -174,6 +174,14 @@ def _decomp_post_entropy(record: dict) -> float | None:
     return max(vals) if vals else None
 
 
+def _is_uncertain_signal(value: float, tau: float, *, higher_is_uncertain: bool) -> bool:
+    return value > tau if higher_is_uncertain else value < tau
+
+
+def _is_confident_signal(value: float, tau: float, *, higher_is_uncertain: bool) -> bool:
+    return value < tau if higher_is_uncertain else value > tau
+
+
 def _auto_fallback(
     direct: dict,
     decomp: dict,
@@ -182,16 +190,21 @@ def _auto_fallback(
     *,
     direct_entropy_tau: float,
     decomp_post_entropy_tau: float,
+    higher_is_uncertain: bool = True,
 ) -> Verification:
     direct_ent = _direct_entropy(direct)
     decomp_post = _decomp_post_entropy(decomp)
     decomp_unstable = (
         _decomp_failed(decomp)
         or _looks_broken(decomp)
-        or (decomp_post is not None and decomp_post > decomp_post_entropy_tau)
+        or (decomp_post is not None and _is_uncertain_signal(
+            decomp_post, decomp_post_entropy_tau,
+            higher_is_uncertain=higher_is_uncertain))
     )
-    if direct_ent is not None and direct_ent < direct_entropy_tau and decomp_unstable:
-        return Verification("direct", "auto_low_direct_entropy_unstable_decomp",
+    if (direct_ent is not None and _is_confident_signal(
+            direct_ent, direct_entropy_tau,
+            higher_is_uncertain=higher_is_uncertain) and decomp_unstable):
+        return Verification("direct", "auto_confident_direct_unstable_decomp",
                             direct_support, decomp_support)
     return Verification("decomp", "auto_fallback_decomp",
                         direct_support, decomp_support)
@@ -210,6 +223,7 @@ def choose_answer(
     fallback: str = "auto",
     direct_entropy_tau: float = 0.3,
     decomp_post_entropy_tau: float = 0.8,
+    higher_is_uncertain: bool = True,
 ) -> Verification:
     """Choose between direct and decomposition outputs.
 
@@ -271,6 +285,7 @@ def choose_answer(
             direct, decomp, direct_support, decomp_support,
             direct_entropy_tau=direct_entropy_tau,
             decomp_post_entropy_tau=decomp_post_entropy_tau,
+            higher_is_uncertain=higher_is_uncertain,
         )
     if fallback not in {"direct", "decomp"}:
         fallback = "decomp"
