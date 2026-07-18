@@ -11,10 +11,10 @@ The principal contributions are:
 \begin{enumerate}
     \item \textbf{Dual-path adaptive RAG.} SEEK generates both a direct answer and a decomposed answer, allowing the final system to compare original-question reasoning with step-by-step decomposition.
     \item \textbf{KG-triple decomposition for sub-question retrieval.} The decomposer emits compact \texttt{entity >> relation} fragments with \texttt{\#N} dependencies, making multi-hop retrieval queries explicit and executable.
-    \item \textbf{Entropy-gated sub-question retrieval.} Maximum token entropy provides a transparent and training-free signal for deciding whether each decomposed step should retrieve external evidence.
+    \item \textbf{Surprisal-gated sub-question retrieval.} Tail-leakage surprisal, the summed surprisal of the probability mass escaping the model's own top-five candidates, provides a transparent and training-free signal for deciding whether each decomposed step should retrieve external evidence.
     \item \textbf{Original-question evidence preservation.} The final system unions original-question evidence into each decomposed step, reducing context loss caused by overly short sub-questions.
     \item \textbf{Training-free verification.} SEEK selects between direct and decomposed candidates using confidence, answer type, decomposition stability, and candidate agreement, without classifier training, tree search, DPO, or preference data.
-    \item \textbf{Honest wiki-21M evaluation.} Under the DeepRAG-aligned open-domain pool, SEEK reaches 40.52 average EM and 47.61 average F1, outperforming DeepRAG on average and winning on 2Wiki, MuSiQue, and PopQA.
+    \item \textbf{Honest wiki-21M evaluation.} Under the DeepRAG-aligned open-domain pool, SEEK reaches 41.62 average EM and 48.66 average F1, outperforming DeepRAG on average and winning on 2Wiki, MuSiQue, and PopQA.
 \end{enumerate}
 
 \section{Limitations}
@@ -22,9 +22,9 @@ The principal contributions are:
 The principal limitations are:
 
 \begin{itemize}
-    \item \textbf{HotpotQA remains below DeepRAG.} SEEK improves HotpotQA to 35.50 EM, but still trails DeepRAG's 40.70 EM. HotpotQA is the clearest case where direct and decomposed paths are complementary but the current verifier does not fully exploit the headroom.
+    \item \textbf{HotpotQA remains below DeepRAG.} SEEK improves HotpotQA to 37.50 EM, but still trails DeepRAG's 40.70 EM. HotpotQA is the clearest case where direct and decomposed paths are complementary but the current verifier does not fully exploit the headroom.
     \item \textbf{Verifier headroom remains.} Oracle direct-vs-decompose routing still offers 3.8 to 6.1 EM over the current verifier, so routing is not solved.
-    \item \textbf{Entropy is not a correctness guarantee.} Entropy is useful for sub-question retrieval gating, but 9.5\% to 28.8\% of both-wrong examples can look as confident as both-correct examples. A pilot battery of 42 alternative confidence signals did not find a decisive per-question error detector either (Section~\ref{sec:entropy-analysis}).
+    \item \textbf{Confidence is not a correctness guarantee.} Tail-leakage surprisal is useful for sub-question retrieval gating, but 7\% to 22\% of wrong direct answers look as confident as typical correct answers. A battery of more than forty alternative confidence signals did not find a decisive per-question error detector either (Section~\ref{sec:entropy-analysis}).
     \item \textbf{Bridge-answer drift limits decomposition.} On MuSiQue, SEEK nearly matches gold decomposition when the first-hop bridge entity is correct, but wrong intermediate answers drag the second query away from the target evidence.
     \item \textbf{Both-wrong cases require better retrieval and synthesis.} Routing cannot fix examples where both direct and decomposed candidates are wrong; retrieval gaps explain 47\% to 68\% of decomposition-path errors on the multi-hop datasets.
     \item \textbf{Single-seed greedy decoding.} Variance estimates are not reported and would strengthen small-difference claims.
@@ -32,30 +32,18 @@ The principal limitations are:
 
 \section{Future Work}
 
-\subsection{Stronger Verifier Signals}
+\paragraph{Stronger verifier signals.} The largest immediate opportunity is improving the verifier. Candidate signals include self-consistency disagreement, top-1 versus top-2 logit margin, hidden-state variance, answer-type compatibility, and lightweight learned calibration from a small validation set. The signal battery in Chapter~\ref{ch:exp} suggests that gains from any single scalar signal are modest, so combining confidence with evidence-side checks is more promising than searching for another scalar. The goal is to approach the oracle direct-vs-decompose headroom without losing SEEK's interpretability.
 
-The largest immediate opportunity is improving the verifier. Candidate signals include self-consistency disagreement, top-1 versus top-2 logit margin, hidden-state variance, answer-type compatibility, and lightweight learned calibration from a small validation set. The signal battery in Chapter~\ref{ch:exp} suggests that gains from any single scalar signal are modest, so combining confidence with evidence-side checks is more promising than searching for another scalar. The goal is to approach the oracle direct-vs-decompose headroom without losing SEEK's interpretability.
+\paragraph{Better retrieval and reranking.} The large both-wrong counts show that routing alone is insufficient. Dense retrieval, hybrid BM25+dense retrieval, or reranking over the unioned evidence could improve cases where neither path retrieves enough supporting information.
 
-\subsection{Better Retrieval and Reranking}
+\paragraph{Length-conditioned decomposer.} A target-depth control token such as \texttt{[K=1]}, \texttt{[K=2]}, or \texttt{[K=4]} could reduce negative transfer between single-hop and multi-hop data. The verifier or a small complexity predictor could choose the target depth at inference time.
 
-The large both-wrong counts show that routing alone is insufficient. Dense retrieval, hybrid BM25+dense retrieval, or reranking over the unioned evidence could improve cases where neither path retrieves enough supporting information.
+\paragraph{Multi-sample decomposition.} Sampling multiple decompositions and selecting by final-answer confidence or agreement could reduce wrong-first-hop propagation. This is especially relevant because the MuSiQue analysis shows that bridge-answer drift, rather than decomposition wording alone, explains much of the gap between SEEK and gold decomposition. This would trade inference cost for robustness without requiring DPO.
 
-\subsection{Length-Conditioned Decomposer}
+\paragraph{Evidence-aware verification.} Confidently wrong answers cannot be removed by another confidence threshold alone. Future verifiers should test whether the selected answer is externally supported by retrieved evidence, possibly with lightweight entailment checks, answer-type validation, or self-consistency over evidence snippets.
 
-A target-depth control token such as \texttt{[K=1]}, \texttt{[K=2]}, or \texttt{[K=4]} could reduce negative transfer between single-hop and multi-hop data. The verifier or a small complexity predictor could choose the target depth at inference time.
-
-\subsection{Multi-Sample Decomposition}
-
-Sampling multiple decompositions and selecting by final-answer confidence or agreement could reduce wrong-first-hop propagation. This is especially relevant because the MuSiQue analysis shows that bridge-answer drift, rather than decomposition wording alone, explains much of the gap between SEEK and gold decomposition. This would trade inference cost for robustness without requiring DPO.
-
-\subsection{Evidence-Aware Verification}
-
-Confidently wrong answers cannot be removed by another entropy threshold alone. Future verifiers should test whether the selected answer is externally supported by retrieved evidence, possibly with lightweight entailment checks, answer-type validation, or self-consistency over evidence snippets.
-
-\subsection{Span Calibration}
-
-A small post-training or post-processing module for terse answer spans could close EM-only failures while preserving F1. This is especially relevant for verbose entity descriptions and comparison questions.
+\paragraph{Span calibration.} A small post-training or post-processing module for terse answer spans could close EM-only failures while preserving F1. This is especially relevant for verbose entity descriptions and comparison questions.
 
 \section{Closing Remarks}
 
-This thesis argues that adaptive RAG should ask two questions: when should the system retrieve, and when should it trust decomposition? SEEK shows that a lightweight system can answer both questions with interpretable inference-time signals. Decomposition improves retrieval, entropy helps control sub-question evidence use, original-question evidence preserves global context, and a training-free verifier makes the final route explicit. The remaining oracle gap leaves a clear path for future work, but the central result is already useful: adaptive RAG can be competitive with heavier learned-policy systems without hiding its routing decisions inside another trained model.
+This thesis argues that adaptive RAG should ask two questions: when should the system retrieve, and when should it trust decomposition? SEEK shows that a lightweight system can answer both questions with interpretable inference-time signals. Decomposition improves retrieval, tail-leakage surprisal helps control sub-question evidence use, original-question evidence preserves global context, and a training-free verifier makes the final route explicit. The remaining oracle gap leaves a clear path for future work, but the central result is already useful: adaptive RAG can be competitive with heavier learned-policy systems without hiding its routing decisions inside another trained model.

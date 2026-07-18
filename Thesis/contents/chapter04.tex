@@ -2,7 +2,7 @@
 \chapter{Experiments}
 \label{ch:exp}
 
-This chapter evaluates the final SEEK system under the same honest wiki-21M retrieval protocol used by DeepRAG and compares it with representative reasoning and adaptive-retrieval baselines. After the main results, the chapter examines why the system works: whether decomposition actually improves retrieval, how much of the remaining MuSiQue gap comes from wrong intermediate answers rather than from decomposition wording, and whether retrieval or the entropy gate could be removed without losing accuracy. The later sections then look at the two answer paths in more detail. They measure how often each path is selected and where each path fails, compare SEEK's errors with DeepRAG's on the same questions, and ask how far entropy can be trusted as a confidence signal.
+This chapter evaluates the final SEEK system under the same honest wiki-21M retrieval protocol used by DeepRAG and compares it with representative reasoning and adaptive-retrieval baselines. After the main results, the chapter examines why the system works: whether decomposition actually improves retrieval, how much of the remaining MuSiQue gap comes from wrong intermediate answers rather than from decomposition wording, and whether retrieval or the confidence gate could be removed without losing accuracy. The later sections then look at the two answer paths in more detail. They measure how often each path is selected and where each path fails, compare SEEK's errors with DeepRAG's on the same questions, and ask how far tail-leakage surprisal can be trusted as a confidence signal.
 
 \section{Experimental Setup}
 \label{sec:exp-setup}
@@ -23,12 +23,14 @@ We report SQuAD-style exact match (EM) and token-level F1 after standard normali
 
 \subsection{Implementation Details}
 
-All SEEK results use Llama-3-8B-Instruct with the 12K three-source LoRA decomposer trained on MuSiQue, 2WikiMultihopQA, and PopQA. The decomposition path uses Mode C, maximum token entropy threshold $\tau=0.3$, and synthesis with the LoRA adapter disabled. The final verifier uses the original v2 confidence signals plus a conservative type-aware fallback. This fallback changes only the final choice between the direct and decomposed candidates; it does not rerun generation and does not train an additional model.
+All SEEK results use Llama-3-8B-Instruct with the 12K three-source LoRA decomposer trained on MuSiQue, 2WikiMultihopQA, and PopQA. The adapter uses rank 16, alpha 32, and dropout 0.05 on all linear modules, trained in bf16 with a 1024-token context for 3 epochs using LLaMA-Factory~\cite{llamafactory}, with effective batch size 16 and learning rate $1\times10^{-4}$ under cosine decay with 10\% warmup; training takes about 38 minutes on one A6000 GPU. At inference, the adapter is enabled for decomposition and sub-question answering and disabled for synthesis, and the decomposition path uses the tail-leakage surprisal gate at $\tau=0.0085$. The final verifier uses the rule set of Chapter~\ref{ch:method} with tail-leakage surprisal as its confidence signal, plus a conservative type-aware fallback. This fallback changes only the final choice between the direct and decomposed candidates; it does not rerun generation and does not train an additional model.
+
+Several ablations and diagnostic analyses in this chapter were carried out on development traces produced while the system was being built, some of them before the gate and verifier signals changed from maximum token entropy to tail-leakage surprisal. Their absolute numbers can therefore differ slightly from the final configuration, but each table is internally consistent and the comparisons within it are unaffected.
 
 \section{Main Results}
 \label{sec:main-results}
 
-Table~\ref{tab:main-results} reports the final honest wiki-21M results. To keep the comparison aligned with the SEEK evaluation protocol, the table shows the four overlapping datasets used in this thesis and omits CAG and WebQuestions, which were reported by DeepRAG but not evaluated by SEEK. The final SEEK system combines path-aware title retrieval, original-question evidence union, entropy-gated sub-question retrieval, and the type-aware training-free verifier.
+Table~\ref{tab:main-results} reports the final honest wiki-21M results. To keep the comparison aligned with the SEEK evaluation protocol, the table shows the four overlapping datasets used in this thesis and omits CAG and WebQuestions, which were reported by DeepRAG but not evaluated by SEEK. The final SEEK system combines path-aware title retrieval, original-question evidence union, surprisal-gated sub-question retrieval, and the type-aware training-free verifier.
 
 \begin{table}[h]
     \centering
@@ -46,7 +48,7 @@ Table~\ref{tab:main-results} reports the final honest wiki-21M results. To keep 
         Adaptive & FLARE~\cite{flare} & 23.80/32.88 & 30.30/37.45 & 14.50/23.57 & 28.80/40.61 & 24.35/33.63 \\
         Adaptive & DRAGIN~\cite{dragin} & 27.60/38.05 & 29.10/35.68 & 11.80/19.97 & 22.60/28.53 & 22.78/30.56 \\
         Learned adaptive & DeepRAG~\cite{deeprag} & \textbf{40.70/51.54} & 48.10/53.25 & 22.50/30.40 & 42.50/47.80 & 38.45/45.75 \\
-        Ours & \textbf{SEEK final} & 35.50/46.11 & \textbf{50.00/56.58} & \textbf{24.70/33.06} & \textbf{51.90/54.71} & \textbf{40.52/47.61} \\
+        Ours & \textbf{SEEK final} & 37.50/48.72 & \textbf{48.70/55.63} & \textbf{26.60/34.74} & \textbf{53.70/55.53} & \textbf{41.62/48.66} \\
         \bottomrule
     \end{tabular}}
     \begin{minipage}{0.98\textwidth}
@@ -55,13 +57,18 @@ Table~\ref{tab:main-results} reports the final honest wiki-21M results. To keep 
     \end{minipage}
 \end{table}
 
-The final SEEK system reaches 40.52 EM and 47.61 F1 on the four-dataset average, compared with DeepRAG's 38.45 EM and 45.75 F1, a gain of +2.07 EM and +1.86 F1 over the strongest external baseline. The margin over the reasoning baselines and the training-free adaptive baselines is considerably wider.
+The final SEEK system reaches 41.62 EM and 48.66 F1 on the four-dataset average, compared with DeepRAG's 38.45 EM and 45.75 F1, a gain of +3.17 EM and +2.91 F1 over the strongest external baseline. The margin over the reasoning baselines and the training-free adaptive baselines is considerably wider.
 
-At the per-dataset level, SEEK wins on three of the four datasets. On 2Wiki it improves from DeepRAG's 48.10 EM to 50.00 EM, and on MuSiQue from 22.50 to 24.70 EM. The largest gain is on PopQA, where SEEK reaches 51.90 EM against DeepRAG's 42.50, which suggests the direct-vs-decompose verifier is especially useful when over-decomposition is risky.
+At the per-dataset level, SEEK wins on three of the four datasets. On 2Wiki it improves from DeepRAG's 48.10 EM to 48.70 EM, and on MuSiQue from 22.50 to 26.60 EM. The largest gain is on PopQA, where SEEK reaches 53.70 EM against DeepRAG's 42.50, which suggests the direct-vs-decompose verifier is especially useful when over-decomposition is risky.
 
-HotpotQA is the exception. SEEK improves it from the path-aware baseline of 31.80 EM to 35.50 EM but still trails DeepRAG's 40.70 EM. HotpotQA is therefore the main remaining limitation and motivates the analysis in Sections~\ref{sec:path-distribution}--\ref{sec:oracle-analysis}.
+HotpotQA is the exception. SEEK improves it from the path-aware baseline of 31.80 EM to 37.50 EM but still trails DeepRAG's 40.70 EM. HotpotQA is therefore the main remaining limitation and motivates the analysis in Sections~\ref{sec:path-distribution}--\ref{sec:oracle-analysis}.
 
-\section{Retrieval Recall}
+\section{Retrieval Analysis}
+\label{sec:retrieval-analysis}
+
+This section asks whether decomposition improves retrieval itself, and how much of the improvement depends on the trained decomposer rather than on decomposition as such.
+
+\subsection{Answer-Containing Recall}
 \label{sec:retrieval-recall}
 
 Before evaluating final answers, we first ask whether decomposition actually improves retrieval quality. Table~\ref{tab:answer-recall} reports answer-containing hit@5: a query is counted as successful if at least one of the top five retrieved passages contains the gold answer or one of its aliases. Yes-or-no questions are excluded because the strings ``yes'' and ``no'' are not meaningful evidence strings.
@@ -93,7 +100,7 @@ Decomposition substantially improves answer-containing retrieval on the multi-ho
     \label{fig:answer-hit-retrieval}
 \end{figure}
 
-\section{Gold and Base Decomposition on MuSiQue}
+\subsection{Gold and Base Decomposition on MuSiQue}
 \label{sec:gold-decomposition-recall}
 
 To separate the value of decomposition from the value of the trained decomposer, we run a focused MuSiQue retrieval-recall analysis using the first 1{,}000 development questions. This slice contains only 2-hop questions, which makes the official MuSiQue gold decomposition directly comparable with SEEK's predicted two-step chain. Table~\ref{tab:musique-gold-recall} reports answer-containing hit@5 under the same wiki-21M and path-aware retrieval condition as Table~\ref{tab:answer-recall}.
@@ -122,10 +129,15 @@ The gap between original retrieval and SEEK retrieval is large: 19.0 to 38.8 hit
 
 The untuned base model also clarifies why the decomposer is trained. With the same prompt and no LoRA adapter, the base model produces a valid two-step decomposition for only 149 of 1{,}000 MuSiQue examples and has a 15.3\% format-parsing failure rate. Its query text can retrieve well under oracle bridge substitution, but it is not structurally reliable enough to deploy. LoRA training therefore buys step-count control, valid placeholders, and compact BM25-friendly query style, not merely better wording.
 
-\section{Retrieval Is Necessary After Decomposition}
+\section{Ablation Studies}
+\label{sec:ablations}
+
+This section removes or varies one design component at a time: retrieval after decomposition, decomposition itself, the gate threshold, the title-matching policy, and the original-question evidence union.
+
+\subsection{Retrieval Is Necessary After Decomposition}
 \label{sec:retrieval-necessary}
 
-Decomposition alone does not produce factual knowledge. Table~\ref{tab:rag-necessity} compares three decomposition-path settings: never retrieve, entropy-gated retrieval at $\tau=0.3$, and always retrieve.
+Decomposition alone does not produce factual knowledge. Table~\ref{tab:rag-necessity} compares three decomposition-path settings: never retrieve, gated retrieval, and always retrieve. This ablation predates the switch to tail-leakage surprisal and uses the development-stage entropy gate at $\tau=0.3$; the replay in Section~\ref{sec:threshold-sensitivity} shows the same pattern for the final gate.
 
 \begin{table}[h]
     \centering
@@ -145,19 +157,19 @@ Decomposition alone does not produce factual knowledge. Table~\ref{tab:rag-neces
     \end{tabular}
 \end{table}
 
-Retrieval after decomposition is necessary: the gate improves over never retrieve by +9.3 to +27.3 EM. However, the gate and always-retrieve settings are almost identical in accuracy. This positions entropy gating as an efficiency mechanism rather than the main source of accuracy.
+Retrieval after decomposition is necessary: the gate improves over never retrieve by +9.3 to +27.3 EM. However, the gate and always-retrieve settings are almost identical in accuracy. This positions confidence gating as an efficiency mechanism rather than the main source of accuracy.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.78\textwidth]{fig_3way_ablation.png}
-    \caption[Three-Way Retrieval Ablation]{Three-way decomposition-path ablation: never retrieve, entropy-gated retrieval, and always retrieve. The gate nearly matches always-retrieve accuracy while reducing some retrieval calls.}
+    \caption[Three-Way Retrieval Ablation]{Three-way decomposition-path ablation: never retrieve, gated retrieval, and always retrieve. The gate nearly matches always-retrieve accuracy while reducing some retrieval calls.}
     \label{fig:three-way-ablation}
 \end{figure}
 
-\section{Direct-Only Confidence-Gated Baseline}
+\subsection{Direct-Only Confidence-Gated Baseline}
 \label{sec:direct-gate-baseline}
 
-The previous ablation shows that retrieval is necessary after decomposition. A separate question is whether decomposition itself is necessary, or whether the same entropy signal could simply gate retrieval on the original question. Table~\ref{tab:direct-gate-baseline} compares a direct-only confidence-gated RAG baseline against the decomposition-path gate. The direct baseline first answers the original question without context, measures maximum token entropy, and retrieves the original question only when entropy exceeds a threshold. The table gives the matched threshold $\tau=0.3$ and the best threshold selected retrospectively for the baseline.
+The previous ablation shows that retrieval is necessary after decomposition. A separate question is whether decomposition itself is necessary, or whether the same confidence gate could simply control retrieval on the original question. Table~\ref{tab:direct-gate-baseline} compares a direct-only confidence-gated RAG baseline against the decomposition-path gate. The direct baseline first answers the original question without context, measures the uncertainty of the draft answer, and retrieves the original question only when the uncertainty exceeds a threshold. Both arms of this development ablation use the same entropy gate, so the comparison isolates decomposition rather than the choice of signal. The table gives the matched threshold $\tau=0.3$ and the best threshold selected retrospectively for the baseline.
 
 \begin{table}[h]
     \centering
@@ -178,16 +190,16 @@ The previous ablation shows that retrieval is necessary after decomposition. A s
     \end{tabular}}
 \end{table}
 
-Confidence-gated retrieval without decomposition plateaus at the single-query retrieval ceiling. Even when allowed to choose the best threshold after the fact, it remains far below decompose+gate on 2Wiki, MuSiQue, and PopQA. HotpotQA is the exception because its original questions often already contain enough lexical signal for BM25 to retrieve useful evidence. The final SEEK system handles this case by keeping the direct path and routing late; the full verifier reaches 35.5 EM on HotpotQA, above the direct-gate baseline.
+Confidence-gated retrieval without decomposition plateaus at the single-query retrieval ceiling. Even when allowed to choose the best threshold after the fact, it remains far below decompose+gate on 2Wiki, MuSiQue, and PopQA. HotpotQA is the exception because its original questions often already contain enough lexical signal for BM25 to retrieve useful evidence. The final SEEK system handles this case by keeping the direct path and routing late; the final system reaches 37.5 EM on HotpotQA, above the direct-gate baseline.
 
-\section{Threshold Sensitivity}
+\subsection{Gate Threshold Sensitivity}
 \label{sec:threshold-sensitivity}
 
-Table~\ref{tab:threshold-sensitivity} evaluates the final dual-path system under different entropy thresholds. Higher thresholds reduce retrieval, but the average score declines.
+Table~\ref{tab:threshold-sensitivity} evaluates the final dual-path system under different tail-leakage gate thresholds, replayed offline from the stored per-step signals. Higher thresholds reduce retrieval, but the average score declines.
 
 \begin{table}[h]
     \centering
-    \caption[Threshold Sensitivity]{Final SEEK performance across entropy thresholds. Each score cell reports average EM; F1, and retrieval rate is the average decompose-path retrieval rate.}
+    \caption[Threshold Sensitivity]{Final SEEK performance across tail-leakage gate thresholds. Each score cell reports average EM; F1, and retrieval rate is the average decompose-path retrieval rate.}
     \label{tab:threshold-sensitivity}
     \setlength{\tabcolsep}{6pt}
     \small
@@ -195,17 +207,18 @@ Table~\ref{tab:threshold-sensitivity} evaluates the final dual-path system under
         \toprule
         $\tau$ & Average EM; F1 & Retrieval rate \\
         \midrule
-        0.3 & \textbf{40.52}; \textbf{47.61} & 94.16\% \\
-        0.5 & 40.45; 47.52 & 91.32\% \\
-        0.8 & 39.98; 47.04 & 85.97\% \\
-        1.0 & 39.50; 46.63 & 82.35\% \\
+        0.0023 & 40.58; 47.62 & 95.5\% \\
+        0.0085 & \textbf{40.60}; \textbf{47.69} & 90.8\% \\
+        0.0222 & 40.25; 47.33 & 85.9\% \\
+        0.0442 & 39.83; 46.84 & 81.1\% \\
+        0.1165 & 38.60; 45.50 & 71.2\% \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-The chosen threshold $\tau=0.3$ is accuracy-first. A threshold of 0.8 saves about eight retrieval-rate points but costs 0.54 average EM. The curve supports a conservative interpretation: under honest wiki-21M, most decomposed steps still require retrieval, and tightening the gate eventually hurts multi-hop datasets such as 2Wiki and MuSiQue.
+The deployed threshold $\tau=0.0085$ skips the most confident tenth of decomposed steps. It removes about nine points of retrieval rate at no accuracy cost and is also the best-scoring point of the sweep. Tightening the gate further trades accuracy for retrieval savings: $\tau=0.0442$ saves another ten points of retrieval rate but costs 0.77 average EM. The curve supports a conservative interpretation: under honest wiki-21M, most decomposed steps still require retrieval, and tightening the gate eventually hurts multi-hop datasets such as 2Wiki and MuSiQue.
 
-\section{Path-Aware Title Retrieval}
+\subsection{Path-Aware Title Retrieval}
 \label{sec:title-ablation}
 
 Original questions and decomposed sub-questions are different query types. A short query such as \texttt{Houston Baptist University founded} benefits from title matching because the title often identifies the relevant Wikipedia article. A long original question, however, can contain multiple entities and conditions; title matching can overemphasise a stray entity and retrieve the wrong article. Table~\ref{tab:title-ablation} compares title-field policies under the same verifier setting.
@@ -231,7 +244,7 @@ Original questions and decomposed sub-questions are different query types. A sho
 Path-aware title retrieval is the most stable option. It keeps the title benefit for short sub-questions while avoiding the HotpotQA drop caused by enabling title matching on long original questions.
 
 
-\section{Original-Question Evidence Union}
+\subsection{Original-Question Evidence Union}
 \label{sec:union-ablation}
 
 The preceding retrieval results suggest that decomposition improves precision but may lose global context. Original-question evidence union addresses this by adding the original-question top-$k$ evidence to each decomposed step. Since this operation only changes the decomposition path, the clean ablation compares the decomposed answer candidate with and without union, rather than mixing in questions for which the final verifier selected the direct path. Table~\ref{tab:union-ablation} reports this path-local effect.
@@ -257,7 +270,12 @@ The preceding retrieval results suggest that decomposition improves precision bu
 
 The path-local improvement is largest on HotpotQA and 2Wiki, precisely where short sub-questions can remove comparison targets or entity constraints from the original question. The full-system score also improves after union, but that number includes the verifier's direct-vs-decompose choices; it is therefore a final-system result, not the clean isolation of the union operation. In short, decomposition should produce sharper sub-queries without forcing the lower path to forget the original question.
 
-\section{Final Path Selection Rate}
+\section{The Two Answer Paths}
+\label{sec:path-analysis}
+
+The final system keeps two answer paths, so the remaining analyses ask how the paths divide the work: how often each is selected, where each fails, how the failures compare with DeepRAG's on the same questions, and how much routing headroom remains.
+
+\subsection{Final Path Selection Rate}
 \label{sec:path-selection-rate}
 
 Original-question evidence union shares original-question passages with the decomposition path, but it does not collapse SEEK into a single path. The final verifier still selects either the direct answer candidate or the decomposed answer candidate. Table~\ref{tab:path-selection-rate} reports the selected path rates in the final traces.
@@ -283,7 +301,7 @@ Original-question evidence union shares original-question passages with the deco
 
 These rates show that the system remains decomposition-dominant overall, while still preserving a direct path for cases where decomposition loses important context or produces an unstable answer. The shared original-question evidence is a context-preservation mechanism; the answer candidates and final routing decision remain path-specific.
 
-\section{Direct-vs-Decompose Correctness Distribution}
+\subsection{Direct-vs-Decompose Correctness Distribution}
 \label{sec:path-distribution}
 
 Table~\ref{tab:path-distribution} compares answer correctness across the direct and decomposition paths in the final traces. This analysis asks whether decomposition is always better, or whether the two paths solve different questions.
@@ -316,7 +334,7 @@ The distributions show that decomposition is useful but not universally dominant
     \label{fig:direct-decompose-2x2}
 \end{figure}
 
-\section{Decomposition-Path Failure Taxonomy}
+\subsection{Decomposition-Path Failure Taxonomy}
 \label{sec:failure-taxonomy}
 
 To understand what remains after applying decomposition, evidence union, and verifier routing, we classify decomposition-path errors on HotpotQA, 2Wiki, and MuSiQue. Table~\ref{tab:failure-taxonomy} reports the primary error category among examples where the decomposed candidate is wrong.
@@ -341,7 +359,7 @@ To understand what remains after applying decomposition, evidence union, and ver
 
 The dominant failure is not malformed decomposition; it is retrieval coverage. Neither the original query nor the decomposed evidence union reaches enough supporting information in 47\% to 68\% of decomposed-candidate errors. Constraint loss is more dataset-specific: it is visible on HotpotQA, where short KG-style sub-questions can drop the comparison target or disambiguating condition. This explains why original-question evidence union helps HotpotQA most in Table~\ref{tab:union-ablation}. Synthesis failure remains a stable 15\% to 18\% slice, motivating the answer-type and value-to-entity guards described in Chapter~\ref{ch:method}.
 
-\section{Case-Level Comparison with DeepRAG}
+\subsection{Case-Level Comparison with DeepRAG}
 \label{sec:deeprag-cases}
 
 The taxonomy above describes SEEK's own decomposition failures. A natural follow-up question is how these failures relate to DeepRAG's on the same inputs. We join the DeepRAG traces with the final SEEK traces by question text on the three multi-hop datasets and compare per-question EM. Table~\ref{tab:deeprag-quadrant} reports the resulting counts.
@@ -390,11 +408,11 @@ Three patterns account for most of the substantive losses. The first is over-dec
 
 The second pattern is a decomposition spiral. DeepRAG generates each follow-up question conditioned on the chain answered so far, so a wrong intermediate answer can rewrite the rest of the plan. In one HotpotQA case, the model resolves the stage name Aladin to the wrong person and then spends five further steps trying to make that person fit the question, with later follow-up fields visibly containing fragments of the earlier erroneous reasoning. This contamination appears in roughly a quarter to a third of the SEEK-win cases on HotpotQA and MuSiQue. SEEK's decomposition is produced up front from the original question alone, so a wrong bridge answer degrades one retrieval query but cannot corrupt the structure of the remaining sub-questions.
 
-The third pattern is structural mis-decomposition. Asked who sings \emph{Home Alone Tonight} with the singer of another song, DeepRAG splits the question into two independent singer lookups, drops the duet relation, and returns the same artist for both. SEEK's placeholder binding keeps the relation explicit in the second sub-question and recovers the duet partner. On 2Wiki, an additional dataset-specific weakness appears: in 55 of the 160 SEEK wins, DeepRAG's retrieve-or-answer policy chose the parametric option at every step and hallucinated the whole chain. SEEK's entropy gate keeps step-level retrieval above 90\% on the multi-hop datasets (Table~\ref{tab:rag-necessity}), so a fully parametric chain is rare.
+The third pattern is structural mis-decomposition. Asked who sings \emph{Home Alone Tonight} with the singer of another song, DeepRAG splits the question into two independent singer lookups, drops the duet relation, and returns the same artist for both. SEEK's placeholder binding keeps the relation explicit in the second sub-question and recovers the duet partner. On 2Wiki, an additional dataset-specific weakness appears: in 55 of the 160 SEEK wins, DeepRAG's retrieve-or-answer policy chose the parametric option at every step and hallucinated the whole chain. SEEK's tail-leakage gate keeps step-level retrieval near or above 90\% on the multi-hop datasets (Table~\ref{tab:rag-necessity}), so a fully parametric chain is rare.
 
 These counts should be read with two caveats. About 15\% to 21\% of the SEEK-win set are format near-misses in which DeepRAG's answer is essentially correct but fails exact match, such as \emph{Murray Hill, New Jersey} against the gold \emph{Murray Hill}. The comparison is also symmetric: within its own win set, SEEK's decomposition is sometimes poor as well, and the question is rescued by the direct path or by original-question evidence union rather than by the decomposition itself. On HotpotQA, 29 of the 98 SEEK wins come from the direct candidate. The DeepRAG-only column contains failures of the mirrored kind, which is consistent with the dual-path design rather than evidence against it.
 
-\section{Oracle Direct-vs-Decompose Headroom}
+\subsection{Oracle Direct-vs-Decompose Headroom}
 \label{sec:oracle-analysis}
 
 Table~\ref{tab:oracle} reports an oracle that chooses between the direct and decomposed answer using the gold answer. This oracle is not deployable, but it quantifies the remaining headroom in the routing decision.
@@ -426,12 +444,60 @@ The oracle gap gives a precise interpretation of the remaining limitation. SEEK 
     \label{fig:routing-gap-oracle}
 \end{figure}
 
-\section{Entropy as a Confidence Signal}
+\section{Tail-Leakage Surprisal as a Confidence Signal}
 \label{sec:entropy-analysis}
 
-Entropy remains useful, but it should not be overstated. Across pooled self-consistency probes, higher maximum entropy is associated with a higher error rate, with Spearman correlation +0.326 and AUROC 0.686. In the gate-signal replay, maximum entropy also has the best macro AUROC among eight candidate retrieval-gate signals. These results support max entropy as a sub-question-level retrieval gate.
+Tail-leakage surprisal is the signal the deployed gate relies on, so the final analysis asks how far it can be trusted. In the offline gate replay it is the strongest of the tested retrieval-gate signals: at the deployed threshold, which skips the most confident tenth of decomposed steps, it keeps the four-dataset average at 40.60 EM, while a maximum-entropy gate at the matched retrieval rate reaches 40.45. These results support tail-leakage surprisal as a sub-question-level retrieval gate.
 
-At the same time, entropy is not a correctness guarantee. Table~\ref{tab:quadrant-confidence} compares question-level direct-path entropy between examples where both paths are correct and examples where both paths are wrong. The separation is real: pooled AUROC is 0.782 and the mean direct entropy rises from 0.485 to 1.404. However, each dataset still contains confidently wrong examples whose entropy is at or below the median entropy of both-correct examples.
+The difference is clearer when the signals are scored as error detectors. We ran a battery of more than forty confidence signals on the direct path in the deployed setting, covering temperature-scaled and R\'enyi entropies, log-probability statistics, top-$k$ mass and margin scores, self-consistency agreement, P(True)-style self-evaluation, and z-scored combinations, evaluated on the full 1{,}000-question traces of all four datasets with paired bootstrap over 1{,}000 resamples. Table~\ref{tab:signal-battery} lists the strongest signals, scored by the AUROC of predicting a wrong direct answer. Tail-leakage surprisal has the best macro AUROC at 0.749 and beats the strongest alternative, minimum top-five mass, on every dataset, with the paired difference significant at $P<0.001$. Temperature-2 entropy is stronger on 2Wiki and PopQA but collapses to 0.636 on MuSiQue, while maximum token entropy stays at 0.726.
+
+\begin{table}[h]
+    \centering
+    \caption[Confidence Signal Battery]{Strongest signals from the direct-path confidence battery on the full 1{,}000-question traces of all four datasets. Each cell is the AUROC of predicting a wrong direct answer.}
+    \label{tab:signal-battery}
+    \setlength{\tabcolsep}{6pt}
+    \small
+    \begin{tabular}{ l c c c c c }
+        \toprule
+        Signal & HotpotQA & 2Wiki & MuSiQue & PopQA & Macro \\
+        \midrule
+        Tail-leakage surprisal & \textbf{0.757} & 0.717 & \textbf{0.726} & 0.798 & \textbf{0.749} \\
+        Minimum top-5 mass & 0.752 & 0.706 & 0.723 & 0.787 & 0.742 \\
+        R\'enyi-0.5 max entropy & 0.747 & 0.716 & 0.681 & 0.802 & 0.737 \\
+        Temperature-2 max entropy & 0.734 & \textbf{0.723} & 0.636 & \textbf{0.818} & 0.728 \\
+        Maximum token entropy & 0.743 & 0.671 & 0.711 & 0.780 & 0.726 \\
+        Summed log-probability & 0.733 & 0.667 & 0.707 & 0.798 & 0.726 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The battery also gives the decomposition argument of Chapter~\ref{ch:method} an empirical check. Scoring each chain-rule component of token entropy separately, the escape term alone reaches a macro AUROC of 0.742, ambiguity within the top-five candidates reaches 0.712, and the composition of the tail reaches 0.502, barely above chance. Full entropy mixes the three and lands at 0.726, while summing the escape surprisal over the answer reaches 0.749. Summation contributes the rest of the margin: on single-token answers the sum and the weakest-token maximum coincide, but on answers of seven or more tokens the sum reaches an AUROC of 0.805 while the weakest-token aggregate stays at 0.788, because wrong answers tend to leak small amounts of mass at several positions rather than a large amount at one.
+
+At the same time, tail-leakage surprisal is not a correctness guarantee. Across the pooled traces, 491 wrong direct answers carry surprisal at or below the median of correct answers: 22\% of the wrong answers on 2Wiki, 17\% on HotpotQA, 16\% on MuSiQue, and 7\% on PopQA. More than half of these confidently wrong answers are clean parametric hallucinations produced with essentially zero leakage, and another 148 are alias or boundary near-misses whose answer is essentially right but fails exact match. No threshold can reach the first group, because nothing in the token distribution marks the answer as wrong.
+
+Table~\ref{tab:tlsum-selective} shows the same limitation from the selective-answering side: questions are ranked by surprisal, only the most confident fraction is kept, and accuracy is measured inside the kept set.
+
+\begin{table}[h]
+    \centering
+    \caption[Direct-Path Accuracy by Confidence Coverage]{Direct-path accuracy when only the most confident fraction of answers is kept, ranked by tail-leakage surprisal. The 100\% row is the unfiltered direct-path accuracy.}
+    \label{tab:tlsum-selective}
+    \setlength{\tabcolsep}{8pt}
+    \small
+    \begin{tabular}{ l c c c c c }
+        \toprule
+        Coverage & HotpotQA & 2Wiki & MuSiQue & PopQA & Pooled \\
+        \midrule
+        25\% & 57.6 & 34.0 & 22.4 & 79.2 & 52.8 \\
+        50\% & 45.4 & 26.8 & 15.2 & 57.0 & 38.9 \\
+        75\% & 38.0 & 22.1 & 12.5 & 46.3 & 30.2 \\
+        100\% & 30.3 & 18.0 & 10.2 & 37.8 & 24.1 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Accuracy rises steadily as coverage shrinks, so the ranking is real; if the most confident answers were lucky guesses, the top quarter would not be systematically more accurate. The absolute levels are more sobering. On MuSiQue the most confident quarter of direct answers is correct only 22.4\% of the time, and on 2Wiki 34.0\%, so on the multi-hop datasets even the most confident direct answers are far from trustworthy. Only single-hop PopQA reaches a usable 79.2\%. The mirror group deserves equal care: 164 correct answers, 17\% of all correct ones, carry surprisal at or above the median of wrong answers, so high surprisal is an equally poor reason to discard an answer.
+
+The verifier is the one place where the final system still reads entropy. Its rescue rule compares query-level direct-answer entropy and decomposition post-entropy against tuned thresholds, and Table~\ref{tab:quadrant-confidence} shows that this signal remains serviceable at that level. It compares question-level direct-path entropy between examples where both paths are correct and examples where both paths are wrong: the pooled AUROC is 0.782, the mean rises from 0.485 to 1.404, and the last column counts the both-wrong examples whose entropy still sits at or below the both-correct median.
 
 \begin{table}[h]
     \centering
@@ -460,82 +526,14 @@ At the same time, entropy is not a correctness guarantee. Table~\ref{tab:quadran
     \label{fig:quadrant-confidence}
 \end{figure}
 
-The AUROC of 0.782 should be read as a population-level statistic rather than as the accuracy of a per-question detector. The medians are well separated, with pooled values of 0.27 for both-correct and 1.12 for both-wrong, but the tails overlap heavily: on every dataset, the tenth percentile of the both-wrong group lies below the median of the both-correct group. Drawing one correct and one wrong example at random, the wrong one has the higher entropy 78\% of the time, and that is all the AUROC states.
+The AUROC of 0.782 should be read as a population-level statistic rather than as the accuracy of a per-question detector. The medians are well separated, with pooled values of 0.27 for both-correct and 1.12 for both-wrong, but the tails overlap heavily: on every dataset, the tenth percentile of the both-wrong group lies below the median of the both-correct group. This also explains why moving the verifier onto the new signal changes little: replacing the development-stage entropy thresholds with tail-leakage thresholds shifts the four-dataset average by less than 0.2 EM, within the replay noise, so the final system adopts the tail-leakage version mainly to keep a single confidence statistic throughout. The ranking gain of tail-leakage surprisal lies in the uncertain tail of the answer distribution, while the verifier's binary rules act on the confident head, where the two signals agree.
 
-Table~\ref{tab:entropy-calibration} looks at the same signal from the calibration side, binning questions into direct-path entropy quintiles and reporting the direct-path accuracy within each bin.
+The decomposition-path signal is considerably weaker at the question level. Rerunning the battery on the decomposed answers gives tail-leakage surprisal a macro AUROC of only 0.631, essentially tied with the best alternatives, and on 2Wiki the strongest signal reaches only 0.587, close to random, because many 2Wiki parametric errors are produced with full confidence. The step-level signal remains informative as a retrieval gate, which is how SEEK uses it, but it says little about whether the final decomposed answer is right.
 
-\begin{table}[h]
-    \centering
-    \caption[Direct-Path Accuracy by Entropy Quintile]{Direct-path answer accuracy within entropy quintiles, from the lowest-entropy fifth (Q1) to the highest (Q5). Accuracy decreases monotonically on all four datasets.}
-    \label{tab:entropy-calibration}
-    \setlength{\tabcolsep}{8pt}
-    \small
-    \begin{tabular}{ l c c c c c }
-        \toprule
-        Dataset & Q1 (lowest) & Q2 & Q3 & Q4 & Q5 (highest) \\
-        \midrule
-        HotpotQA & 60.5 & 34.5 & 29.5 & 19.0 & 8.0 \\
-        2Wiki & 30.5 & 25.5 & 14.5 & 14.5 & 5.0 \\
-        MuSiQue & 22.0 & 13.5 & 7.0 & 5.5 & 3.0 \\
-        PopQA & 81.5 & 43.0 & 27.5 & 26.0 & 11.0 \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-Accuracy falls strictly with entropy on all four datasets, which rules out the concern that low-entropy correct answers are merely lucky guesses; if they were, the low-entropy bins would not be systematically more accurate. The absolute levels are more sobering. On MuSiQue the most confident fifth of direct answers is correct only 22\% of the time, and on 2Wiki 30.5\%, so on the multi-hop datasets even the most confident direct answers are far from trustworthy. Only single-hop PopQA reaches a usable 81.5\% in its most confident bin.
-
-The same picture emerges when entropy is used as an error detector. If the flagging threshold is set so that only 10\% of correct answers are falsely flagged, entropy catches between 36\% and 49\% of the wrong answers depending on the dataset. More than half of the wrong answers carry entropy as low as typical correct answers, and no threshold can reach them.
-
-These numbers all concern the direct-path answer entropy. The decomposition-path signal is considerably weaker at the question level: the maximum step entropy sits near three nats in every correctness quadrant and separates both-correct from both-wrong with an AUROC of only 0.588. It remains informative as a per-step retrieval gate, which is how SEEK uses it, but it says little about whether the final decomposed answer is right. There is also a dataset-level failure in the gate setting itself: on 2Wiki, step entropy predicts whether a no-retrieval sub-answer is wrong with an AUROC of only 0.540, close to random, because many 2Wiki parametric errors are produced with full confidence.
-
-A final question is whether some other confidence statistic would do better. We ran a battery of 42 signals on the direct path in the deployed setting, covering temperature-scaled and R\'enyi entropies, log-probability statistics, top-$k$ mass and margin scores, self-consistency agreement, P(True)-style self-evaluation, and z-scored combinations, evaluated as error detectors on two 100-question pilot sets with paired bootstrap over 1{,}000 resamples. Table~\ref{tab:signal-battery} lists the strongest signals.
-
-\begin{table}[h]
-    \centering
-    \caption[Confidence Signal Battery]{Strongest signals from a 42-signal battery on the direct path, evaluated as error detectors on two pilot sets (2Wiki $n$=95, HotpotQA $n$=100). AUROC of predicting a wrong direct answer.}
-    \label{tab:signal-battery}
-    \setlength{\tabcolsep}{7pt}
-    \small
-    \begin{tabular}{ l c c c }
-        \toprule
-        Signal & 2Wiki & HotpotQA & Macro \\
-        \midrule
-        Temperature-2 max entropy & 0.691 & 0.667 & 0.679 \\
-        Minimum top-5 probability mass & 0.629 & 0.707 & 0.668 \\
-        R\'enyi-0.5 max entropy & 0.657 & 0.678 & 0.668 \\
-        P(True) with self-consistency & 0.599 & 0.695 & 0.647 \\
-        Deployed max entropy & 0.539 & 0.655 & 0.597 \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-A few alternatives edge out the deployed maximum-entropy signal, and the temperature-2 variant is significantly better on the 2Wiki pilot, though the difference stays within the bootstrap confidence interval on HotpotQA. None of the 42 signals, however, behaves like a dependable per-question error detector: the best macro AUROC is 0.679, and at the 10\% false-flag budget no signal catches even 40\% of the wrong answers on both pilot sets. Given the small pilot size, we read this as evidence that the limitation belongs to confidence signals as a family rather than to the particular choice of maximum entropy, and the final system keeps the simpler deployed signal.
-
-This is why SEEK uses entropy as one confidence signal inside a dual-path verifier rather than as a single global router. Confidence helps estimate whether a path may be reliable; it does not reliably identify which path is correct when the two paths disagree.
-
-\section{Distractor-Pool Development Results}
-\label{sec:distractor-dev}
-
-Table~\ref{tab:distractor-dev} records the older per-question distractor-pool results. These numbers are useful for diagnosis, but they should not be compared directly with DeepRAG because gold passages are usually guaranteed to appear in the candidate pool.
-
-\begin{table}[h]
-    \centering
-    \caption[Distractor-Pool Development Results]{Development results under per-question distractor pools. Each cell reports EM; F1.}
-    \label{tab:distractor-dev}
-    \setlength{\tabcolsep}{8pt}
-    \begin{tabular}{ l c c c c }
-        \toprule
-        Dataset & HotpotQA & 2Wiki & MuSiQue & PopQA \\
-        \midrule
-        SEEK development & 39.6; 52.4 & 45.0; 53.7 & 48.0; 57.1 & 30.3; 40.2 \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-The gap between distractor-pool and wiki-21M results confirms that retrieval corpus difficulty is a major confound. The final thesis therefore uses wiki-21M as the headline protocol.
+This is why SEEK deploys tail-leakage surprisal as a per-step retrieval gate and keeps confidence as only one signal inside a dual-path verifier, rather than treating any confidence score as a global router. Confidence helps estimate whether a path may be reliable; it does not reliably identify which path is correct when the two paths disagree.
 
 \section{Summary}
 
 Under the honest wiki-21M protocol, SEEK exceeds DeepRAG on the four-dataset average and wins on 2Wiki, MuSiQue, and PopQA, with HotpotQA remaining the only dataset below DeepRAG. Decomposition is the main source of this result. It raises answer-containing recall strongly on the multi-hop datasets, and the gold MuSiQue decomposition shows that the recall ceiling extends to 55.8 hit@5, with most of the remaining gap explained by wrong intermediate answers rather than by decomposition wording. Retrieval stays necessary after decomposition, since removing it costs 9.3 to 27.3 EM, and the confidence gate cannot take decomposition's place: a direct-only confidence-gated baseline stays 12.3 to 28.6 EM below decompose-with-gate on 2Wiki, MuSiQue, and PopQA even with a retrospectively chosen threshold.
 
-The analyses also mark the limits of each component. Entropy behaves as an efficiency signal rather than a correctness guarantee: gated retrieval nearly matches always-retrieve accuracy while saving some retrieval calls, yet confidently wrong answers survive any single threshold, and a battery of 42 alternative confidence signals does not change this picture. The direct and decomposition paths are complementary, with oracle routing worth a further 3.8 to 6.1 EM. The case-level comparison with DeepRAG shows the same complementarity across systems: DeepRAG's chain-conditioned decomposition suffers from over-decomposition, error spirals, and zero-retrieval hallucination that SEEK's up-front decomposition and near-always sub-question retrieval avoid, while DeepRAG wins a comparable number of questions of its own. Both-wrong examples remain the largest error mass on every dataset and call for better retrieval and synthesis rather than better routing alone.
+The analyses also mark the limits of each component. The confidence gate behaves as an efficiency mechanism rather than a correctness guarantee: gated retrieval nearly matches always-retrieve accuracy while saving some retrieval calls. Tail-leakage surprisal ranks wrong answers better than entropy and every other signal in a battery of more than forty, yet confidently wrong answers survive any single threshold. The direct and decomposition paths are complementary, with oracle routing worth a further 3.8 to 6.1 EM. The case-level comparison with DeepRAG shows the same complementarity across systems: DeepRAG's chain-conditioned decomposition suffers from over-decomposition, error spirals, and zero-retrieval hallucination that SEEK's up-front decomposition and near-always sub-question retrieval avoid, while DeepRAG wins a comparable number of questions of its own. Both-wrong examples remain the largest error mass on every dataset and call for better retrieval and synthesis rather than better routing alone.
