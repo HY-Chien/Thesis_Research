@@ -2,27 +2,31 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {3.1}{\ignorespaces Decomposition Patterns by Dataset}}{16}{table.caption.16}%
+\contentsline {table}{\numberline {3.1}{\ignorespaces Decomposition Patterns by Dataset}}{17}{table.caption.16}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {4.1}{\ignorespaces Main Results on Honest Wiki-21M}}{24}{table.caption.25}%
-\contentsline {table}{\numberline {4.2}{\ignorespaces Answer-Containing Retrieval Recall}}{25}{table.caption.26}%
-\contentsline {table}{\numberline {4.3}{\ignorespaces MuSiQue Gold and Base Decomposition Recall}}{27}{table.caption.28}%
-\contentsline {table}{\numberline {4.4}{\ignorespaces Retrieval Necessity After Decomposition}}{28}{table.caption.29}%
-\contentsline {table}{\numberline {4.5}{\ignorespaces Direct-Only Confidence-Gated Baseline}}{29}{table.caption.31}%
-\contentsline {table}{\numberline {4.6}{\ignorespaces Threshold Sensitivity}}{30}{table.caption.32}%
-\contentsline {table}{\numberline {4.7}{\ignorespaces Title-Field Matching Ablation}}{31}{table.caption.33}%
-\contentsline {table}{\numberline {4.8}{\ignorespaces Original-Question Evidence Union Ablation}}{31}{table.caption.34}%
-\contentsline {table}{\numberline {4.9}{\ignorespaces Final Direct-vs-Decompose Selection Rate}}{32}{table.caption.35}%
-\contentsline {table}{\numberline {4.10}{\ignorespaces Correct Answer Distribution Across Two Paths}}{33}{table.caption.36}%
-\contentsline {table}{\numberline {4.11}{\ignorespaces Decomposition-Path Failure Taxonomy}}{34}{table.caption.38}%
-\contentsline {table}{\numberline {4.12}{\ignorespaces DeepRAG-vs-SEEK Correctness Quadrants}}{35}{table.caption.39}%
-\contentsline {table}{\numberline {4.13}{\ignorespaces DeepRAG Failure Signals in the SEEK-Win Set}}{35}{table.caption.40}%
-\contentsline {table}{\numberline {4.14}{\ignorespaces Oracle Direct-vs-Decompose Headroom}}{37}{table.caption.41}%
-\contentsline {table}{\numberline {4.15}{\ignorespaces Confidence Signal Battery}}{38}{table.caption.43}%
-\contentsline {table}{\numberline {4.16}{\ignorespaces Direct-Path Accuracy by Confidence Coverage}}{39}{table.caption.44}%
-\contentsline {table}{\numberline {4.17}{\ignorespaces Confidence by Direct-vs-Decompose Quadrant}}{40}{table.caption.45}%
+\contentsline {table}{\numberline {4.1}{\ignorespaces Main Results under Full-Corpus Wikipedia Retrieval}}{25}{table.caption.26}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {5.1}{\ignorespaces Inference Retrieval Count Comparison}}{43}{table.caption.47}%
-\contentsline {table}{\numberline {5.2}{\ignorespaces Offline Adaptation Cost Comparison}}{44}{table.caption.48}%
+\contentsline {table}{\numberline {5.1}{\ignorespaces Answer-Containing Retrieval Recall}}{26}{table.caption.27}%
+\contentsline {table}{\numberline {5.2}{\ignorespaces MuSiQue Gold and Base Decomposition Recall}}{28}{table.caption.29}%
+\contentsline {table}{\numberline {5.3}{\ignorespaces Retrieval Necessity After Decomposition}}{29}{table.caption.30}%
+\contentsline {table}{\numberline {5.4}{\ignorespaces Direct Retrieval Without Decomposition}}{30}{table.caption.32}%
+\contentsline {table}{\numberline {5.5}{\ignorespaces Threshold Sensitivity}}{31}{table.caption.33}%
+\contentsline {table}{\numberline {5.6}{\ignorespaces Path-Aware Title Retrieval}}{33}{table.caption.35}%
+\contentsline {table}{\numberline {5.7}{\ignorespaces Plan Length and Routing Decisions}}{34}{table.caption.36}%
+\contentsline {table}{\numberline {5.8}{\ignorespaces Correctness Overlap Between the Two Answer Paths}}{34}{table.caption.37}%
+\contentsline {table}{\numberline {5.9}{\ignorespaces Why Decomposition-Path Answers Fail}}{36}{table.caption.39}%
+\contentsline {table}{\numberline {5.10}{\ignorespaces Effect of Final Routing}}{37}{table.caption.40}%
+\contentsline {table}{\numberline {5.11}{\ignorespaces Representative Confidence Signals}}{39}{table.caption.42}%
+\contentsline {table}{\numberline {5.12}{\ignorespaces Direct-Path Accuracy by Confidence Coverage}}{40}{table.caption.43}%
+\contentsline {table}{\numberline {5.13}{\ignorespaces Confidence by Direct-vs-Decompose Quadrant}}{40}{table.caption.44}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {A.1}{\ignorespaces DeepRAG-vs-SEEK Correctness Quadrants}}{55}{table.caption.59}%
+\contentsline {table}{\numberline {A.2}{\ignorespaces DeepRAG Failure Signals in the SEEK-Win Set}}{56}{table.caption.60}%
+\contentsline {table}{\numberline {A.3}{\ignorespaces Supplementary Decomposition-Failure Flags}}{58}{table.caption.61}%
+\contentsline {table}{\numberline {A.4}{\ignorespaces Inference Retrieval Count Comparison}}{59}{table.caption.62}%
+\contentsline {table}{\numberline {A.5}{\ignorespaces Offline Adaptation Cost Comparison}}{59}{table.caption.63}%
+\contentsline {table}{\numberline {A.6}{\ignorespaces Definitions of Representative Confidence Signals}}{60}{table.caption.64}%
+\contentsline {table}{\numberline {A.7}{\ignorespaces Confident-Wrong Direct Answers}}{61}{table.caption.65}%
+\contentsline {table}{\numberline {A.8}{\ignorespaces Repeated-Sampling Zero-Entropy Diagnostic}}{62}{table.caption.66}%

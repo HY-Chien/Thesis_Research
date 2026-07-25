@@ -1,28 +1,12 @@
-# Direct-vs-Decompose 2x2 Counts (Current Final Traces)
+# Direct-vs-Decompose 2x2 Counts (Final all-tl_sum Traces)
 
-Setting: current final candidate traces with path-aware retrieval, original-question evidence union, and type-aware rule-based verifier replay.
-
-This is an answer-level analysis. It is different from retrieval coverage: a passage can contain the gold answer string, while the final decomposed answer can still be wrong because of decomposition drift, reasoning error, or synthesis error.
-
-Final verifier path selection rate:
-
-| Dataset | Direct selected | Decompose selected |
-|---|---:|---:|
-| HotpotQA | 274 / 1000 = **27.4%** | 726 / 1000 = **72.6%** |
-| 2Wiki | 65 / 1000 = **6.5%** | 935 / 1000 = **93.5%** |
-| MuSiQue | 182 / 1000 = **18.2%** | 818 / 1000 = **81.8%** |
-| PopQA | 37 / 1000 = **3.7%** | 963 / 1000 = **96.3%** |
-| **Pooled** | 558 / 4000 = **14.0%** | 3442 / 4000 = **86.1%** |
+Setting: final prompt-fix-A traces with the tl_sum step gate, path-aware retrieval, and original-question evidence union.
 
 | Dataset | N | Both correct | Direct-only | Decomp-only | Both wrong | Direct EM | Decomp EM | Oracle EM | Decomp-only - Direct-only |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 2Wiki | 1000 | 141 | 39 | 361 | 459 | 18.00 | 50.20 | 54.10 | +322 |
-| HotpotQA | 1000 | 192 | 111 | 113 | 584 | 30.30 | 30.50 | 41.60 | +2 |
-| MuSiQue | 1000 | 71 | 31 | 184 | 714 | 10.20 | 25.50 | 28.60 | +153 |
-| PopQA | 1000 | 350 | 28 | 179 | 443 | 37.80 | 52.90 | 55.70 | +151 |
+| HotpotQA | 1000 | 225 | 78 | 132 | 565 | 30.30 | 35.70 | 43.50 | +54 |
+| 2Wiki | 1000 | 140 | 40 | 350 | 470 | 18.00 | 49.00 | 53.00 | +310 |
+| MuSiQue | 1000 | 76 | 26 | 191 | 707 | 10.20 | 26.70 | 29.30 | +165 |
+| PopQA | 1000 | 345 | 33 | 193 | 429 | 37.80 | 53.80 | 57.10 | +160 |
 
-Interpretation:
-
-- Decomposition improves retrieval coverage, but answer-level correctness still depends on reasoning and final synthesis.
-- In the current final traces, HotpotQA is no longer strongly direct-favored: direct-only = 111 and decomp-only = 113.
-- The large both-wrong counts show that many errors cannot be fixed by routing alone; they need better retrieval, decomposition, or synthesis.
+The two paths remain complementary. Decompose-only wins dominate on all four datasets, but HotpotQA retains 78 direct-only wins. Both-wrong cases remain outside the reach of routing alone.

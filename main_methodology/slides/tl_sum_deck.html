@@ -1,0 +1,495 @@
+<title>tl_sum 指標推導與驗證</title>
+<style>
+  :root {
+    --page: #f9f9f7;
+    --card: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.10);
+    --head-1: #1c5cab;
+    --head-2: #2a78d6;
+    --head-3: #5598e7;
+    --head-4: #86b6ef;
+    --leak: #e34948;
+    --accent: #2a78d6;
+    --wash: rgba(42, 120, 214, 0.07);
+    --leak-wash: rgba(227, 73, 72, 0.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0d0d0d;
+      --card: #1a1a19;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255, 255, 255, 0.10);
+      --head-1: #184f95;
+      --head-2: #3987e5;
+      --head-3: #6da7ec;
+      --head-4: #9ec5f4;
+      --leak: #e66767;
+      --accent: #3987e5;
+      --wash: rgba(57, 135, 229, 0.12);
+      --leak-wash: rgba(230, 103, 103, 0.12);
+    }
+  }
+  :root[data-theme="dark"] {
+    --page: #0d0d0d;
+    --card: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --head-1: #184f95;
+    --head-2: #3987e5;
+    --head-3: #6da7ec;
+    --head-4: #9ec5f4;
+    --leak: #e66767;
+    --accent: #3987e5;
+    --wash: rgba(57, 135, 229, 0.12);
+    --leak-wash: rgba(230, 103, 103, 0.12);
+  }
+  :root[data-theme="light"] {
+    --page: #f9f9f7;
+    --card: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.10);
+    --head-1: #1c5cab;
+    --head-2: #2a78d6;
+    --head-3: #5598e7;
+    --head-4: #86b6ef;
+    --leak: #e34948;
+    --accent: #2a78d6;
+    --wash: rgba(42, 120, 214, 0.07);
+    --leak-wash: rgba(227, 73, 72, 0.07);
+  }
+
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, -apple-system, sans-serif;
+    line-height: 1.75;
+    margin: 0;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  .slide {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 40px 44px;
+    margin-top: 28px;
+  }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .eyebrow b { color: var(--accent); font-weight: 700; }
+  h1 {
+    font-size: 34px;
+    line-height: 1.35;
+    margin: 8px 0 4px;
+    text-wrap: balance;
+    font-weight: 800;
+  }
+  h2 {
+    font-size: 23px;
+    line-height: 1.45;
+    margin: 0 0 14px;
+    text-wrap: balance;
+    font-weight: 700;
+  }
+  p { margin: 10px 0; color: var(--ink); }
+  p.sub { color: var(--ink-2); }
+  .small { font-size: 13.5px; color: var(--ink-2); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  code, .tok {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.92em;
+    background: var(--wash);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+  .tok-leak { background: var(--leak-wash); }
+  strong { font-weight: 700; }
+  em.term { font-style: normal; border-bottom: 2px solid var(--head-4); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .chip {
+    font-size: 12.5px;
+    color: var(--ink-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 12px;
+    background: var(--card);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    margin: 14px 0 4px;
+  }
+  th {
+    text-align: left;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--baseline);
+    padding: 6px 10px;
+  }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--grid); }
+  th.num, td.num { text-align: right; }
+  tr.hl td { background: var(--wash); font-weight: 700; }
+  .tblwrap { overflow-x: auto; }
+
+  .formula {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 17px;
+    text-align: center;
+    padding: 18px 12px;
+    margin: 16px 0;
+    background: var(--wash);
+    border-radius: 6px;
+    letter-spacing: 0.02em;
+  }
+  .formula sub, .formula sup { font-size: 11px; }
+
+  /* ---- anatomy stacked bars ---- */
+  .anatomy { margin: 20px 0 6px; }
+  .anatomy-row { margin-bottom: 22px; }
+  .anatomy-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .anatomy-title { font-size: 14px; font-weight: 700; }
+  .anatomy-verdict { font-size: 12.5px; color: var(--ink-2); }
+  .bar { display: flex; height: 34px; margin-top: 8px; gap: 2px; }
+  .seg { border-radius: 4px; position: relative; min-width: 0; }
+  .seg span {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11.5px; font-weight: 600; color: #fff;
+    white-space: nowrap; overflow: hidden;
+  }
+  .s1 { background: var(--head-1); }
+  .s2 { background: var(--head-2); }
+  .s3 { background: var(--head-3); }
+  .s4 { background: var(--head-4); }
+  .sT { background: var(--leak); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--ink-2); margin-top: 4px; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+  /* ---- stat tiles ---- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 18px 0 4px; }
+  .tile { border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+  .tile .k { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .tile .v { font-size: 26px; font-weight: 800; line-height: 1.3; font-variant-numeric: tabular-nums; }
+  .tile .n { font-size: 11.5px; color: var(--muted); }
+  .tile.leaky .v { color: var(--leak); }
+  .tile.safe .v { color: var(--accent); }
+
+  /* ---- dot plot ---- */
+  .dotplot { margin: 18px 0 0; }
+  .dp-row { display: grid; grid-template-columns: 190px 1fr 56px; align-items: center; gap: 10px; padding: 5px 0; }
+  .dp-label { font-size: 13px; color: var(--ink-2); text-align: right; line-height: 1.35; }
+  .dp-label .fam { display: block; font-size: 10.5px; color: var(--muted); letter-spacing: 0.05em; }
+  .dp-track { position: relative; height: 22px; background: linear-gradient(to right, var(--grid) 1px, transparent 1px); background-size: 20% 100%; border-left: 1px solid var(--baseline); }
+  .dp-dot {
+    position: absolute; top: 50%; transform: translate(-50%, -50%);
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--muted);
+    box-shadow: 0 0 0 2px var(--card);
+  }
+  .dp-row.hl .dp-dot { background: var(--accent); width: 13px; height: 13px; }
+  .dp-row.hl .dp-label, .dp-row.hl .dp-val { color: var(--ink); font-weight: 700; }
+  .dp-val { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .dp-axis { display: grid; grid-template-columns: 190px 1fr 56px; gap: 10px; margin-top: 2px; }
+  .dp-axis .ticks { position: relative; height: 16px; font-size: 11px; color: var(--muted); }
+  .dp-axis .ticks b { position: absolute; transform: translateX(-50%); font-weight: 400; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } .dp-row { grid-template-columns: 130px 1fr 50px; } .dp-axis { grid-template-columns: 130px 1fr 50px; } .slide { padding: 28px 22px; } }
+
+  .qa { border-left: 3px solid var(--head-4); padding: 2px 0 2px 16px; margin: 14px 0; }
+  .qa .q { font-weight: 700; }
+  ol.steps { padding-left: 22px; margin: 10px 0; }
+  ol.steps li { margin: 7px 0; }
+  ul.pts { padding-left: 22px; margin: 10px 0; }
+  ul.pts li { margin: 7px 0; }
+</style>
+
+<div class="wrap">
+
+  <!-- ============ cover ============ -->
+  <header class="slide">
+    <div class="eyebrow">SEEK 信心訊號 · 進度報告</div>
+    <h1>tl_sum：從 max_entropy 到尾漏 surprisal</h1>
+    <p class="sub">gate 需要判斷「這一題模型自己會不會」。這份簡報說明我們如何從 42 個候選訊號的普查出發，把 entropy 拆解後找出真正有判別力的成分，得到新的指標 tl_sum，並以四個資料集的證據說明它為什麼優於 max_entropy、margin 與 log-probability。</p>
+    <div class="chips">
+      <span class="chip">Llama-3-8B-Instruct</span>
+      <span class="chip">direct path，無檢索作答</span>
+      <span class="chip">4 資料集 × 1000 題</span>
+      <span class="chip">2wiki · HotpotQA · MuSiQue · PopQA</span>
+      <span class="chip">標籤：alias-aware EM</span>
+    </div>
+  </header>
+
+  <!-- ============ slide 1 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>1</b> · 問題設定</div>
+    <h2>gate 的任務：這一題，模型自己會嗎？</h2>
+    <p>系統對每個子問題要做一個二元決策：判「會」就直接作答、省下一次檢索；判「不會」就送去檢索。判斷的依據是模型作答當下的 token 機率分布。</p>
+    <p>原本的訊號是 <em class="term">max_entropy</em>：取答案中 entropy 最大的那個 token，超過門檻（τ=0.3）就檢索。它有兩種代價：</p>
+    <ul class="pts">
+      <li><strong>誤報</strong>——會答對的題被判「不會」，白花一次檢索；</li>
+      <li><strong>漏報</strong>——答錯的題被判「會」而放行，直接損失答對率。</li>
+    </ul>
+    <p class="sub">要換掉它，得先回答：entropy 到底在量什麼？它量的東西裡，哪一部分真的和答錯有關？</p>
+  </section>
+
+  <!-- ============ slide 2 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>2</b> · 核心觀察</div>
+    <h2>兩種「不確定」長得不一樣：關鍵在機率的尾巴</h2>
+    <p>模型每生成一個 token，是在約 12.8 萬個詞上給一個完整分布。把候選按機率排序：<strong style="color:var(--head-2)">頭部</strong>＝機率最高的前 5 名，<strong style="color:var(--leak)">尾巴</strong>＝第 6 名以後所有詞分到的機率總和（1 − top-5 mass）。從實驗資料抓兩個 token，top-1 機率幾乎相同，命運卻相反：</p>
+
+    <div class="anatomy">
+      <div class="anatomy-row">
+        <div class="anatomy-head">
+          <span class="anatomy-title">知道答案，只是猶豫寫法 — <span class="tok">Po</span> vs <span class="tok">po</span>（Yannis Ritsos 的職業）</span>
+          <span class="anatomy-verdict">答對 ✓ 預測 Poet</span>
+        </div>
+        <div class="bar">
+          <div class="seg s1" style="flex:51.7" title="top-1『Po』機率 0.517"><span>Po ·51.7%</span></div>
+          <div class="seg s2" style="flex:45.6" title="top-2『po』機率 0.456"><span>po ·45.6%</span></div>
+          <div class="seg s3" style="flex:2.7" title="第 3–5 名合計 0.027"></div>
+        </div>
+        <p class="note">競爭全部集中在同一個字的大小寫變體上。top-5 以外的尾巴只有 <strong>0.1%</strong> ——乾淨。</p>
+      </div>
+
+      <div class="anatomy-row">
+        <div class="anatomy-head">
+          <span class="anatomy-title">真的不知道 — <span class="tok tok-leak">First</span>（Corliss Archer 那位演員的官職）</span>
+          <span class="anatomy-verdict">答錯 ✗ 預測 First Lady，正解 Chief of Protocol</span>
+        </div>
+        <div class="bar">
+          <div class="seg s1" style="flex:55.8" title="top-1『First』機率 0.558"><span>First ·55.8%</span></div>
+          <div class="seg s2" style="flex:6.3" title="top-2『U』機率 0.063"></div>
+          <div class="seg s3" style="flex:10.5" title="第 3–5 名（Secretary、[、None）合計 0.105"><span>3–5名</span></div>
+          <div class="seg sT" style="flex:27.3" title="top-5 以外（第 6 名起，含 none、Jan、Amb、Congress、State 與其餘約 12.8 萬個詞）合計 0.273"><span>尾巴 27.3%</span></div>
+        </div>
+        <p class="note">top-2 以下碎成 Secretary、Ambassador、Congress、State 等互不相干的猜測，還有 <strong style="color:var(--leak)">27.3%</strong> 漏出 top-5，霧化到十二萬多個詞上。</p>
+      </div>
+
+      <div class="legend">
+        <span><i style="background:var(--head-1)"></i>top-1</span>
+        <span><i style="background:var(--head-2)"></i>top-2</span>
+        <span><i style="background:var(--head-3)"></i>第 3–5 名</span>
+        <span><i style="background:var(--leak)"></i>尾巴（top-5 以外）</span>
+      </div>
+    </div>
+
+    <p style="margin-top:18px">直覺：<strong>模型知道答案時，不管有幾種寫法，機率都會被那幾種寫法吸住，尾巴乾淨；不知道時，沒有候選吸得住機率，機率霧化到成千上萬個詞上。</strong>答對率也順著這個形狀走：</p>
+    <div class="tiles">
+      <div class="tile safe"><div class="k">每個 token top-1 ≥ 0.9<br>（毫無競爭）</div><div class="v">45.8%</div><div class="n">EM · n=1142</div></div>
+      <div class="tile"><div class="k">top-5 內兩強相爭<br>（幾乎無尾漏）</div><div class="v">15.9%</div><div class="n">EM · n=586</div></div>
+      <div class="tile"><div class="k">top-5 內平坦<br>（幾乎無尾漏）</div><div class="v">14.6%</div><div class="n">EM · n=212</div></div>
+      <div class="tile leaky"><div class="k">尾漏 ≥ 30%<br>（min top5m ≤ 0.7）</div><div class="v">3.5%</div><div class="n">EM · n=346</div></div>
+    </div>
+    <p class="note">四資料集合併 n=4000，整體 EM 24.1%。尾漏一出現，幾乎必錯。</p>
+  </section>
+
+  <!-- ============ slide 3 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>3</b> · 發現過程 · 第一步</div>
+    <h2>42 個訊號普查：越看尾巴的訊號，排名越前面</h2>
+    <p>我們先不預設答案，把文獻裡常見的信心訊號共 42 種（entropy 家族、margin、log-prob、self-consistency、p(true) 等）全部對同一批 4×1000 題計算 AUROC——即隨機抽一題答錯、一題答對，訊號把答錯那題排得更不確定的機率，0.5 是亂猜、1.0 是完美——並對 max_ent 做成對 bootstrap 檢定。</p>
+    <p>排行榜浮現一個一致的模式。最乾淨的版本是 Rényi entropy：它與 Shannon 同家族，只多一個參數 α 控制小機率的聲量——α=2 把機率平方，尾巴消失，只看頭；α=0.5 把機率開根號，尾巴被放大。同一支公式只轉這個旋鈕，在 2wiki 上：</p>
+    <div class="tblwrap"><table>
+      <tr><th>公式</th><th>看哪裡</th><th class="num">AUROC（2wiki）</th></tr>
+      <tr><td>Rényi α=2</td><td>幾乎只看前一兩名</td><td class="num">0.651</td></tr>
+      <tr><td>Shannon（= max_ent）</td><td>頭尾各算各的</td><td class="num">0.671</td></tr>
+      <tr><td>Rényi α=0.5</td><td>放大尾巴</td><td class="num"><strong>0.716</strong></td></tr>
+    </table></div>
+    <p>其他訊號同方向：量尾巴的 min_top5m（0.742）、min_top10m（0.743）排前段；只看頭部的 top-1 機率（0.711）、top-5 內部熵（0.712）、margin（0.695）排後段。</p>
+    <p class="sub">這一步還不知道為什麼，只得到方向感：<strong>錯誤的訊號藏在分布的尾巴，不在頭部的排名競爭裡。</strong></p>
+  </section>
+
+  <!-- ============ slide 4 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>4</b> · 發現過程 · 第二步</div>
+    <h2>把 entropy 拆開：有判別力的只有「逃出 top-5」那一塊</h2>
+    <p>Shannon entropy 有一個恆等式分解（m₅ 為 top-5 機率總和）：</p>
+    <div class="formula">H&nbsp;=&nbsp;H<sub>B</sub>(m₅)&nbsp;+&nbsp;m₅·H<sub>top5</sub>&nbsp;+&nbsp;(1−m₅)·H<sub>tail</sub></div>
+    <p>三塊各有明確語意，而且可以分開計算、分開測 AUROC：</p>
+    <div class="tblwrap"><table>
+      <tr><th>成分</th><th>語意</th><th class="num">macro AUROC</th></tr>
+      <tr class="hl"><td>H<sub>B</sub>(m₅)（escape 項）</td><td>機率有沒有逃出 top-5</td><td class="num">0.742</td></tr>
+      <tr><td>m₅·H<sub>top5</sub></td><td>top-5 內部的猶豫</td><td class="num">0.712</td></tr>
+      <tr><td>(1−m₅)·H<sub>tail</sub></td><td>尾巴內部的組成</td><td class="num">0.502（≈亂猜）</td></tr>
+      <tr><td>max_ent（三塊混合）</td><td></td><td class="num">0.726</td></tr>
+    </table></div>
+    <p>這解釋了第一步的現象：<strong>max_ent 的判別力幾乎全部來自 escape 項；它混進來的另外兩塊，一塊較弱且與 escape 項重疊，一塊是純雜訊——混合只會稀釋。</strong>把有效成分單獨拿出來（0.742），就已經勝過整支 entropy（0.726）。</p>
+  </section>
+
+  <!-- ============ slide 5 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>5</b> · 發現過程 · 第三步</div>
+    <h2>定義 tl_sum：把每一步的尾漏換成 surprisal，沿答案累加</h2>
+    <div class="formula">tl_sum&nbsp;=&nbsp;Σ<sub>t</sub>&nbsp;−log&nbsp;m₅<sup>(t)</sup>&nbsp;=&nbsp;−log&nbsp;Π<sub>t</sub>&nbsp;m₅<sup>(t)</sup></div>
+    <p>它是「整條答案的每一步都留在自己 top-5 候選集內」的聯合機率取負對數——任何一步漏一點，乘積就往下掉。確定訊號是尾漏之後，我們掃描了聚合方式，sum 顯著勝出（對 min_top5m 的成對 bootstrap p&lt;0.001）：</p>
+    <div class="tblwrap"><table>
+      <tr><th>聚合方式</th><th>直覺</th><th class="num">macro AUROC</th></tr>
+      <tr class="hl"><td>tl_sum（累加）</td><td>沿整條答案累積尾漏</td><td class="num">0.7493</td></tr>
+      <tr><td>min_top5m（最弱一步）</td><td>只看漏最多的 token</td><td class="num">0.7419</td></tr>
+      <tr><td>tl_mean（平均）</td><td>被長答案的乾淨 token 稀釋</td><td class="num">0.7133</td></tr>
+    </table></div>
+    <p>sum 贏的原因在資料裡看得到：答錯的答案傾向<strong>每個 token 都漏一點</strong>——最弱 token 只佔錯題 tl_sum 的 0.88（答對題 0.92），單點聚合看不到這種累積。答案越長差距越大：7 個 token 以上的答案，tl_sum 0.805 對 max_ent 0.787。</p>
+  </section>
+
+  <!-- ============ slide 6 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>6</b> · 主結果</div>
+    <h2>對所有基線家族：tl_sum 每一格持平或更好</h2>
+    <p class="sub">macro AUROC（判別答錯），四資料集平均。margin 與 log-probability 家族也在普查內，全數落後：</p>
+
+    <div class="dotplot">
+      <div class="dp-row hl">
+        <div class="dp-label">tl_sum<span class="fam">尾漏家族</span></div>
+        <div class="dp-track"><div class="dp-dot" style="left:88.9%" title="tl_sum macro AUROC 0.749"></div></div>
+        <div class="dp-val">0.749</div>
+      </div>
+      <div class="dp-row">
+        <div class="dp-label">min_top5m<span class="fam">尾漏家族 · 單點版</span></div>
+        <div class="dp-track"><div class="dp-dot" style="left:86.4%" title="min_top5m macro AUROC 0.742"></div></div>
+        <div class="dp-val">0.742</div>
+      </div>
+      <div class="dp-row">
+        <div class="dp-label">max_ent（原基準）<span class="fam">entropy 家族</span></div>
+        <div class="dp-track"><div class="dp-dot" style="left:80.7%" title="max_ent macro AUROC 0.726"></div></div>
+        <div class="dp-val">0.726</div>
+      </div>
+      <div class="dp-row">
+        <div class="dp-label">sum_lp<span class="fam">log-prob 家族</span></div>
+        <div class="dp-track"><div class="dp-dot" style="left:80.7%" title="sum_lp macro AUROC 0.726"></div></div>
+        <div class="dp-val">0.726</div>
+      </div>
+      <div class="dp-row">
+        <div class="dp-label">max_htop5<span class="fam">top-5 內部熵 · 看頭</span></div>
+        <div class="dp-track"><div class="dp-dot" style="left:75.7%" title="max_htop5 macro AUROC 0.712"></div></div>
+        <div class="dp-val">0.712</div>
+      </div>
+      <div class="dp-row">
+        <div class="dp-label">min_lp ≡ min_top1p<span class="fam">log-prob 家族 · 看頭</span></div>
+        <div class="dp-track"><div class="dp-dot" style="left:75.4%" title="min_lp macro AUROC 0.711"></div></div>
+        <div class="dp-val">0.711</div>
+      </div>
+      <div class="dp-row">
+        <div class="dp-label">min_margin<span class="fam">margin 家族 · 看頭</span></div>
+        <div class="dp-track"><div class="dp-dot" style="left:69.6%" title="min_margin macro AUROC 0.695"></div></div>
+        <div class="dp-val">0.695</div>
+      </div>
+      <div class="dp-row">
+        <div class="dp-label">mean_lp<span class="fam">log-prob 家族</span></div>
+        <div class="dp-track"><div class="dp-dot" style="left:61.4%" title="mean_lp macro AUROC 0.672"></div></div>
+        <div class="dp-val">0.672</div>
+      </div>
+      <div class="dp-axis">
+        <div></div>
+        <div class="ticks">
+          <b style="left:0%">0.50（亂猜）</b><b style="left:35.7%">0.60</b><b style="left:71.4%">0.70</b><b style="left:100%">0.78</b>
+        </div>
+        <div></div>
+      </div>
+    </div>
+
+    <p style="margin-top:20px">而且不是靠某個資料集拉分——<strong>四個資料集逐一比較，tl_sum 對每個基線全勝或持平</strong>：</p>
+    <div class="tblwrap"><table>
+      <tr><th>訊號</th><th class="num">2wiki</th><th class="num">HotpotQA</th><th class="num">MuSiQue</th><th class="num">PopQA</th><th class="num">macro</th></tr>
+      <tr class="hl"><td>tl_sum</td><td class="num">0.717</td><td class="num">0.757</td><td class="num">0.726</td><td class="num">0.798</td><td class="num">0.749</td></tr>
+      <tr><td>max_ent</td><td class="num">0.671</td><td class="num">0.743</td><td class="num">0.711</td><td class="num">0.780</td><td class="num">0.726</td></tr>
+      <tr><td>sum_lp</td><td class="num">0.667</td><td class="num">0.733</td><td class="num">0.707</td><td class="num">0.798</td><td class="num">0.726</td></tr>
+      <tr><td>min_lp</td><td class="num">0.641</td><td class="num">0.724</td><td class="num">0.699</td><td class="num">0.778</td><td class="num">0.711</td></tr>
+      <tr><td>min_margin</td><td class="num">0.622</td><td class="num">0.708</td><td class="num">0.680</td><td class="num">0.771</td><td class="num">0.695</td></tr>
+      <tr><td>mean_lp</td><td class="num">0.604</td><td class="num">0.697</td><td class="num">0.667</td><td class="num">0.722</td><td class="num">0.672</td></tr>
+    </table></div>
+    <p class="note">tl_sum 對 max_ent 的成對 bootstrap：p&lt;0.001。最危險的錯誤型態「很有信心地答錯」（CW@med）也從 0.197 降到 0.157。</p>
+  </section>
+
+  <!-- ============ slide 7 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>7</b> · 操作點比較</div>
+    <h2>對 gate 的實際意義：同樣的預算，抓到更多錯題</h2>
+    <p>AUROC 的差距換算到 gate 的操作點上（pooled n=4000）：</p>
+    <div class="tblwrap"><table>
+      <tr><th>固定條件</th><th class="num">max_ent</th><th class="num">tl_sum</th></tr>
+      <tr><td>要抓到 60% 的錯題時，誤報的答對題</td><td class="num">23.9%</td><td class="num"><strong>19.5%</strong></td></tr>
+      <tr><td>要抓到 80% 的錯題時，誤報的答對題</td><td class="num">45.2%</td><td class="num"><strong>39.9%</strong></td></tr>
+      <tr><td>同樣誤報 30.6% 時，抓到的錯題</td><td class="num">67.0%</td><td class="num"><strong>71.6%</strong></td></tr>
+    </table></div>
+    <p>每一個預算水位上，tl_sum 都少冤枉 4–5 個百分點的答對題，或多救回 4–5 個百分點的錯題。放回 gate 做端到端重放也一致：<strong>跳過 10% 的檢索時，tl_sum 的 macro EM 40.60，與全檢索的 40.58 持平；max_ent 同樣跳過率降到 40.45。</strong></p>
+  </section>
+
+  <!-- ============ slide 8 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>8</b> · 機制解釋</div>
+    <h2>為什麼贏過 margin 與 log-prob：只對「漏出候選集」收費</h2>
+    <p>用 Ritsos 那個 token（<span class="tok">Po</span> 0.517 / <span class="tok">po</span> 0.456，top-5 合計 0.999）算給三個訊號看：</p>
+    <div class="tblwrap"><table>
+      <tr><th>訊號</th><th>它跟這個 token 收多少「不確定費」</th><th>判斷</th></tr>
+      <tr><td>margin</td><td>0.517−0.456 = 0.06，極小</td><td>高度警報——把猶豫寫法當成最危險的形狀</td></tr>
+      <tr><td>sum_lp</td><td>−log 0.517 ≈ 0.66</td><td>警報——對「選了哪個寫法」收費</td></tr>
+      <tr class="hl"><td>tl_sum</td><td>−log 0.999 ≈ 0.001</td><td>安全——寫法怎麼選不收費，只問漏出多少</td></tr>
+    </table></div>
+    <p>這不是巧合而是設計：評分標準（alias-aware EM）本來就不在乎答案寫成 Poet 還是 poet，<strong>tl_sum 是唯一把這個寬容內建進去的訊號</strong>——top-5 內部怎麼分完全不看，把五個候選捆成一包，只量包外漏出的機率。margin 和 log-prob 都對頭部的排名競爭收費，於是在大量無害的寫法之爭上付出誤報。</p>
+    <p class="sub">注意 tl_sum 的尺度：−log 在 1 附近極敏感。答對題的 tl_sum 中位數只有 0.0017，對應每步 top-5 質量 0.998 以上；「top-5 合起來 0.95」看似接近滿分，其實 −log 0.95 = 0.051，已超過錯題中位數 0.0335——會被正確地判為「不會」。</p>
+  </section>
+
+  <!-- ============ slide 9 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>9</b> · 誠實的限制</div>
+    <h2>盲區：尾巴乾淨的真二選一——但誰都看不到</h2>
+    <p>有一種形狀 tl_sum 確實無能為力：題目本身列出兩個候選、模型知道答案必是其一（所以尾巴合法地乾淨），只是選錯邊。兩個真實例子，機率形狀幾乎相同、命運相反：</p>
+    <div class="tblwrap"><table>
+      <tr><th></th><th>Ritsos 的職業</th><th>Aneta 與 René 誰年輕</th></tr>
+      <tr><td>頭部競爭</td><td><span class="tok">Po</span> 0.52 vs <span class="tok">po</span> 0.46</td><td><span class="tok">Ren</span> 0.56 vs <span class="tok">An</span> 0.44</td></tr>
+      <tr><td>top-5 合計</td><td class="num">0.999</td><td class="num">0.9997</td></tr>
+      <tr><td>max_ent</td><td class="num">0.81</td><td class="num">0.70</td></tr>
+      <tr><td>tl_sum</td><td class="num">0.001</td><td class="num">0.0003</td></tr>
+      <tr><td>結果</td><td>答對（猶豫的是同一答案的寫法）</td><td><strong style="color:var(--leak)">答錯</strong>（猶豫的是兩個不同的人）</td></tr>
+    </table></div>
+    <p>差別只在候選 token 的<strong>內容</strong>，不在機率的<strong>形狀</strong>——所以任何只看分布形狀的訊號（max_ent、margin、log-prob、tl_sum）都分不開這兩題。max_ent 給答對那題的分數甚至更高，任何門檻都是兩題一起放行或一起送檢索。</p>
+    <ul class="pts">
+      <li>這類「乾淨尾巴的真二選一」佔全部錯題約 <strong>5%</strong>（n=189/4000，典型是 2wiki 比較題），是分布形狀訊號的共同上限，不是 tl_sum 相對於基線的劣勢。</li>
+      <li>對照組：頭部競爭是同字寫法變體的題（n=53），EM 43.4%，與毫無競爭的題相當——證實寫法之爭確實無害，不該為它付誤報。</li>
+      <li>未來方向：要救這 5%，需要看內容的訊號——解碼 top-2 候選做字串比對，或對比較題型特判。</li>
+    </ul>
+  </section>
+
+  <!-- ============ slide 10 ============ -->
+  <section class="slide">
+    <div class="eyebrow"><b>10</b> · 總結</div>
+    <h2>三句話帶走</h2>
+    <ol class="steps">
+      <li><strong>指標不是憑空設計的</strong>：42 訊號普查指出「訊號在尾巴」，entropy 的恆等式分解證明它的判別力只來自 escape 項，其餘是稀釋；把有效成分換成 surprisal 沿答案累加，就是 tl_sum。</li>
+      <li><strong>證據是成體系的</strong>：成分消融、四資料集全勝的 AUROC（0.749 vs 0.726，p&lt;0.001）、confident-wrong 率下降兩成、固定預算下多抓 4–5 個百分點錯題、端到端 gate 重放跳過 10% 檢索 EM 不掉——五條獨立證據同向。</li>
+      <li><strong>邊界說得清楚</strong>：它贏在不為「無法判別的形狀」付誤報費——寫法之爭一律寬容；代價是約 5% 的乾淨尾巴真二選一看不到，而這是所有分布形狀訊號的共同上限，需要看內容的訊號才能突破。</li>
+    </ol>
+    <p class="note">資料與程式：main_methodology/results/conf_battery_*.jsonl（4×1000 題逐 token 紀錄）、confidence_battery_analysis_direct.md（42 訊號普查）、tlsum_confidence_story.md（分解與殘差分析）、tail_leakage_variants.md（聚合形式掃描）、step_gate_signal_sweep.md（端到端 gate 重放）。</p>
+  </section>
+
+</div>

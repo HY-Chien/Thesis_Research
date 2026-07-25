@@ -50,10 +50,17 @@ class AnswerResult:
                 "targ_unc": self.targ_unc}[name]
 
 
-def _prompt(tok, sub_question: str, context: str | None) -> str:
+def _prompt(tok, sub_question: str, context: str | None,
+            orig_question: str | None = None) -> str:
     body = sub_question
     if context:
         body = f"Context:\n{context}\n\nQuestion: {sub_question}"
+    if orig_question and orig_question.strip() != sub_question.strip():
+        # Sub-questions produced by substitution can drop disambiguating
+        # qualifiers from the original question (e.g. the state in
+        # "Sullivan County, New Hampshire"); prepend it so the answer span
+        # is grounded in the right entity.
+        body = f"Original question: {orig_question}\n\n{body}"
     msgs = [{"role": "user", "content": f"{ANSWER_INSTRUCTION}\n\n{body}"}]
     return tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
 
@@ -63,10 +70,11 @@ def answer_with_entropy(model, tok, sub_question: str,
                         context: str | None = None,
                         max_new_tokens: int = 48,
                         targ_prefix_k: int = 8,
-                        targ_beta: float = 1.0) -> AnswerResult:
+                        targ_beta: float = 1.0,
+                        orig_question: str | None = None) -> AnswerResult:
     if targ_beta <= 0:
         raise ValueError("targ_beta must be positive")
-    prompt = _prompt(tok, sub_question, context)
+    prompt = _prompt(tok, sub_question, context, orig_question=orig_question)
     enc = tok(prompt, return_tensors="pt").to(model.device)
     out = model.generate(
         **enc,

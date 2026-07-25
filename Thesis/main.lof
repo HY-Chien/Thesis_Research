@@ -2,13 +2,17 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {3.1}{\ignorespaces SEEK Pipeline}}{13}{figure.caption.15}%
+\contentsline {figure}{\numberline {3.1}{\ignorespaces SEEK Pipeline}}{14}{figure.caption.14}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Decomposer Prompt}}{16}{figure.caption.15}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Answer Prompt}}{18}{figure.caption.18}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {4.1}{\ignorespaces Answer-Containing Retrieval Recall Figure}}{26}{figure.caption.27}%
-\contentsline {figure}{\numberline {4.2}{\ignorespaces Three-Way Retrieval Ablation}}{28}{figure.caption.30}%
-\contentsline {figure}{\numberline {4.3}{\ignorespaces Direct-vs-Decompose Correctness Counts}}{33}{figure.caption.37}%
-\contentsline {figure}{\numberline {4.4}{\ignorespaces Oracle Routing Headroom}}{37}{figure.caption.42}%
-\contentsline {figure}{\numberline {4.5}{\ignorespaces Confidence by Correctness Quadrant}}{41}{figure.caption.46}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Answer-Containing Retrieval Recall Figure}}{27}{figure.caption.28}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces Retrieval After Decomposition}}{30}{figure.caption.31}%
+\contentsline {figure}{\numberline {5.3}{\ignorespaces Step-Gate Accuracy--Retrieval Trade-off}}{32}{figure.caption.34}%
+\contentsline {figure}{\numberline {5.4}{\ignorespaces Direct-vs-Decompose Correctness Counts}}{35}{figure.caption.38}%
+\contentsline {figure}{\numberline {5.5}{\ignorespaces Oracle Routing Headroom}}{38}{figure.caption.41}%
+\contentsline {figure}{\numberline {5.6}{\ignorespaces Confidence by Correctness Quadrant}}{41}{figure.caption.45}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }

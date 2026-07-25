@@ -3,7 +3,45 @@
 
 \LoadClass[12pt,openany,oneside]{book}
 
-\usepackage{CJKutf8}
+\RequirePackage{iftex}
+\ifPDFTeX
+  \usepackage{CJKutf8}
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{newtxtext}
+  \newenvironment{thesiscjk}{\begin{CJK}{UTF8}{bkai}}{\end{CJK}}
+  \newenvironment{thesiscjkstar}{\begin{CJK*}{UTF8}{bkai}}{\end{CJK*}}
+\else
+  \usepackage{fontspec}
+  \usepackage{xeCJK}
+  \setmainfont{Times New Roman}[
+    Path=./fonts/english/,
+    Extension=.ttf,
+    UprightFont=*,
+    BoldFont=*-Bold,
+    ItalicFont=*-Italic,
+    BoldItalicFont=*-BoldItalic
+  ]
+  \setsansfont{Times New Roman}[
+    Path=./fonts/english/,
+    Extension=.ttf,
+    UprightFont=*,
+    BoldFont=*-Bold,
+    ItalicFont=*-Italic,
+    BoldItalicFont=*-BoldItalic
+  ]
+  \setCJKmainfont{BiauKai.ttf}[
+    Path=./fonts/chinese/,
+    AutoFakeBold=2.5
+  ]
+  \setCJKsansfont{BiauKai.ttf}[
+    Path=./fonts/chinese/,
+    AutoFakeBold=2.5
+  ]
+  \xeCJKsetup{CJKglue={\hskip 0pt}}
+  \newenvironment{thesiscjk}{}{}
+  \newenvironment{thesiscjkstar}{}{}
+\fi
 
 \usepackage[encoding=UTF8]{zhnumber}
 
@@ -15,7 +53,6 @@
 \usepackage{emptypage}  %prevents page numbers and headings from appearing on empty pages.
   
 % \usepackage{showframe} % for viewing margins 
-\usepackage{times}
 
 
 % Allow 10pt/11pt/12pt font size options
@@ -31,10 +68,10 @@
 
 
 \usepackage{setspace}
-\usepackage[utf8]{inputenc}
 
 \setstretch{1.5}  % gives MS Word-like 1.5x spacing across fonts 
 % \onehalfspacing % ~1.25x spacing only 
+\raggedbottom
 
 \AtBeginEnvironment{thebibliography}{\singlespacing} % Bibliography
 \AtBeginEnvironment{figure}{\singlespacing} % Figure captions
@@ -44,10 +81,18 @@
 \usepackage{ragged2e} % for line alignment justify options
 
 \usepackage{indentfirst}
-\usepackage[skip=10pt plus1pt, indent=2em]{parskip}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0pt}
 
 
-\usepackage{amsmath, amsthm, amssymb}   % improve math presentation
+\usepackage{amsmath, amsthm}   % improve math presentation
+\ifPDFTeX
+  \usepackage{amssymb}
+  \usepackage{newtxmath}
+\else
+  \usepackage{unicode-math}
+  \setmathfont{texgyretermes-math.otf}
+\fi
 
 \usepackage{booktabs}                   % 改善表格設置
 %\usepackage{tabularx} % extra features for tabular environment

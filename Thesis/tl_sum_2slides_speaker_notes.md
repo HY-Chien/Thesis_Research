@@ -1,0 +1,62 @@
+# tl_sum 兩頁口試講稿
+
+## Slide 48 — Discovering the Signal: It Lives in the Tail
+
+這個指標不是先想出來，再挑資料證明它。我們先把文獻中常見的 42 個信心訊號，在四個資料集、每個一千題上全部普查。排行榜出現一個一致模式：越重視低機率尾巴，判別答錯的能力越好。
+
+Rényi entropy 是最乾淨的控制實驗，因為只改一個參數 α。α 控制大、小機率在 entropy 裡的相對權重：α=2 會平方機率，因此壓低小機率 token 的影響；α 趨近 1 時就是 Shannon entropy；α=0.5 使用平方根，使小機率 token 的相對影響變大。左圖是 2Wiki 的代表性切片：AUROC 從 α=2 的 0.651、Shannon 的 0.671，提升到 α=0.5 的 0.716。
+
+接著，我們把 Shannon entropy 用 chain rule 精確分開。令 A 是 top-5、B 是 tail，m₅ 是 A 的總機率；再把兩邊正規化成 p_top(v)=p(v)/m₅ 與 p_tail(v)=p(v)/(1−m₅)。因此原機率可寫成 p=m₅p_top 或 p=(1−m₅)p_tail；拆開 entropy 的兩個總和並展開 log 後，就得到三塊：top-5／tail 的 mass split、top-5 內部 shape，以及 tail 內部 shape。第一塊完整寫成 −m₅log m₅−(1−m₅)log(1−m₅)，只依賴 m₅。
+
+右圖報告四個資料集的 macro AUROC：head–tail mass split 最高，為 0.742；top-5 內部 shape 的 conditional probe 是 0.712；tail 內部 shape 的 conditional probe 只有 0.502，幾乎等於亂猜。這裡 0.712 和 0.502 是把各區域重新正規化後的 shape probes，不是精確等式中已經乘上 m₅ 與 1−m₅ 的加權項。
+
+因此 Broad survey 與 decomposition 並不矛盾。Broad survey 所說的 tail-sensitive，是小機率區域獲得更多總體影響；真正有用的是有多少 probability mass 逃出 top-5。0.502 問的是：已經逃出去之後，這些 mass 在第六名以後如何分散。錯題會漏得更多，但漏出去後集中或分散，和正確性幾乎無關。
+
+所以第一頁的結論是：有判別力的是 tail leakage 的量，而不是 tail 內部的排列方式。
+
+轉場：分解幫我們找到了關鍵變數 m₅，下一步才是把它設計成答案層級的分數。
+
+## Slide 49 — From Entropy to tl_sum
+
+這一頁要先畫清楚一條界線：我們不是把 entropy 的第一項代數化簡成 −log m₅。前一頁的 decomposition 真正告訴我們的，是錯誤訊號主要沿著 m₅ 這個變數變化，也就是 top-5 到底留住多少 probability mass。換句話說，decomposition 完成的是「找出關鍵變數」，還沒有決定這個變數最後要用什麼函數計分。
+
+接著，我們把問題改寫成：要替 m₅ 選一個風險函數 f(m₅)。這個函數至少要符合三個需求。第一，當 m₅=1、完全沒有 tail leakage 時，風險應該是 0。第二，m₅ 越低、漏出去的 mass 越多，風險必須嚴格增加。第三，不同生成位置的風險最好可以直接相加，才能形成答案層級的分數。
+
+原本的 mass-split 項 −m₅log m₅−(1−m₅)log(1−m₅) 適合定位訊號，卻不完全符合第二個需求。它衡量的是「落在 top-5 還是 tail」這個二元事件的不確定性，在 m₅=0.5 時最大，而且左右對稱。例如 m₅=0.5 時分數是 0.693；當 m₅ 降到 0.2、代表 80% mass 已經漏到 tail 時，分數反而降到 0.500。因此它描述的是不確定性，不是單方向的 leakage severity。
+
+因此，我們保留 decomposition 找到的變數 m₅，但不再要求風險分數維持 entropy 的形式，而是選擇 −log m₅。可以把 m₅ 看成留在 top-5 候選集合內的 retained mass；−log m₅ 就是 retained-mass surprisal。它在 m₅=1 時等於 0，而且導數是 −1/m₅，小於 0，所以 m₅ 越低，分數一定越高；當 m₅ 趨近 0 時，分數也會持續增大，不會轉向。
+
+如果把單步 leakage 寫成 ℓₜ=1−m₅⁽ᵗ⁾，那麼 leakage 很小時，−log m₅⁽ᵗ⁾=−log(1−ℓₜ) 約等於 ℓₜ。也就是說，它在正常區域近似直接累積每一步漏出去的 mass，但對嚴重 leakage 會給更大的懲罰。
+
+最後選擇 log 還有一個重要原因：它可以把跨 token 的乘積轉成總和。因此定義 tl_sum=∑ₜ−log m₅⁽ᵗ⁾=−log∏ₜm₅⁽ᵗ⁾。這裡的乘積是沿著實際 greedy prefix 計算的 retained-mass product，不是答案本身的 likelihood。它的意義是，多個位置各自只有一點小 leakage，也能在答案層級累積成明顯風險。
+
+聚合掃描也支持這個選擇：tl_sum 是 0.7493，只看最弱 token 的 min_top5m 是 0.7419，取平均只有 0.7133；tl_sum 相對 min_top5m 的 paired bootstrap p 小於 0.001。
+
+所以這一頁的完整邏輯是：entropy decomposition 先定位出 m₅；再依照零點、單調性與可加性，把它轉成單步 Tail-Leakage Surprisal −log m₅；最後跨 token 加總成 tl_sum。
+
+## Appendix A1 — Why Top-5? Deterministic, Not Random
+
+這裡的 top-5 不是隨機抽五個 token。模型在每一個生成步驟先對完整 vocabulary 產生 softmax 機率，再由大到小排序；V₅(pₜ) 就是當下機率最高的五個 token，而 tail 是排名第六到 vocabulary 最後的所有 token，不是「最後五個」。因為 prefix 每一步都會改變，所以 top-5 集合也會逐步重算。
+
+五這個數字不是由 entropy 公式推導出的常數，而是需要驗證的超參數。我們用相同的四個資料集與 frozen traces，直接重算 tl_sum@k：k=2 是 0.7412、k=5 是 0.7493、k=10 是 0.7498。k=5 與 k=10 的差異不顯著，paired bootstrap p=0.824；k=2 則顯著較低，p=0.022。因此選 k=5 的理由是：它是效能平台上較小、較保守的 cutoff，而不是宣稱 5 在數學上唯一最佳。換 backbone 或 tokenizer 時，k 仍應重新驗證。
+
+## Appendix A2 — Entropy Decomposition: Step-by-Step
+
+令 A 是 top-5 集合、B 是其補集，m 是 A 的總機率。再把兩邊各自正規化：A 內的條件分布是 p_top(v)=p(v)/m，B 內則是 p_tail(v)=p(v)/(1−m)。
+
+把 vocabulary 的 entropy 拆成 A 與 B 兩個總和，分別代入 p(v)=m p_top(v) 與 p(v)=(1−m)p_tail(v)，再展開 log 的乘法，就得到：
+
+H(p)=[−m log m−(1−m)log(1−m)]+mH(p_top)+(1−m)H(p_tail)。
+
+這一步是精確代數等式，推導也到這裡結束。實驗顯示第一個 mass-split 項最有判別力，因而把關鍵變數定位為 m。接著定義 TLₜ=−log mₜ，是基於單調性與跨 token 可加性的指標設計，不是把第一項做代數化簡；最後定義 tl_sum=ΣₜTLₜ。
+
+右側的 0.712 與 0.502 是 stored trace 上的 conditional-shape diagnostics，因此標成 approximate；它們不是精確等式裡已乘上 m 與 1−m 的兩項。最終 tl_sum 只使用每一步直接記錄的 top-5 mass mₜ，不依賴這個近似。
+
+## 口委追問時再補
+
+- 完整 chain-rule 證明與 top-k sensitivity 放附錄；42 個訊號完整排行榜若需要，可再加成備用頁。
+- 若問為什麼不直接沿用第一個 mass-split 項：可舉 m=0.5 時為 0.693、m=0.2 時反而降為 0.500，說明它量的是二元不確定性，不是單向風險。
+- 若問為什麼不是直接用 1−m₅：兩者在 leakage 很小時近似相同，但 −log m₅ 有 retained-mass surprisal 的機率意義、能把跨 token 的乘積轉成總和，而且在 m₅ 很低時不會飽和，會更強地懲罰嚴重 leakage。這是有理由的設計選擇，但不是唯一可能的單調函數。
+- 若問為什麼是 top-5：先說它不是抽樣，再用 tl_sum@k 的實測平台回答；top-5 是 k=5 與 k=10 表現相近時較小的 cutoff。
+- 若問 −log∏ₜmₜ 是否就是生成答案的 joint probability：不是。它是沿著實際 greedy prefix 計算的 retained-mass path score，用來累積每一步逃出 top-k 候選集合的風險。
+- 若問「tail 很重要，為什麼 H(p_tail) 只有 0.502」：回答 tail mass 與 tail composition 是兩件事。H(p_tail) 先把 tail 正規化，刻意移除 1−m₅，只測內部 shape；因此 0.502 表示 shape 無用，不是否定 escape mass。

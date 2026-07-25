@@ -132,6 +132,8 @@ def compute_signals(r: dict) -> dict[str, float] | None:
         "mean_ent_t2": sum(ent_t2) / len(ent_t2),
         "min_lgap": -min(lgap),
         "min_top5m": -min(top5m),
+        # joint tail-leakage surprisal -log prod(m_t), SS4.16 winner
+        "tl_sum": -sum(math.log(max(m, 1e-12)) for m in top5m),
         "ans_len": float(len(toks)),
         "range_ent": max(ent) - sum(ent) / len(ent),
         # --- QA-tailored content-token variants ---
@@ -293,6 +295,16 @@ def main() -> None:
         if "sc_support" in mat and "p_true_ctx" in mat:
             mat["z_ent+sc+ptrue"] = (zscore(mat["max_ent"]) + zscore(mat["sc_support"])
                                      + zscore(mat["p_true_ctx"]))
+
+        def rank(x):
+            return np.argsort(np.argsort(x)).astype(float) / max(len(x) - 1, 1)
+
+        # parameter-free complementary combos (rank space, per dataset)
+        mat["r_ent+top5m"] = rank(mat["max_ent"]) + rank(mat["min_top5m"])
+        mat["r_ent+renyi05"] = rank(mat["max_ent"]) + rank(mat["max_renyi05"])
+        if "sc_support" in mat:
+            mat["r_ent+top5m+sc"] = (rank(mat["max_ent"]) + rank(mat["min_top5m"])
+                                     + rank(mat["sc_support"]))
         data[ds] = mat
         labels[ds] = np.array(ys)
         skipped[ds] = n_skip

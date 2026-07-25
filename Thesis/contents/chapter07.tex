@@ -1,0 +1,30 @@
+
+\chapter{Conclusions}
+\label{ch:conclusion}
+
+\section{Limitations}
+
+The principal limitations are:
+
+\begin{itemize}
+    \item \textbf{HotpotQA remains below DeepRAG.} SEEK improves HotpotQA to 37.80 EM, but still trails DeepRAG's 40.70 EM. HotpotQA is the clearest case where direct and decomposed paths are complementary but the current verifier does not fully exploit the headroom.
+    \item \textbf{Verifier headroom remains.} Oracle direct-vs-decompose routing still offers 2.9 to 6.0 EM over the current verifier, so routing is not solved.
+    \item \textbf{Confidence is not a correctness guarantee.} Tail-leakage surprisal is useful for sub-question retrieval gating, but 7\% to 22\% of wrong direct answers look as confident as typical correct answers. A battery of more than forty alternative confidence signals did not find a decisive per-question error detector either (Section~\ref{sec:tail-leakage-analysis}).
+    \item \textbf{Bridge-answer drift limits decomposition.} On MuSiQue, SEEK nearly matches gold decomposition when the first-hop bridge entity is correct, but wrong intermediate answers drag the second query away from the target evidence.
+    \item \textbf{Both-wrong cases require better retrieval and synthesis.} Routing cannot fix examples where both direct and decomposed candidates are wrong; retrieval gaps explain 47.6\% to 70.1\% of decomposition-path errors on the multi-hop datasets.
+    \item \textbf{Single-seed greedy decoding.} Variance estimates are not reported and would strengthen small-difference claims.
+\end{itemize}
+
+\section{Future Work}
+
+\paragraph{Stronger verifier signals.} The largest immediate opportunity is improving the verifier. Candidate signals include self-consistency disagreement, top-1 versus top-2 logit margin, hidden-state variance, answer-type compatibility, and lightweight learned calibration from a small validation set. The signal battery in Chapter~\ref{ch:results} suggests that gains from any single scalar signal are modest, so combining confidence with evidence-side checks is more promising than searching for another scalar. The goal is to approach the oracle direct-vs-decompose headroom without losing SEEK's interpretability.
+
+\paragraph{Better retrieval and reranking.} The large both-wrong counts show that routing alone is insufficient. Dense retrieval, hybrid BM25+dense retrieval, or reranking over the unioned evidence could improve cases where neither path retrieves enough supporting information.
+
+\paragraph{Length-conditioned decomposer.} A target-depth control token such as \texttt{[K=1]}, \texttt{[K=2]}, or \texttt{[K=4]} could reduce negative transfer between single-hop and multi-hop data. The verifier or a small complexity predictor could choose the target depth at inference time.
+
+\paragraph{Multi-sample decomposition.} Sampling multiple decompositions and selecting by final-answer confidence or agreement could reduce wrong-first-hop propagation. This is especially relevant because the MuSiQue analysis shows that bridge-answer drift, rather than decomposition wording alone, explains much of the gap between SEEK and gold decomposition. This would trade inference cost for robustness without requiring DPO.
+
+\paragraph{Evidence-aware verification.} Confidently wrong answers cannot be removed by another confidence threshold alone. Future verifiers should test whether the selected answer is externally supported by retrieved evidence, possibly with lightweight entailment checks, answer-type validation, or self-consistency over evidence snippets.
+
+\paragraph{Span calibration.} A small post-training or post-processing module for terse answer spans could close EM-only failures while preserving F1. This is especially relevant for verbose entity descriptions and comparison questions.

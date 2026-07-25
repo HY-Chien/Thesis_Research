@@ -1,94 +1,89 @@
 \babel@toc {english}{}\relax 
-\contentsline {chapter}{學位論文授權書}{}{Doc-Start}
-\contentsline {chapter}{指導教授推薦書}{}{Doc-Start}
-\contentsline {chapter}{考試委員審定書}{}{Doc-Start}
 \contentsline {chapter}{Abstract}{i}{chapter*.1}%
 \contentsline {chapter}{摘要}{ii}{chapter*.2}%
-\contentsline {chapter}{Acknowledgements}{iii}{chapter*.3}%
-\contentsline {chapter}{Contents}{vi}{chapter*.3}%
-\contentsline {chapter}{List of Figures}{vii}{chapter*.3}%
-\contentsline {chapter}{List of Tables}{viii}{chapter*.3}%
+\contentsline {chapter}{Contents}{v}{chapter*.2}%
+\contentsline {chapter}{List of Figures}{vi}{chapter*.2}%
+\contentsline {chapter}{List of Tables}{vii}{chapter*.2}%
 \contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
 \contentsline {section}{\numberline {1.1}Background and Motivation}{1}{section.1.1}%
-\contentsline {section}{\numberline {1.2}Research Objectives}{1}{section.1.2}%
-\contentsline {chapter}{\numberline {2}Related Work}{3}{chapter.2}%
-\contentsline {section}{\numberline {2.1}Adaptive RAG}{3}{section.2.1}%
-\contentsline {paragraph}{Question-level routing.}{4}{paragraph*.4}%
-\contentsline {paragraph}{Uncertainty-triggered retrieval.}{5}{paragraph*.5}%
-\contentsline {paragraph}{Learned retrieval policies.}{6}{paragraph*.6}%
-\contentsline {section}{\numberline {2.2}Reasoning and Knowledge Boundaries in RAG}{7}{section.2.2}%
-\contentsline {paragraph}{Self-knowledge and its calibration.}{9}{paragraph*.7}%
-\contentsline {paragraph}{Uncertainty estimation as a boundary signal.}{9}{paragraph*.8}%
-\contentsline {paragraph}{The boundary under retrieval.}{10}{paragraph*.9}%
-\contentsline {section}{\numberline {2.3}Evaluation Datasets}{10}{section.2.3}%
-\contentsline {paragraph}{HotpotQA.}{10}{paragraph*.10}%
-\contentsline {paragraph}{2WikiMultihopQA.}{11}{paragraph*.11}%
-\contentsline {paragraph}{MuSiQue.}{11}{paragraph*.12}%
-\contentsline {paragraph}{PopQA.}{11}{paragraph*.13}%
-\contentsline {paragraph}{Single-hop open-domain QA.}{11}{paragraph*.14}%
-\contentsline {chapter}{\numberline {3}Methodology}{12}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Overview}{12}{section.3.1}%
-\contentsline {section}{\numberline {3.2}Problem Formulation}{14}{section.3.2}%
-\contentsline {section}{\numberline {3.3}Sub-Question Decomposer}{15}{section.3.3}%
-\contentsline {paragraph}{Training.}{15}{paragraph*.17}%
-\contentsline {section}{\numberline {3.4}Token-Level Confidence Probe}{16}{section.3.4}%
-\contentsline {paragraph}{Tail-leakage surprisal.}{17}{paragraph*.18}%
-\contentsline {paragraph}{Why leakage instead of entropy.}{17}{paragraph*.19}%
-\contentsline {section}{\numberline {3.5}Decomposition-Path Inference}{18}{section.3.5}%
-\contentsline {paragraph}{Original-question evidence union.}{18}{paragraph*.20}%
-\contentsline {paragraph}{Synthesis.}{19}{paragraph*.21}%
-\contentsline {paragraph}{Worked example.}{19}{paragraph*.22}%
-\contentsline {section}{\numberline {3.6}Training-Free Verifier}{20}{section.3.6}%
-\contentsline {paragraph}{Signals.}{20}{paragraph*.23}%
-\contentsline {paragraph}{Rule.}{20}{paragraph*.24}%
-\contentsline {section}{\numberline {3.7}Implementation Summary}{21}{section.3.7}%
-\contentsline {chapter}{\numberline {4}Experiments}{22}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Experimental Setup}{22}{section.4.1}%
-\contentsline {subsection}{\numberline {4.1.1}Datasets}{22}{subsection.4.1.1}%
-\contentsline {subsection}{\numberline {4.1.2}Retrieval Corpus}{22}{subsection.4.1.2}%
-\contentsline {subsection}{\numberline {4.1.3}Metrics and Baselines}{23}{subsection.4.1.3}%
-\contentsline {subsection}{\numberline {4.1.4}Implementation Details}{23}{subsection.4.1.4}%
-\contentsline {section}{\numberline {4.2}Main Results}{24}{section.4.2}%
-\contentsline {section}{\numberline {4.3}Retrieval Analysis}{25}{section.4.3}%
-\contentsline {subsection}{\numberline {4.3.1}Answer-Containing Recall}{25}{subsection.4.3.1}%
-\contentsline {subsection}{\numberline {4.3.2}Gold and Base Decomposition on MuSiQue}{26}{subsection.4.3.2}%
-\contentsline {section}{\numberline {4.4}Ablation Studies}{27}{section.4.4}%
-\contentsline {subsection}{\numberline {4.4.1}Retrieval Is Necessary After Decomposition}{27}{subsection.4.4.1}%
-\contentsline {subsection}{\numberline {4.4.2}Direct-Only Confidence-Gated Baseline}{29}{subsection.4.4.2}%
-\contentsline {subsection}{\numberline {4.4.3}Gate Threshold Sensitivity}{29}{subsection.4.4.3}%
-\contentsline {subsection}{\numberline {4.4.4}Path-Aware Title Retrieval}{30}{subsection.4.4.4}%
-\contentsline {subsection}{\numberline {4.4.5}Original-Question Evidence Union}{31}{subsection.4.4.5}%
-\contentsline {section}{\numberline {4.5}The Two Answer Paths}{32}{section.4.5}%
-\contentsline {subsection}{\numberline {4.5.1}Final Path Selection Rate}{32}{subsection.4.5.1}%
-\contentsline {subsection}{\numberline {4.5.2}Direct-vs-Decompose Correctness Distribution}{32}{subsection.4.5.2}%
-\contentsline {subsection}{\numberline {4.5.3}Decomposition-Path Failure Taxonomy}{34}{subsection.4.5.3}%
-\contentsline {subsection}{\numberline {4.5.4}Case-Level Comparison with DeepRAG}{34}{subsection.4.5.4}%
-\contentsline {subsection}{\numberline {4.5.5}Oracle Direct-vs-Decompose Headroom}{36}{subsection.4.5.5}%
-\contentsline {section}{\numberline {4.6}Tail-Leakage Surprisal as a Confidence Signal}{38}{section.4.6}%
-\contentsline {section}{\numberline {4.7}Summary}{41}{section.4.7}%
-\contentsline {chapter}{\numberline {5}Discussion}{43}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Cost--Accuracy Trade-off versus DeepRAG}{43}{section.5.1}%
-\contentsline {section}{\numberline {5.2}Why Direct and Decomposition Paths Must Coexist}{44}{section.5.2}%
-\contentsline {paragraph}{Original-question evidence union.}{45}{paragraph*.49}%
-\contentsline {section}{\numberline {5.3}What Training the Decomposer Buys}{46}{section.5.3}%
-\contentsline {section}{\numberline {5.4}Tail-Leakage Surprisal: Useful Signal, Not Correctness Guarantee}{46}{section.5.4}%
-\contentsline {section}{\numberline {5.5}Remaining Headroom and Remaining Problems}{47}{section.5.5}%
-\contentsline {section}{\numberline {5.6}Threats to Validity}{48}{section.5.6}%
-\contentsline {paragraph}{External baseline numbers are paper numbers.}{48}{paragraph*.50}%
-\contentsline {paragraph}{Dataset slicing.}{48}{paragraph*.51}%
-\contentsline {paragraph}{Single seed and greedy decoding.}{48}{paragraph*.52}%
-\contentsline {paragraph}{Routing cannot fix both-wrong cases.}{49}{paragraph*.53}%
-\contentsline {chapter}{\numberline {6}Conclusions and Future Work}{50}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Summary of Contributions}{50}{section.6.1}%
-\contentsline {section}{\numberline {6.2}Limitations}{51}{section.6.2}%
-\contentsline {section}{\numberline {6.3}Future Work}{51}{section.6.3}%
-\contentsline {paragraph}{Stronger verifier signals.}{51}{paragraph*.54}%
-\contentsline {paragraph}{Better retrieval and reranking.}{52}{paragraph*.55}%
-\contentsline {paragraph}{Length-conditioned decomposer.}{52}{paragraph*.56}%
-\contentsline {paragraph}{Multi-sample decomposition.}{52}{paragraph*.57}%
-\contentsline {paragraph}{Evidence-aware verification.}{52}{paragraph*.58}%
-\contentsline {paragraph}{Span calibration.}{52}{paragraph*.59}%
-\contentsline {section}{\numberline {6.4}Closing Remarks}{52}{section.6.4}%
-\contentsline {chapter}{References}{54}{chapter*.60}%
+\contentsline {section}{\numberline {1.2}Research Contributions}{2}{section.1.2}%
+\contentsline {chapter}{\numberline {2}Related Work}{4}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Adaptive RAG}{4}{section.2.1}%
+\contentsline {paragraph}{Question-level routing.}{5}{paragraph*.3}%
+\contentsline {paragraph}{Uncertainty-triggered retrieval.}{6}{paragraph*.4}%
+\contentsline {paragraph}{Learned retrieval policies.}{7}{paragraph*.5}%
+\contentsline {section}{\numberline {2.2}Reasoning and Knowledge Boundaries in RAG}{8}{section.2.2}%
+\contentsline {paragraph}{Self-knowledge and its calibration.}{10}{paragraph*.6}%
+\contentsline {paragraph}{Uncertainty estimation as a boundary signal.}{10}{paragraph*.7}%
+\contentsline {paragraph}{The boundary under retrieval.}{11}{paragraph*.8}%
+\contentsline {section}{\numberline {2.3}Evaluation Datasets}{11}{section.2.3}%
+\contentsline {paragraph}{HotpotQA.}{11}{paragraph*.9}%
+\contentsline {paragraph}{2WikiMultihopQA.}{12}{paragraph*.10}%
+\contentsline {paragraph}{MuSiQue.}{12}{paragraph*.11}%
+\contentsline {paragraph}{PopQA.}{12}{paragraph*.12}%
+\contentsline {paragraph}{Single-hop open-domain QA.}{12}{paragraph*.13}%
+\contentsline {chapter}{\numberline {3}Methodology}{13}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Overview}{13}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Problem Formulation}{15}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Sub-Question Decomposer}{16}{section.3.3}%
+\contentsline {paragraph}{Training.}{17}{paragraph*.17}%
+\contentsline {section}{\numberline {3.4}Token-Level Confidence Probe}{18}{section.3.4}%
+\contentsline {paragraph}{Two kinds of uncertainty.}{18}{paragraph*.19}%
+\contentsline {paragraph}{Decomposing token entropy.}{18}{paragraph*.20}%
+\contentsline {paragraph}{Tail-leakage surprisal.}{19}{paragraph*.21}%
+\contentsline {section}{\numberline {3.5}Decomposition-Path Inference}{20}{section.3.5}%
+\contentsline {paragraph}{Original-question evidence union.}{20}{paragraph*.22}%
+\contentsline {paragraph}{Synthesis.}{20}{paragraph*.23}%
+\contentsline {section}{\numberline {3.6}Training-Free Verifier}{21}{section.3.6}%
+\contentsline {paragraph}{Signals.}{21}{paragraph*.24}%
+\contentsline {paragraph}{Rule.}{21}{paragraph*.25}%
+\contentsline {chapter}{\numberline {4}Experiments}{23}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Datasets}{23}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Retrieval Corpus}{23}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Metrics and Baselines}{24}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Implementation Details}{24}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Main Results}{24}{section.4.5}%
+\contentsline {chapter}{\numberline {5}Results and Analysis}{26}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Retrieval Analysis}{26}{section.5.1}%
+\contentsline {subsection}{\numberline {5.1.1}Answer-Containing Recall}{26}{subsection.5.1.1}%
+\contentsline {subsection}{\numberline {5.1.2}Gold and Base Decomposition on MuSiQue}{27}{subsection.5.1.2}%
+\contentsline {section}{\numberline {5.2}Ablation Studies}{28}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Retrieval Is Necessary After Decomposition}{29}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Direct Retrieval Without Decomposition}{30}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Gate Threshold Sensitivity}{31}{subsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.2.4}Path-Aware Title Handling}{32}{subsection.5.2.4}%
+\contentsline {section}{\numberline {5.3}The Two Answer Paths}{33}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}Plan Length and Routing Decisions}{33}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Correctness Overlap Between Answer Paths}{34}{subsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.3.3}Decomposition-Path Failure Taxonomy}{35}{subsection.5.3.3}%
+\contentsline {subsection}{\numberline {5.3.4}Effect of Final Routing and Oracle Headroom}{36}{subsection.5.3.4}%
+\contentsline {section}{\numberline {5.4}Tail-Leakage Surprisal as a Confidence Signal}{37}{section.5.4}%
+\contentsline {chapter}{\numberline {6}Discussion}{42}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Cost--Accuracy Trade-off}{42}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Why Direct and Decomposition Paths Must Coexist}{43}{section.6.2}%
+\contentsline {paragraph}{Original-question evidence preservation.}{44}{paragraph*.46}%
+\contentsline {section}{\numberline {6.3}What Training the Decomposer Buys}{44}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Tail-Leakage Surprisal: Useful Signal, Not Correctness Guarantee}{44}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Remaining Headroom and Remaining Problems}{46}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Threats to Validity}{46}{section.6.6}%
+\contentsline {paragraph}{External baseline numbers are paper numbers.}{46}{paragraph*.47}%
+\contentsline {paragraph}{Dataset slicing.}{46}{paragraph*.48}%
+\contentsline {paragraph}{Single seed and greedy decoding.}{47}{paragraph*.49}%
+\contentsline {paragraph}{Routing cannot fix both-wrong cases.}{47}{paragraph*.50}%
+\contentsline {chapter}{\numberline {7}Conclusions}{48}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Limitations}{48}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Future Work}{48}{section.7.2}%
+\contentsline {paragraph}{Stronger verifier signals.}{48}{paragraph*.51}%
+\contentsline {paragraph}{Better retrieval and reranking.}{49}{paragraph*.52}%
+\contentsline {paragraph}{Length-conditioned decomposer.}{49}{paragraph*.53}%
+\contentsline {paragraph}{Multi-sample decomposition.}{49}{paragraph*.54}%
+\contentsline {paragraph}{Evidence-aware verification.}{49}{paragraph*.55}%
+\contentsline {paragraph}{Span calibration.}{49}{paragraph*.56}%
+\contentsline {chapter}{References}{50}{chapter*.57}%
 \contentsline {chapter}{Appendices}{}{}
-\contentsline {chapter}{\numberline {A}Supplementary Material}{59}{chapter.A}%
+\contentsline {chapter}{\numberline {A}Supplementary Material}{55}{chapter.A}%
+\contentsline {section}{\numberline {A.1}Case-Level Comparison with DeepRAG}{55}{section.A.1}%
+\contentsline {section}{\numberline {A.2}Supplementary Decomposition-Failure Flags}{58}{section.A.2}%
+\contentsline {section}{\numberline {A.3}Inference and Offline Cost Audit}{58}{section.A.3}%
+\contentsline {section}{\numberline {A.4}Confidence Signal Definitions and Variants}{60}{section.A.4}%
+\contentsline {section}{\numberline {A.5}Confidence-Failure Diagnostics}{61}{section.A.5}%

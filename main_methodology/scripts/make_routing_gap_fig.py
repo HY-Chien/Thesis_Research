@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
-"""Make the direct-vs-decompose routing gap figure.
+"""Make the final all-tl_sum direct-vs-decompose routing-gap figure.
 
-The figure compares three EM scores for each dataset:
-
-1. Best pure path: max(direct EM, decomposed EM)
-2. SEEK verifier: the current rule-based final selection
-3. Oracle selector: gold-label upper bound over the two saved answers
-
-Run from Research/main_methodology:
-    python scripts/make_routing_gap_fig.py
+The prompt-fix-A candidate traces are loaded through ``build`` and the final
+router is replayed through ``decide(..., 'both', 0.0005, 0.0158)``.
 """
 from __future__ import annotations
 
-import json
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -21,136 +15,145 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from replay_verifier_tlsum_fixA import build, decide  # noqa: E402
+
 OUT = ROOT.parent / "Thesis" / "figures" / "fig_routing_gap_oracle.png"
 SUMMARY_OUT = ROOT / "results" / "routing_gap_oracle.md"
-
-FILES = {
-    "HotpotQA": "hotpotqa_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl",
-    "2Wiki": "2wiki_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl",
-    "MuSiQue": "musique_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl",
-    "PopQA": "popqa_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl",
+DATASETS = [
+    ("HotpotQA", "hotpotqa"),
+    ("2Wiki", "2wiki"),
+    ("MuSiQue", "musique"),
+    ("PopQA", "popqa"),
+]
+DIRECT_TAU = 0.0005
+POST_DECOMP_TAU = 0.0158
+EXPECTED = {
+    # direct correct, decomp correct, router correct, oracle correct, direct choices
+    "HotpotQA": (303, 357, 375, 435, 167),
+    "2Wiki": (180, 490, 487, 530, 26),
+    "MuSiQue": (102, 267, 266, 293, 122),
+    "PopQA": (378, 538, 537, 571, 10),
 }
-
-
-def load_jsonl(path: Path) -> list[dict]:
-    return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
 
 
 def summarize(rows: list[dict]) -> dict[str, float | int]:
     n = len(rows)
-    direct = sum(int(row.get("direct_em", 0)) for row in rows)
-    decomp = sum(int(row.get("decomp_em", 0)) for row in rows)
-    verifier = sum(int(row.get("replay_em", row.get("em", 0))) for row in rows)
-    oracle = sum(
-        1
+    choices = [
+        decide(row, "both", DIRECT_TAU, POST_DECOMP_TAU)
         for row in rows
-        if int(row.get("direct_em", 0)) or int(row.get("decomp_em", 0))
+    ]
+    direct = sum(int(row["direct_em"]) for row in rows)
+    decomp = sum(int(row["decomp_em"]) for row in rows)
+    router = sum(
+        int(row["direct_em"] if choice == "direct" else row["decomp_em"])
+        for row, choice in zip(rows, choices)
     )
-    both_correct = sum(
-        1
-        for row in rows
-        if int(row.get("direct_em", 0)) and int(row.get("decomp_em", 0))
-    )
+    oracle = sum(int(row["direct_em"] or row["decomp_em"]) for row in rows)
     direct_only = sum(
-        1
+        int(row["direct_em"] and not row["decomp_em"])
         for row in rows
-        if int(row.get("direct_em", 0)) and not int(row.get("decomp_em", 0))
     )
     decomp_only = sum(
-        1
+        int(row["decomp_em"] and not row["direct_em"])
         for row in rows
-        if int(row.get("decomp_em", 0)) and not int(row.get("direct_em", 0))
     )
-    both_wrong = n - both_correct - direct_only - decomp_only
+    both_wrong = sum(
+        int(not row["direct_em"] and not row["decomp_em"])
+        for row in rows
+    )
     direct_em = 100.0 * direct / n
     decomp_em = 100.0 * decomp / n
-    verifier_em = 100.0 * verifier / n
+    router_em = 100.0 * router / n
     oracle_em = 100.0 * oracle / n
     best_pure = max(direct_em, decomp_em)
+    n_direct = sum(choice == "direct" for choice in choices)
     return {
         "n": n,
+        "direct_correct": direct,
+        "decomp_correct": decomp,
+        "router_correct": router,
+        "oracle_correct": oracle,
         "direct_em": direct_em,
         "decomp_em": decomp_em,
         "best_pure": best_pure,
-        "verifier_em": verifier_em,
+        "router_em": router_em,
         "oracle_em": oracle_em,
         "oracle_vs_best_pure": oracle_em - best_pure,
-        "oracle_vs_verifier": oracle_em - verifier_em,
+        "oracle_vs_router": oracle_em - router_em,
+        "direct_choices": n_direct,
+        "decomp_choices": n - n_direct,
         "direct_only": direct_only,
         "decomp_only": decomp_only,
         "both_wrong": both_wrong,
     }
 
 
+def verify(stats: dict[str, dict[str, float | int]]) -> None:
+    for dataset, expected in EXPECTED.items():
+        row = stats[dataset]
+        observed = (
+            int(row["direct_correct"]),
+            int(row["decomp_correct"]),
+            int(row["router_correct"]),
+            int(row["oracle_correct"]),
+            int(row["direct_choices"]),
+        )
+        if observed != expected:
+            raise AssertionError(f"{dataset}: expected {expected}, observed {observed}")
+
+
 def write_summary(stats: dict[str, dict[str, float | int]]) -> None:
     lines = [
-        "# Direct-vs-Decompose Routing Gap",
+        "# Direct-vs-Decompose Routing Gap (Final all-tl_sum Router)",
         "",
-        "Setting: current final candidate traces, path-aware retrieval + original-question evidence union + rule-based verifier replay.",
+        "Setting: final prompt-fix-A candidates and all-tl_sum verifier replay with direct tau=0.0005 and post-decomposition tau=0.0158.",
         "",
-        "| Dataset | Direct EM | Decomp EM | Best pure EM | SEEK verifier EM | Oracle EM | Oracle - verifier | direct-only | decomp-only | both-wrong |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Dataset | Direct EM | Decomp EM | Best pure EM | SEEK final EM | Oracle EM | Oracle - SEEK | Direct choices | Decomp choices | Direct-only | Decomp-only | Both-wrong |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for dataset, row in stats.items():
         lines.append(
             f"| {dataset} | {row['direct_em']:.2f} | {row['decomp_em']:.2f} | "
-            f"{row['best_pure']:.2f} | {row['verifier_em']:.2f} | "
-            f"{row['oracle_em']:.2f} | {row['oracle_vs_verifier']:+.2f} | "
+            f"{row['best_pure']:.2f} | {row['router_em']:.2f} | "
+            f"{row['oracle_em']:.2f} | {row['oracle_vs_router']:+.2f} | "
+            f"{int(row['direct_choices'])} | {int(row['decomp_choices'])} | "
             f"{int(row['direct_only'])} | {int(row['decomp_only'])} | "
             f"{int(row['both_wrong'])} |"
         )
-    lines.extend(
-        [
-            "",
-            "Interpretation: the oracle is not a method. It is a gold-label upper bound that quantifies the remaining headroom of the direct-vs-decompose routing decision.",
-        ]
-    )
-    SUMMARY_OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    lines.extend([
+        "",
+        "The oracle is a gold-label upper bound, not a deployable method. Its gap over SEEK isolates the remaining direct-vs-decompose routing headroom; both-wrong questions remain outside that bound.",
+        "",
+    ])
+    SUMMARY_OUT.write_text("\n".join(lines), encoding="utf-8")
 
 
 def make_figure(stats: dict[str, dict[str, float | int]]) -> None:
     datasets = list(stats)
     best = [stats[d]["best_pure"] for d in datasets]
-    verifier = [stats[d]["verifier_em"] for d in datasets]
+    router = [stats[d]["router_em"] for d in datasets]
     oracle = [stats[d]["oracle_em"] for d in datasets]
-    gaps = [stats[d]["oracle_vs_verifier"] for d in datasets]
-
+    gaps = [stats[d]["oracle_vs_router"] for d in datasets]
     x = np.arange(len(datasets))
     width = 0.24
     fig, ax = plt.subplots(figsize=(9.6, 5.2), dpi=170)
-    colors = {
-        "best": "#8f969e",
-        "verifier": "#2f7f8f",
-        "oracle": "#d99a22",
-    }
-
-    bars_best = ax.bar(x - width, best, width, label="Best pure path", color=colors["best"])
-    bars_verifier = ax.bar(x, verifier, width, label="SEEK verifier", color=colors["verifier"])
-    bars_oracle = ax.bar(x + width, oracle, width, label="Oracle selector", color=colors["oracle"])
-
-    for bars in (bars_best, bars_verifier, bars_oracle):
+    bars_best = ax.bar(x - width, best, width, label="Best pure path", color="#8f969e")
+    bars_router = ax.bar(x, router, width, label="SEEK final router", color="#2f7f8f")
+    bars_oracle = ax.bar(x + width, oracle, width, label="Oracle selector", color="#d99a22")
+    for bars in (bars_best, bars_router, bars_oracle):
         ax.bar_label(bars, fmt="%.1f", padding=3, fontsize=8)
-
     for i, gap in enumerate(gaps):
         top = oracle[i] + 3.8
         ax.plot([x[i], x[i] + width], [top, top], color="#444444", linewidth=1)
         ax.text(
-            x[i] + width / 2,
-            top + 0.9,
-            f"+{gap:.1f}",
-            ha="center",
-            va="bottom",
-            fontsize=9,
-            fontweight="bold",
-            color="#444444",
+            x[i] + width / 2, top + 0.9, f"+{gap:.1f}",
+            ha="center", va="bottom", fontsize=9,
+            fontweight="bold", color="#444444",
         )
-
     ax.set_title("Direct-vs-Decompose Routing Gap", fontsize=15, pad=14)
     ax.set_ylabel("Exact Match (EM)")
     ax.set_xticks(x)
@@ -161,22 +164,19 @@ def make_figure(stats: dict[str, dict[str, float | int]]) -> None:
     ax.spines["right"].set_visible(False)
     ax.legend(loc="upper left", frameon=False, ncols=3)
     fig.text(
-        0.12,
-        0.02,
-        "Oracle uses gold labels to choose between saved direct/decomposed answers; it measures routing headroom, not deployable performance.",
-        fontsize=8,
-        color="#555555",
+        0.12, 0.02,
+        "Oracle uses gold labels to choose between the saved direct and decomposed answers; it measures routing headroom.",
+        fontsize=8, color="#555555",
     )
     fig.tight_layout(rect=[0, 0.05, 1, 1])
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT)
+    fig.savefig(OUT, bbox_inches="tight")
+    plt.close(fig)
 
 
 def main() -> None:
-    stats = {
-        dataset: summarize(load_jsonl(ROOT / "results" / filename))
-        for dataset, filename in FILES.items()
-    }
+    stats = {label: summarize(build(dataset)) for label, dataset in DATASETS}
+    verify(stats)
     write_summary(stats)
     make_figure(stats)
     print(f"Wrote {OUT}")

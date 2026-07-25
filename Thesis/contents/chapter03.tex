@@ -11,12 +11,12 @@ Given a question $q$ and an open-domain retrieval corpus $\mathcal{P}$, SEEK pro
 \begin{enumerate}
     \item \textbf{Direct path.} The answerer directly answers the original question $q$ with BM25 evidence retrieved from $\mathcal{P}$, producing a direct candidate $a^{\mathrm{dir}}$ and a token-level confidence score $\sigma^{\mathrm{dir}}$ over the generated answer span.
     \item \textbf{Decomposition path.} The decomposer $\mathcal{D}_\theta$ maps $q$ to ordered sub-questions $\{s_1, \ldots, s_n\}$. Each sub-question is answered sequentially, with placeholder substitution, confidence probing, conditional retrieval, original-question evidence union, and a final synthesis step that produces $a^{\mathrm{dec}}$.
-    \item \textbf{Training-free verifier.} A deterministic verifier compares $a^{\mathrm{dir}}$ and $a^{\mathrm{dec}}$ using query-level signals: direct-answer confidence, decomposition stability, post-synthesis confidence, and answer agreement. It returns either $a^{\mathrm{dir}}$ or $a^{\mathrm{dec}}$ as $\hat{a}$.
+    \item \textbf{Training-free verifier.} A deterministic verifier compares $a^{\mathrm{dir}}$ and $a^{\mathrm{dec}}$ using direct-answer confidence, decomposition stability, and answer-type compatibility. It returns either $a^{\mathrm{dir}}$ or $a^{\mathrm{dec}}$ as $\hat{a}$.
 \end{enumerate}
 
 \begin{figure}[htbp]
     \centering
-    \makebox[\linewidth][c]{\includegraphics[width=1.15\linewidth]{Thesis_overview.pdf}}
+    \makebox[\linewidth][c]{\includegraphics[width=1.3\linewidth]{Thesis_overflow.pdf}}
     \caption[SEEK Pipeline]{Overview of SEEK. Stage 1 constructs 12K gold decomposition examples from MuSiQue, 2WikiMultihopQA, and PopQA; Stage 2 trains the LoRA decomposer on this corpus; Stage 3 runs dual-path inference, where the direct path answers the original question with retrieved evidence and the decomposition path answers sub-questions sequentially with confidence-gated retrieval and answer propagation, and a training-free verifier selects the final answer.}
     \label{fig:pipeline}
 \end{figure}
@@ -49,7 +49,7 @@ The final decision is a verifier $v$:
     \hat{a}=v\left(q, a^{\mathrm{dir}}, a^{\mathrm{dec}}, z^{\mathrm{dir}}, z^{\mathrm{dec}}\right),
 \]
 
-where $z^{\mathrm{dir}}$ and $z^{\mathrm{dec}}$ are inference-time diagnostic signals such as confidence scores, unresolved placeholders, and candidate agreement. The verifier is a transparent rule set designed to approximate the oracle choice between direct and decomposed reasoning.
+where $z^{\mathrm{dir}}$ and $z^{\mathrm{dec}}$ are inference-time diagnostic signals such as confidence scores, unresolved placeholders, and whether $a^{\mathrm{dir}}$ and $a^{\mathrm{dec}}$ are the same answer after normalisation. The verifier is a transparent rule set designed to approximate the oracle choice between direct and decomposed reasoning.
 
 \section{Sub-Question Decomposer}
 \label{sec:decomposer}
@@ -60,27 +60,34 @@ The decomposer emits one sub-question per line, prefixed with \texttt{\#}$\langl
     \texttt{\#}$i$\texttt{: }$\langle$\emph{entity}$\rangle$\texttt{ >> }$\langle$\emph{relation}$\rangle$
 \end{center}
 
-When a sub-question depends on an earlier answer, the placeholder \texttt{\#}$j$ refers to step $j$. For example:
+When a sub-question depends on an earlier answer, the placeholder \texttt{\#}$j$ refers to the answer of step $j$. For example:
 
-\begin{verbatim}
-#1: X >> director
-#2: #1 >> place of birth
-\end{verbatim}
+\begin{center}
+\begin{tabular}{ll}
+    \texttt{\#1: Inception >> director} & $\rightarrow$ $a_1$ = \texttt{Christopher Nolan}\\
+    \texttt{\#2: \#1 >> place of birth} & $\rightarrow$ \texttt{Christopher Nolan >> place of birth}
+\end{tabular}
+\end{center}
 
-At inference, placeholders are resolved sequentially: once $a_1$ is produced, \texttt{\#1} in $s_2$ is rewritten as $a_1$ before retrieval and answering. The KG-triple notation is compact, consistent across datasets, and aligned with Wikidata-style supervision in 2WikiMultihopQA and PopQA.
+At inference, placeholders are resolved sequentially: \texttt{\#1} stands for the answer text of step 1, not its index. Once step 1 returns $a_1$, \texttt{\#1} in $s_2$ is replaced by that answer before retrieval and answering, as shown in the example above. The KG-triple notation is compact, consistent across datasets, and aligned with Wikidata-style supervision in 2WikiMultihopQA and PopQA.
 
-The decomposer is prompted with a fixed instruction:
+The fixed instruction used to prompt the decomposer is shown in Figure~\ref{fig:decomposer-prompt}.
 
-\begin{quote}\small\itshape
-Decompose the following question into an ordered list of atomic sub-questions. Each sub-question must be answerable in a single retrieval and reasoning step. When a sub-question depends on the answer of an earlier one, refer to that step with a \texttt{\#N} placeholder. Output one sub-question per line, prefixed with \texttt{\#<index>:}
-\end{quote}
+\begin{figure}[H]
+    \centering
+    \vspace{-1.2\baselineskip}
+    \includegraphics[width=0.82\textwidth,trim=145bp 500bp 107bp 210bp,clip]{prompt_Decomposer.pdf}
+    \caption[Decomposer Prompt]{Fixed instruction prompt used by the decomposer.}
+    \label{fig:decomposer-prompt}
+\end{figure}
 
-Table~\ref{tab:decomp-examples} shows representative decomposition patterns for each dataset.
+The prompt standardises the output format without imposing a fixed decomposition depth. As Table~\ref{tab:decomp-examples} illustrates, the same representation accommodates one-hop fact lookup, bridge reasoning, comparison, and longer compositional chains.
 
-\begin{table}[h]
+\begin{table}[htbp]
     \centering
     \caption[Decomposition Patterns by Dataset]{Representative decomposition patterns produced by the SEEK decomposer.}
     \label{tab:decomp-examples}
+
     \setlength{\tabcolsep}{6pt}
     \small
     \begin{tabular}{ l p{4cm} p{6cm} }
@@ -98,69 +105,80 @@ Table~\ref{tab:decomp-examples} shows representative decomposition patterns for 
     \end{tabular}
 \end{table}
 
-\paragraph{Training.} Only the decomposer requires training; the answerer, synthesizer, and verifier are training-free. The decomposer is a LoRA~\cite{lora} adapter on Llama-3-8B-Instruct, trained on 12{,}000 examples drawn equally from MuSiQue gold sub-questions, 2WikiMultihopQA evidence-triple conversions, and PopQA one-step triples. The PopQA component teaches the decomposer that a one-step plan is valid. This improves single-hop robustness, but Chapter~\ref{ch:exp} shows that it also creates negative transfer on some multi-hop datasets; the verifier is introduced precisely because no single hard decomposition policy is optimal across all query types. At inference, the adapter is enabled for decomposition and sub-question answering, and disabled for final synthesis, where the base instruction model produces shorter and more stable spans. Adapter and optimisation hyperparameters are listed in Chapter~\ref{ch:exp}.
+\paragraph{Training.} Only the decomposer requires training; the answerer, synthesizer, and verifier are training-free. The decomposer is a LoRA~\cite{lora} adapter on Llama-3-8B-Instruct, trained on 12{,}000 examples drawn equally from MuSiQue gold sub-questions, 2WikiMultihopQA evidence-triple conversions, and PopQA one-step triples. Before the PopQA examples were sampled, all 1{,}000 evaluation question IDs were removed; the resulting 4{,}000 PopQA training questions have zero exact overlap with the evaluation questions. The PopQA component teaches the decomposer that a one-step plan is valid. This improves single-hop robustness, but Chapter~\ref{ch:results} shows that it also creates negative transfer on some multi-hop datasets; the verifier is introduced precisely because no single hard decomposition policy is optimal across all query types. At inference, the adapter is enabled for decomposition and sub-question answering, and disabled for final synthesis, where the base instruction model produces shorter and more stable spans.
+
+\clearpage
 
 \section{Token-Level Confidence Probe}
 \label{sec:probe}
 
-Both the direct path and each sub-question answer use an answer-only prompt:
+The fixed answer-only instruction used for both direct and sub-question answering is shown in Figure~\ref{fig:answer-prompt}.
 
-\begin{quote}\small\itshape
-Answer the question with the answer phrase only. No explanation, no preamble, no full sentence --- just the answer.
-\end{quote}
+\begin{figure}[H]
+    \centering
+    \vspace{-1.2\baselineskip}
+    \includegraphics[width=0.82\textwidth,trim=126bp 389bp 126bp 382bp,clip]{prompt_Answer.pdf}
+    \caption[Answer Prompt]{Answer-only prompt for direct and sub-question generation.}
+    \label{fig:answer-prompt}
+\end{figure}
 
-During greedy decoding, SEEK records the softmax distribution $p_t=\mathrm{softmax}(\mathrm{logits}_t)$ for each generated token $t$. Classical token-level confidence signals computed from these distributions include:
+During greedy decoding, SEEK records the softmax distribution $p_t=\mathrm{softmax}(\mathrm{logits}_t)$ for each generated token $t$. All confidence signals in SEEK are derived from these distributions: generation is a single greedy pass, so no resampling-based agreement is available, and no additional model is trained to judge confidence.
+
+\paragraph{Two kinds of uncertainty.} The signal design starts from an observation about how correct and incorrect answers differ at the token level. When the model knows the answer, the probability mass concentrates on a few candidates, and the remaining competition is typically between surface variants of the same answer, such as aliases, casing, or formatting differences. When the model lacks the required knowledge, the mass instead disperses over many unrelated continuations, well beyond any small set of plausible candidates. What separates the two cases is not how evenly the leading candidates split the mass, but whether the mass stays inside a small candidate set at all.
+
+\paragraph{Decomposing token entropy.} Token entropy is the usual way to measure this kind of uncertainty, but it mixes the leakage of probability mass out of the candidate set with effects that are unrelated to correctness. Let $V_5(p_t)$ denote the set of the five most probable tokens under $p_t$, and let
+
+\begin{equation}
+    m_t = \sum_{v\in V_5(p_t)} p_t(v)
+    \label{eq:topk-mass}
+\end{equation}
+
+be the probability mass retained within these candidates; the mass $1-m_t$ that leaks into the rest of the vocabulary is the tail. For token entropy $H(p_t)=-\sum_v p_t(v)\log p_t(v)$, the chain rule gives three components:
+
+\begin{equation}
+    H(p_t)=H_{\mathrm{B}}(m_t)+m_t\,H(\hat{p}_t^{\,\mathrm{in}})+(1-m_t)\,H(\hat{p}_t^{\,\mathrm{out}}),
+    \label{eq:entropy-chain}
+\end{equation}
+
+where $H_{\mathrm{B}}$ is the binary entropy of whether the next token falls inside the top five or in the tail, and $\hat{p}_t^{\,\mathrm{in}}$, $\hat{p}_t^{\,\mathrm{out}}$ are the renormalised distributions inside and outside the top-five set. Only the first term reflects whether mass leaks into the tail. The second term measures competition inside the top five, which for correct answers frequently comes from surface variants of the same answer, and the third term describes the composition of the tail, which carries little information about correctness. Mixing the three therefore makes entropy a weaker error signal than the leakage term alone.
+
+\paragraph{Tail-leakage surprisal.} The confidence signal of SEEK retains only the top-five mass $m_t$ from this decomposition and transforms it into a monotonic leakage score, while discarding the two within-group entropy terms. Surprisal is the standard information-theoretic measure of how unexpected an event is: an event of probability $p$ carries surprisal $-\log p$. Applying it to the event that generation stays within the candidate set, and accumulating over the answer, gives
 
 \begin{align}
-    \sigma^{\text{max-ent}}  &= \max_t H(p_t), \\
-    \sigma^{\text{mean-ent}} &= \frac{1}{T}\sum_t H(p_t), \\
-    \sigma^{\text{min-lp}}   &= \min_t \log p_t(y_t),
+    \mathrm{TL}_t
+        &= -\log m_t, \label{eq:tl-token} \\
+    \sigma^{\mathrm{tl}}
+        &= \sum_{t\in\mathcal{T}} \mathrm{TL}_t
+         = -\log \prod_{t\in\mathcal{T}} m_t , \label{eq:tail-leakage}
 \end{align}
 
-where $H(p)=-\sum_v p(v)\log p(v)$ and EOS tokens are excluded.
-
-\paragraph{Tail-leakage surprisal.} SEEK uses a different statistic, which we call \emph{tail-leakage surprisal}, in both roles where confidence is read: the per-step retrieval gate and the query-level signals of the verifier. Let $V_5(p_t)$ be the set of the five most probable tokens under $p_t$, and let
-
-\[
-    m_t=\sum_{v\in V_5(p_t)} p_t(v)
-\]
-
-be the probability mass the model keeps inside its own top-five candidates at position $t$. The per-token tail leakage is $\mathrm{TL}_t=-\log m_t$, the self-information of the event that decoding stays inside the candidate set at step $t$. The answer-level signal sums this leakage over the generated span:
-
-\[
-    \sigma^{\mathrm{tl}}=\sum_t \mathrm{TL}_t=-\log\prod_t m_t,
-\]
-
-again with EOS tokens excluded. A value near zero means the whole answer was generated with essentially no probability mass escaping the top-five candidates, while larger values mean the model repeatedly placed belief on tokens outside the candidates it was choosing among. The per-token term also equals the KL divergence between the renormalised top-five truncation of $p_t$ and $p_t$ itself, so it measures how much of the model's belief lies outside the visible top of the distribution.
-
-\paragraph{Why leakage instead of entropy.} By the chain rule, token entropy splits into three parts:
-
-\[
-    H(p_t)=H_{\mathrm{B}}(m_t)+m_t\,H(\hat{p}_t^{\,\mathrm{in}})+(1-m_t)\,H(\hat{p}_t^{\,\mathrm{out}}),
-\]
-
-where $H_{\mathrm{B}}$ is the binary entropy of the escape event and $\hat{p}_t^{\,\mathrm{in}}$, $\hat{p}_t^{\,\mathrm{out}}$ are the renormalised distributions inside and outside the top-five set. Only the first term reflects whether probability mass escapes the candidate set. The second term is often harmless for correct answers, because competition inside the top five frequently comes from aliases, casing, or formatting variants of the same answer, and the third term describes the composition of the tail, which carries little information about correctness. Tail-leakage surprisal keeps the escape component and drops the two diluting terms. Summation matters as well: a wrong answer often leaks a small amount of mass at several positions rather than a large amount at one, and a maximum-based aggregate cannot accumulate this pattern. Chapter~\ref{ch:exp} compares tail-leakage surprisal against entropy and other confidence signals.
+where $\mathcal{T}$ indexes the generated answer tokens, excluding EOS. $\mathrm{TL}_t$ is the surprisal of staying inside the candidate set at position $t$: it is near zero when the top five candidates retain almost all of the mass, and it grows as mass leaks into the tail. The answer-level score $\sigma^{\mathrm{tl}}$ accumulates this leakage over the generated span. The sum is preferred over a worst-token maximum because a wrong answer often leaks a small amount of mass at several positions rather than a large amount at one, and a maximum-based aggregate cannot accumulate this pattern. SEEK uses tail-leakage surprisal throughout its confidence-based decisions, as the per-step retrieval signal and as both query-level confidence inputs to the verifier.
 
 \section{Decomposition-Path Inference}
 \label{sec:gate}
 
 Within the decomposition path, retrieval remains sub-question-level. For a resolved sub-question $s_i$, the answerer first produces a tentative parametric answer $\tilde{a}_i$ and its tail-leakage surprisal $\sigma_i$. The retriever is invoked when:
 
-\[
-    \pi(s_i)=\mathbb{1}[\sigma_i \geq \tau],
-\]
+\begin{equation}
+    \pi(s_i)=
+    \begin{cases}
+        1, & \sigma_i \geq \tau \quad \text{(retrieve)}, \\
+        0, & \sigma_i < \tau \quad \text{(skip retrieval)}.
+    \end{cases}
+    \label{eq:retrieval-gate}
+\end{equation}
 
-with $\tau=0.0085$ in the final system, chosen so that the most confident tenth of development sub-question steps fall below it and skip retrieval. If $\pi(s_i)=1$, BM25 retrieves top-$k$ passages and the answerer re-answers $s_i$ with context; otherwise $\tilde{a}_i$ is kept. This local gate reduces unnecessary retrieval inside the decomposition path, but it is no longer the final routing mechanism for the whole question. The retrieval corpus, the per-dataset top-$k$, and the path-aware title policy are specified in Chapter~\ref{ch:exp}.
+where $\tau$ is the retrieval threshold. When retrieval is triggered, BM25 returns top-$k$ passages and the model re-answers $s_i$ using the retrieved context; otherwise $\tilde{a}_i$ is kept.
 
 \paragraph{Original-question evidence union.}
 A decomposed sub-question is often shorter and more entity-centric than the original question, which improves retrieval precision but can remove global clues such as comparison targets or disambiguating conditions. To preserve this context, the final system augments each retrieved sub-question context with evidence retrieved from the original question:
 
-\[
+\begin{equation}
     C_i = r(s_i, \mathcal{P}, k) \cup r(q, \mathcal{P}, k).
-\]
+    \label{eq:evidence-union}
+\end{equation}
 
-The union is deduplicated before answering. This operation does not change the decomposer or train a new retriever; it simply keeps the original-question evidence available when answering each decomposed step. Although these original-question passages are also the evidence source for the direct candidate, the two answer paths remain distinct: the direct path answers the original question directly, whereas the decomposition path still performs sub-question retrieval, step answering, and final synthesis. Thus the union shares evidence, not the direct answer or the final routing decision. Chapter~\ref{ch:exp} evaluates this operation as a decomposition-path ablation, especially on HotpotQA and 2WikiMultihopQA.
-
+The union is deduplicated before answering. This operation does not change the decomposer or train a new retriever; it simply keeps the original-question evidence available when answering each decomposed step. Although these original-question passages are also the evidence source for the direct candidate, the two answer paths remain distinct: the direct path answers the original question directly, whereas the decomposition path still performs sub-question retrieval, step answering, and final synthesis. Thus the union shares evidence, not the direct answer or the final routing decision.
 
 \paragraph{Synthesis.}
 The decomposed answer $a^{\mathrm{dec}}$ is produced by a synthesis pass over the original question and all $(s_i,a_i)$ pairs. The prompt encodes three answer-shaping rules derived from error analysis:
@@ -171,32 +189,25 @@ The decomposed answer $a^{\mathrm{dec}}$ is produced by a synthesis pass over th
     \item \textbf{Terse-span rule} strips unnecessary modifiers and keeps answer spans short for EM compatibility.
 \end{enumerate}
 
-The implementation also includes a value-to-entity guard for comparison failures: if synthesis emits a value such as a year but the question asks which entity satisfies a comparison, the system maps the value back to the owning entity when this mapping is unambiguous.
-
-\paragraph{Worked example.} A 2WikiMultihopQA question from the final traces illustrates the full path. For \emph{``Who is the mother of the director of film Polish-Russian War (Film)?''}, the decomposer emits \texttt{\#1: Polish-Russian War >> director} and \texttt{\#2: \#1 >> mother}. The tentative answer for \texttt{\#1}, produced without retrieval, is a hallucinated name, and its confidence signal indicates high uncertainty, so the gate retrieves and the step answers Xawery Żuławski. The placeholder in \texttt{\#2} is then resolved, giving \texttt{Xawery Żuławski >> mother}; the tentative answer is again wrong, the gate retrieves again, and the step returns Małgorzata Braunek. Synthesis reads the original question together with the two resolved pairs and generates Małgorzata Braunek as $a^{\mathrm{dec}}$. The direct path answers Dorota Masłowska, the author of the novel the film is based on, so the two candidates disagree and the verifier described in the next section selects the decomposed answer. In chain-style questions like this one the final answer often coincides with the last sub-answer; synthesis carries real work mainly on comparison and yes-or-no questions, where it must select the winning entity or judge agreement between sub-answers.
-
 \section{Training-Free Verifier}
 \label{sec:verifier}
 
 The verifier chooses between the direct candidate and the decomposed candidate. It is intentionally conservative: decomposition remains the default because it improves multi-hop retrieval, and the verifier switches to the direct answer only when the direct path is confident and the decomposition path shows signs of instability. The final implementation additionally applies a conservative \emph{type-aware fallback}. The fallback switches to the direct answer when the decomposed answer does not fit the question, for example a date for a question that asks for a person, or an answer that merely repeats an intermediate step answer; it does not rerun generation and does not train a router.
 
-\paragraph{Signals.} The verifier uses four query-level signals:
+\paragraph{Signals.} The verifier uses three query-level signals:
 
 \begin{itemize}
     \item \textbf{Direct-answer surprisal} $\sigma^{\mathrm{dir}}$: low tail-leakage surprisal suggests the direct answer may be reliable.
     \item \textbf{Decomposition post-surprisal} $\sigma^{\mathrm{dec}}$: high tail-leakage surprisal after decomposition and synthesis suggests the decomposed answer is unstable.
     \item \textbf{Structural validity}: unresolved placeholders, empty sub-answers, or malformed sub-questions indicate decomposition failure.
-    \item \textbf{Candidate agreement}: normalised string agreement between $a^{\mathrm{dir}}$ and $a^{\mathrm{dec}}$ is treated as mutual support.
 \end{itemize}
 
-\paragraph{Rule.} The verifier accepts agreement immediately; otherwise it chooses direct when the direct answer is confident and decomposition is unstable, and chooses decomposition in the remaining cases. Both verifier signals are tail-leakage surprisal, the same statistic used by the retrieval gate. The deployed thresholds are \texttt{direct\_tl\_tau=0.0005} and \texttt{decomp\_post\_tl\_tau=0.0158}: the direct-side threshold admits roughly the most confident 12\% of direct answers, and the decomposition-side threshold marks roughly the least confident 57\% of decomposed answers as unstable. The type-aware fallback is a deterministic refinement: it only changes the final route when answer type, direct surprisal, decomposition post-surprisal, and entity-fragment signals consistently indicate that the direct answer should be preferred. No dataset name, gold answer, trained classifier, or evidence-label supervision is used.
+\paragraph{Rule.} The verifier chooses direct when the direct answer is confident and decomposition is unstable, and chooses decomposition in the remaining cases. Both conditions are measured with tail-leakage surprisal, using separate thresholds for the direct and decomposed candidates. The type-aware fallback is a deterministic refinement: it only changes the final route when answer type, direct surprisal, decomposition post-surprisal, and entity-fragment signals consistently indicate that the direct answer should be preferred.
 
-\section{Implementation Summary}
 
-Algorithm~\ref{alg:seek} summarises the final inference loop.
-
-\begin{algorithm}[h]
-\caption{SEEK v2 inference for one question $q$}
+Algorithm~\ref{alg:seek} summarises the complete SEEK inference procedure.
+\begin{algorithm}[htbp]
+\caption{SEEK inference for one question $q$}
 \label{alg:seek}
 \begin{algorithmic}[1]
 \Require question $q$, corpus $\mathcal{P}$, surprisal threshold $\tau$, top-$k$
@@ -219,5 +230,3 @@ Algorithm~\ref{alg:seek} summarises the final inference loop.
 \State \Return $\hat{a}$
 \end{algorithmic}
 \end{algorithm}
-
-The next chapter evaluates this final dual-path system against DeepRAG under the honest wiki-21M retrieval protocol.
