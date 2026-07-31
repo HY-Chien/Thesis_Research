@@ -9,15 +9,23 @@
 ```
 Thesis/
 ├── main.tex              ← 主檔,編譯這支
+├── main_diff.tex         ← latexdiff 差異標註版 (2026-07-31 改版,新增=藍底線)
 ├── nthu_thesis.cls       ← NTHU 文件類別 (字型、間距、TOC、邊界)
 ├── 2025Titlepage.tex     ← 封面 (中英書名、學號、指導教授、年月)
 ├── README.md             ← 本檔
+├── make_ch3_signal_figs.py ← 現役腳本:產生 ch3 Fig 3.4–3.7 (thesis env python 執行)
 │
 ├── front/                ← 論文前置部分 (摘要、誌謝、官方表單)
 ├── contents/             ← 論文章節本文 (Chapter 1–6)
 ├── back/                 ← 附錄與參考文獻
 ├── figures/              ← 圖檔資源
-└── fonts/                ← 中英文字型 (TTF)
+├── fonts/                ← 中英文字型 (TTF)
+│
+├── defense_documents/    ← 口試行政文件 (評分單、申請書、授權書)
+└── archive/              ← 歸檔 (2026-07-31 整理,非論文編譯必需)
+    ├── oral_20260727/    ← 口試簡報 (slides=pptx/pdf/png, scripts=產生腳本, speaker_scripts=講稿)
+    ├── old_versions/     ← .orig 備份、舊講稿、壞檔
+    └── papers/           ← 下載的參考論文 PDF
 ```
 
 ---

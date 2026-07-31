@@ -3,7 +3,7 @@
 \contentsline {chapter}{摘要}{ii}{chapter*.2}%
 \contentsline {chapter}{Contents}{v}{chapter*.2}%
 \contentsline {chapter}{List of Figures}{vi}{chapter*.2}%
-\contentsline {chapter}{List of Tables}{vii}{chapter*.2}%
+\contentsline {chapter}{List of Tables}{viii}{chapter*.2}%
 \contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
 \contentsline {section}{\numberline {1.1}Background and Motivation}{1}{section.1.1}%
 \contentsline {section}{\numberline {1.2}Research Contributions}{2}{section.1.2}%
@@ -29,61 +29,63 @@
 \contentsline {paragraph}{Training.}{17}{paragraph*.17}%
 \contentsline {section}{\numberline {3.4}Token-Level Confidence Probe}{18}{section.3.4}%
 \contentsline {paragraph}{Two kinds of uncertainty.}{18}{paragraph*.19}%
-\contentsline {paragraph}{Decomposing token entropy.}{18}{paragraph*.20}%
-\contentsline {paragraph}{Tail-leakage surprisal.}{19}{paragraph*.21}%
-\contentsline {section}{\numberline {3.5}Decomposition-Path Inference}{20}{section.3.5}%
-\contentsline {paragraph}{Original-question evidence union.}{20}{paragraph*.22}%
-\contentsline {paragraph}{Synthesis.}{20}{paragraph*.23}%
-\contentsline {section}{\numberline {3.6}Training-Free Verifier}{21}{section.3.6}%
-\contentsline {paragraph}{Signals.}{21}{paragraph*.24}%
-\contentsline {paragraph}{Rule.}{21}{paragraph*.25}%
-\contentsline {chapter}{\numberline {4}Experiments}{23}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Datasets}{23}{section.4.1}%
-\contentsline {section}{\numberline {4.2}Retrieval Corpus}{23}{section.4.2}%
-\contentsline {section}{\numberline {4.3}Metrics and Baselines}{24}{section.4.3}%
-\contentsline {section}{\numberline {4.4}Implementation Details}{24}{section.4.4}%
-\contentsline {section}{\numberline {4.5}Main Results}{24}{section.4.5}%
-\contentsline {chapter}{\numberline {5}Results and Analysis}{26}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Retrieval Analysis}{26}{section.5.1}%
-\contentsline {subsection}{\numberline {5.1.1}Answer-Containing Recall}{26}{subsection.5.1.1}%
-\contentsline {subsection}{\numberline {5.1.2}Gold and Base Decomposition on MuSiQue}{27}{subsection.5.1.2}%
-\contentsline {section}{\numberline {5.2}Ablation Studies}{28}{section.5.2}%
-\contentsline {subsection}{\numberline {5.2.1}Retrieval Is Necessary After Decomposition}{29}{subsection.5.2.1}%
-\contentsline {subsection}{\numberline {5.2.2}Direct Retrieval Without Decomposition}{30}{subsection.5.2.2}%
-\contentsline {subsection}{\numberline {5.2.3}Gate Threshold Sensitivity}{31}{subsection.5.2.3}%
-\contentsline {subsection}{\numberline {5.2.4}Path-Aware Title Handling}{32}{subsection.5.2.4}%
-\contentsline {section}{\numberline {5.3}The Two Answer Paths}{33}{section.5.3}%
-\contentsline {subsection}{\numberline {5.3.1}Plan Length and Routing Decisions}{33}{subsection.5.3.1}%
-\contentsline {subsection}{\numberline {5.3.2}Correctness Overlap Between Answer Paths}{34}{subsection.5.3.2}%
-\contentsline {subsection}{\numberline {5.3.3}Decomposition-Path Failure Taxonomy}{35}{subsection.5.3.3}%
-\contentsline {subsection}{\numberline {5.3.4}Effect of Final Routing and Oracle Headroom}{36}{subsection.5.3.4}%
-\contentsline {section}{\numberline {5.4}Tail-Leakage Surprisal as a Confidence Signal}{37}{section.5.4}%
-\contentsline {chapter}{\numberline {6}Discussion}{42}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Cost--Accuracy Trade-off}{42}{section.6.1}%
-\contentsline {section}{\numberline {6.2}Why Direct and Decomposition Paths Must Coexist}{43}{section.6.2}%
-\contentsline {paragraph}{Original-question evidence preservation.}{44}{paragraph*.46}%
-\contentsline {section}{\numberline {6.3}What Training the Decomposer Buys}{44}{section.6.3}%
-\contentsline {section}{\numberline {6.4}Tail-Leakage Surprisal: Useful Signal, Not Correctness Guarantee}{44}{section.6.4}%
-\contentsline {section}{\numberline {6.5}Remaining Headroom and Remaining Problems}{46}{section.6.5}%
-\contentsline {section}{\numberline {6.6}Threats to Validity}{46}{section.6.6}%
-\contentsline {paragraph}{External baseline numbers are paper numbers.}{46}{paragraph*.47}%
-\contentsline {paragraph}{Dataset slicing.}{46}{paragraph*.48}%
-\contentsline {paragraph}{Single seed and greedy decoding.}{47}{paragraph*.49}%
-\contentsline {paragraph}{Routing cannot fix both-wrong cases.}{47}{paragraph*.50}%
-\contentsline {chapter}{\numberline {7}Conclusions}{48}{chapter.7}%
-\contentsline {section}{\numberline {7.1}Limitations}{48}{section.7.1}%
-\contentsline {section}{\numberline {7.2}Future Work}{48}{section.7.2}%
-\contentsline {paragraph}{Stronger verifier signals.}{48}{paragraph*.51}%
-\contentsline {paragraph}{Better retrieval and reranking.}{49}{paragraph*.52}%
-\contentsline {paragraph}{Length-conditioned decomposer.}{49}{paragraph*.53}%
-\contentsline {paragraph}{Multi-sample decomposition.}{49}{paragraph*.54}%
-\contentsline {paragraph}{Evidence-aware verification.}{49}{paragraph*.55}%
-\contentsline {paragraph}{Span calibration.}{49}{paragraph*.56}%
-\contentsline {chapter}{References}{50}{chapter*.57}%
+\contentsline {paragraph}{Locating the signal with R\'enyi entropy.}{18}{paragraph*.20}%
+\contentsline {paragraph}{Same entropy, different risk.}{19}{paragraph*.22}%
+\contentsline {paragraph}{Decomposing token entropy.}{21}{paragraph*.25}%
+\contentsline {paragraph}{Tail-leakage surprisal.}{22}{paragraph*.26}%
+\contentsline {section}{\numberline {3.5}Decomposition-Path Inference}{23}{section.3.5}%
+\contentsline {paragraph}{Original-question evidence union.}{24}{paragraph*.29}%
+\contentsline {paragraph}{Synthesis.}{25}{paragraph*.30}%
+\contentsline {section}{\numberline {3.6}Training-Free Verifier}{25}{section.3.6}%
+\contentsline {paragraph}{Signals.}{25}{paragraph*.31}%
+\contentsline {paragraph}{Rule.}{26}{paragraph*.32}%
+\contentsline {chapter}{\numberline {4}Experiments}{27}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Datasets}{27}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Retrieval Corpus}{27}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Metrics and Baselines}{28}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Implementation Details}{28}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Main Results}{28}{section.4.5}%
+\contentsline {chapter}{\numberline {5}Results and Analysis}{30}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Retrieval Analysis}{30}{section.5.1}%
+\contentsline {subsection}{\numberline {5.1.1}Answer-Containing Recall}{30}{subsection.5.1.1}%
+\contentsline {subsection}{\numberline {5.1.2}Gold and Base Decomposition on MuSiQue}{31}{subsection.5.1.2}%
+\contentsline {section}{\numberline {5.2}Ablation Studies}{32}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Retrieval Is Necessary After Decomposition}{33}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Direct Retrieval Without Decomposition}{34}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Gate Threshold Sensitivity}{35}{subsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.2.4}Path-Aware Title Handling}{36}{subsection.5.2.4}%
+\contentsline {section}{\numberline {5.3}The Two Answer Paths}{37}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}Plan Length and Routing Decisions}{37}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Correctness Overlap Between Answer Paths}{38}{subsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.3.3}Decomposition-Path Failure Taxonomy}{39}{subsection.5.3.3}%
+\contentsline {subsection}{\numberline {5.3.4}Effect of Final Routing and Oracle Headroom}{40}{subsection.5.3.4}%
+\contentsline {section}{\numberline {5.4}Tail-Leakage Surprisal as a Confidence Signal}{41}{section.5.4}%
+\contentsline {chapter}{\numberline {6}Discussion}{46}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Cost--Accuracy Trade-off}{46}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Why Direct and Decomposition Paths Must Coexist}{47}{section.6.2}%
+\contentsline {paragraph}{Original-question evidence preservation.}{48}{paragraph*.53}%
+\contentsline {section}{\numberline {6.3}What Training the Decomposer Buys}{48}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Tail-Leakage Surprisal: Useful Signal, Not Correctness Guarantee}{48}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Remaining Headroom and Remaining Problems}{50}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Threats to Validity}{50}{section.6.6}%
+\contentsline {paragraph}{External baseline numbers are paper numbers.}{50}{paragraph*.54}%
+\contentsline {paragraph}{Dataset slicing.}{50}{paragraph*.55}%
+\contentsline {paragraph}{Single seed and greedy decoding.}{51}{paragraph*.56}%
+\contentsline {paragraph}{Routing cannot fix both-wrong cases.}{51}{paragraph*.57}%
+\contentsline {chapter}{\numberline {7}Conclusions}{52}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Limitations}{52}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Future Work}{52}{section.7.2}%
+\contentsline {paragraph}{Stronger verifier signals.}{52}{paragraph*.58}%
+\contentsline {paragraph}{Better retrieval and reranking.}{53}{paragraph*.59}%
+\contentsline {paragraph}{Length-conditioned decomposer.}{53}{paragraph*.60}%
+\contentsline {paragraph}{Multi-sample decomposition.}{53}{paragraph*.61}%
+\contentsline {paragraph}{Evidence-aware verification.}{53}{paragraph*.62}%
+\contentsline {paragraph}{Span calibration.}{53}{paragraph*.63}%
+\contentsline {chapter}{References}{54}{chapter*.64}%
 \contentsline {chapter}{Appendices}{}{}
-\contentsline {chapter}{\numberline {A}Supplementary Material}{55}{chapter.A}%
-\contentsline {section}{\numberline {A.1}Case-Level Comparison with DeepRAG}{55}{section.A.1}%
-\contentsline {section}{\numberline {A.2}Supplementary Decomposition-Failure Flags}{58}{section.A.2}%
-\contentsline {section}{\numberline {A.3}Inference and Offline Cost Audit}{58}{section.A.3}%
-\contentsline {section}{\numberline {A.4}Confidence Signal Definitions and Variants}{60}{section.A.4}%
-\contentsline {section}{\numberline {A.5}Confidence-Failure Diagnostics}{61}{section.A.5}%
+\contentsline {chapter}{\numberline {A}Supplementary Material}{59}{chapter.A}%
+\contentsline {section}{\numberline {A.1}Case-Level Comparison with DeepRAG}{59}{section.A.1}%
+\contentsline {section}{\numberline {A.2}Supplementary Decomposition-Failure Flags}{62}{section.A.2}%
+\contentsline {section}{\numberline {A.3}Inference and Offline Cost Audit}{62}{section.A.3}%
+\contentsline {section}{\numberline {A.4}Confidence Signal Definitions and Variants}{64}{section.A.4}%
+\contentsline {section}{\numberline {A.5}Confidence-Failure Diagnostics}{65}{section.A.5}%

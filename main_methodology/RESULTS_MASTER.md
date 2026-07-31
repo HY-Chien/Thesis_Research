@@ -8,10 +8,10 @@
 > 原始 JSONL 結果仍在 `results/`,本檔只整併文字彙整。
 >
 > 最後更新:2026-07-04。2026-07-04 新增 direct-only confidence-gated RAG baseline
-> (§4.11,`results/direct_gate_ablation.md`):不拆解、只用 max_ent gate 檢索,
+> (§4.11,`results/reports/direct_gate_ablation.md`):不拆解、只用 max_ent gate 檢索,
 > best-τ 仍輸 decompose+gate +12~+29 EM(HotpotQA 例外)→ 拆解貢獻不可被 gate 取代;
 > 2026-07-03 新增跨資料集 decomposition failure taxonomy
-> (`results/decomp_failure_taxonomy.md`)與 PopQA confidence-popularity bias 分析
+> (`results/reports/decomp_failure_taxonomy.md`)與 PopQA confidence-popularity bias 分析
 > (`experiment/maxent_correctness/confidence_popularity_bias.md`);
 > 2026-07-01 新增 efficiency 成本框架:
 > SEEK 的主要效率主張改為 training-free adaptive routing,不宣稱推論檢索次數一定少於 DeepRAG；
@@ -69,7 +69,7 @@ all-tl_sum 相對該版本為 +0.17 EM/−0.06 F1,差異屬噪音範圍,採用�
 不宣稱 verifier swap 本身帶來顯著提升。
 
 **2026-06-23 incremental update(不覆蓋主表):** 新增 HotpotQA failure analysis
-`results/hotpotqa_failure_analysis.md`。結論:HotpotQA 與 2Wiki/MuSiQue 不同, direct-only
+`results/reports/hotpotqa_failure_analysis.md`。結論:HotpotQA 與 2Wiki/MuSiQue 不同, direct-only
 (151) > decomp-only(98), verifier 只抓到 77/151 direct-only,而 599 題 two-path both-wrong
 仍是最大瓶頸。已在 `seek/pipeline.py::_rescue_value_answer` 與
 `scripts/rescue_value_answers.py` 加入 conservative date-comparison guard,修正「step date 已足夠但
@@ -78,7 +78,7 @@ HotpotQA **31.8/41.2 → 32.1/41.7**, 2Wiki **46.9/53.5 → 47.8/54.4**,
 MuSiQue/PopQA 不變。此為小幅 synthesis fix。
 
 **2026-07-03 incremental update(offline replay,不改主表):** 新增
-`results/decomp_failure_taxonomy.md`(`scripts/analyze_decomp_failure_taxonomy.py`),
+`results/reports/decomp_failure_taxonomy.md`(`scripts/analyze_decomp_failure_taxonomy.py`),
 把 HotpotQA failure analysis 的 2x2 + coverage cross-tab + 失敗分類泛化到
 2Wiki/MuSiQue(HotpotQA 重放數字與原分析完全一致,自洽)。跨資料集結論:
 (1) decomposition-path 錯誤的最大宗都是 `retrieval_gap_both`(兩路 full-coverage@10
@@ -135,7 +135,7 @@ Final candidate 的 verifier 實際選路比例(老師建議補的「上路/下�
 | PopQA   | 37 / 1000 = **3.7%** | 963 / 1000 = **96.3%** |
 | **Pooled** | 558 / 4000 = **14.0%** | 3442 / 4000 = **86.1%** |
 
-**2026-07-04 addendum(`scripts/analyze_union_ablation_pathlocal.py` → `results/union_ablation_pathlocal_summary.md`,全離線重算,decomp EM 與本節主表逐格吻合):**
+**2026-07-04 addendum(`scripts/analyze_union_ablation_pathlocal.py` → `results/reports/union_ablation_pathlocal_summary.md`,全離線重算,decomp EM 與本節主表逐格吻合):**
 (1) 選路比例三階段:before union(pathaware `choice`)direct = HotpotQA 18.1% / 2Wiki 6.8% / MuSiQue 8.8% / PopQA 5.5%;after union 降為 13.2/4.8/7.3/3.0%(union 讓 verifier 更信任 decompose);type-aware replay 再撥回 direct 成上表 final 比例。
 (2) decomp candidate gained/lost(union 0→1 / 1→0):HotpotQA +80/−25、2Wiki +84/−54、MuSiQue +43/−35、PopQA +46/−32——lost cases 對應 L§follow-up 的 rerank/limit union evidence。
 (3) 子集檢查(只看 final 選 decomp 的題,老師字面口徑):HotpotQA(726 題)31.13→38.57(+7.44)、2Wiki(935)48.66→52.30(+3.64)、MuSiQue(818)28.00→28.61(+0.61)、PopQA(963)52.23→53.69(+1.45)——方向與主表一致,結論不因口徑而反轉。
@@ -169,7 +169,7 @@ HotpotQA **34.3/44.3 → 35.5/46.1**(+1.2 EM,+1.9 F1),2Wiki
 **49.9/56.4 → 50.0/56.6**(+0.1 EM,+0.2 F1),MuSiQue
 **24.8/32.9 → 24.7/33.1**(-0.1 EM,+0.2 F1),PopQA
 **52.0/54.8 → 51.9/54.7**(-0.1 EM,-0.1 F1)。final candidate 平均
-**40.5/47.6**,高於 DeepRAG 平均 **38.5/45.8**。檔:`results/typeaware_verifier_replay.md`、`results/final_performance_table.md`。
+**40.5/47.6**,高於 DeepRAG 平均 **38.5/45.8**。檔:`results/reports/typeaware_verifier_replay.md`、`results/reports/final_performance_table.md`。
 
 > ⚠️ **兩個 pool 不可混表**:distractor(per-question 10–20 paras,gold 必在候選裡;
 > Adaptive-RAG/IRCoT 協定)會把多跳 EM 灌水 +16~24;honest wiki-21M(psgs_w100, 21M)
@@ -405,7 +405,7 @@ k=8 對三多跳最佳;**HotpotQA 飽和**(k8≈k10)→ 瓶頸是 query 品質(K
 
 **PopQA 現況(勘誤,2026-07-20):** 上表的 50.7/52.9 是本支 sweep script 的孤立資料點,不代表 PopQA
 目前設定。實際上,PopQA 從 2026-06-23 union ablation(`run_popqa_union_ablation.sh --top-k 8`,見
-`scripts/popqa_directctx.log: top_k=8`)起就已經是 **k=8**,後續 prompt fix A(`rerun_prompt_fix.py`
+`logs/script_runs/popqa_directctx.log: top_k=8`)起就已經是 **k=8**,後續 prompt fix A(`rerun_prompt_fix.py`
 `TOP_K=8`)、tl_sum fixA(`rerun_tlsum_fixA.py` 沿用同一 `TOP_K`)全部延續 k=8,與其餘三個資料集一致。
 換句話說,§0 config block 寫的「PopQA top_k=3」只對到 2026-06-17 那一版舊 canonical,**不是**論文主表
 引用的 2026-07-11 headline 鏈的實際設定 —— 論文主表的 PopQA 53.70/55.53 本來就是 k=8 出來的,不需要
@@ -560,7 +560,7 @@ verifier 內部各路徑 EM:2Wiki direct 16.7 / decomp **47.2** / verifier 45.9 
 - τ≤0.5 段曲線平(檢索 89–99%、EM 幾乎不動);canonical 0.3 在此段內、非最佳(0.2 微高,雜訊內)。**在現在操作點細調 τ 無意義。**
 - τ≈1.0 = 免費效率點(檢索 −7~14pp、EM ≤0.4);τ≥1.5 才明顯掉(壓到 ~50% 檢索損 3–9 EM)。honest pool 多跳真的需要檢索。
 
-**(b) 完整 SEER 系統(`run_seek_dual.py --direct-context-union` + type-aware replay,主表口徑)** — 檔 `results/seer_tau_table.md`,腳本 `scripts/run_seer_tau_dual.sh` + `seer_tau_table.py`。τ=0.3 精確重現主表(40.52)。
+**(b) 完整 SEER 系統(`run_seek_dual.py --direct-context-union` + type-aware replay,主表口徑)** — 檔 `results/reports/seer_tau_table.md`,腳本 `scripts/run_seer_tau_dual.sh` + `seer_tau_table.py`。τ=0.3 精確重現主表(40.52)。
 
 EM / F1(皆 alias-aware、post-replay):
 
@@ -713,7 +713,7 @@ and any per-dataset retraining of a retrieval decision-maker.
 
 ### 4.10 Gate signal 選擇的文獻核對與四資料集全訊號比較（2026-07-02）
 
-詳見 `results/gate_signal_paper_fidelity_and_analysis.md`；數據 `results/gate_signal_replay_analysis.md`（4 datasets × 8 signals × n=1000，paired-bootstrap 95% CI）。
+詳見 `results/reports/gate_signal_paper_fidelity_and_analysis.md`；數據 `results/reports/gate_signal_replay_analysis.md`（4 datasets × 8 signals × n=1000，paired-bootstrap 95% CI）。
 
 - **「MAQA/TARG 都說 entropy 差」是誤記**：MAQA (NAACL 2025 Findings) 結論 entropy 是 white-box 最佳（AUROC 71.18 vs margin 63.82）；只有 TARG (arXiv:2511.09803) 主張 margin > mean-entropy，且是在單跳、整題 20-token draft 的設定。
 - **實作忠實度已核對**：`maqa_margin` = first-token top1−top2 softmax margin（同 MAQA）；`targ_unc` = prefix-mean exp(−logit_gap/β)，k=20、β=3（同 TARG 預設）。
@@ -722,7 +722,7 @@ and any per-dataset retraining of a retrieval decision-maker.
 
 ### 4.11 Direct-only confidence-gated RAG baseline——拆解的貢獻無法被 gate 取代（2026-07-04）
 
-詳見 `results/direct_gate_ablation.md`。回答「**不拆解、只用信心度決定要不要 RAG** 能走多遠」
+詳見 `results/reports/direct_gate_ablation.md`。回答「**不拆解、只用信心度決定要不要 RAG** 能走多遠」
 （slide p39–41 的缺角對照）。Baseline:原問題先無 context 答 + 量 `max_ent`,
 `max_ent ≥ τ` 才檢索(honest wiki-21M,同主表 config);實作 = 新 parametric probe
 (`scripts/run_direct_norag_probe.py` → `{ds}_1000_direct_norag.jsonl`)+ 離線 replay
@@ -748,7 +748,7 @@ always 只擠出 ≤+0.6 EM(PopQA +2.1)——天花板是單 query 檢索 covera
 
 ### 4.12 2×2 象限內信心度分析——both-correct 是真信心,both-wrong 有 10–29% 是自信答錯（2026-07-04）
 
-詳見 `results/quadrant_confidence_analysis.md`;圖 `Thesis/figures/fig_quadrant_confidence.png`
+詳見 `results/reports/quadrant_confidence_analysis.md`;圖 `Thesis/figures/fig_quadrant_confidence.png`
 (slide p45 的後續:各象限的 entropy 分布)。腳本 `scripts/analyze_quadrant_confidence.py`
 (離線,同 p45 的 typeaware replay traces,象限 n 精確重現 p45 ✓)。訊號:direct =
 `skip_probe_ent`,decomp = max step `max_ent`。
@@ -772,7 +772,7 @@ always 只擠出 ≤+0.6 EM(PopQA +2.1)——天花板是單 query 檢索 covera
 
 ### 4.13 QA-tailored confidence 訊號大普查——尾部質量家族勝出,建議 min_top5m 取代 max_ent(2026-07-09）
 
-詳見 `results/confidence_battery_analysis_direct.md` / `_decomp.md`(n=1000×4,paired
+詳見 `results/reports/confidence_battery_analysis_direct.md` / `_decomp.md`(n=1000×4,paired
 bootstrap 1000 resamples)。probe:`scripts/probe_confidence_battery.py`(direct,完整重現
 部署路徑,greedy regen 與 stored pred 100% 一致)、`probe_confidence_battery_decomp.py`
 (synthesis,rescue 重建 100% 一致);分析 `scripts/analyze_confidence_battery.py`。
@@ -829,7 +829,7 @@ stored replay EM 50.0/35.5/24.7/51.9;門檻 pooled rate-matching 不看 EM)→ *
 論文應以此定位,不必動主表數字。
 
 **細網格 threshold sweep(2026-07-09,`scripts/sweep_conf_signal_thresholds.py`,
-`results/conf_signal_threshold_sweep.md`):** 30 點 quantile 網格 + 誠實調參——
+`results/reports/conf_signal_threshold_sweep.md`):** 30 點 quantile 網格 + 誠實調參——
 (a) verifier τ_d:split-half(前500調/後500報)三訊號選到的保守門檻決策幾乎重合,
 EM **完全打平**(macro 40.35,paired bootstrap ΔEM=+0.00);LODO 同(40.35–40.45)。
 (b) skip-decompose gate:三訊號 EM-vs-retrieval-cut Pareto 曲線重疊,macro EM 從第一個
@@ -842,7 +842,7 @@ PopQA(單跳)skip 10% 內 EM 51.9 持平 = 小幅免費效率空間。
 `build_step_gate_manifest.py` 枚舉三訊號任意 τ 的答案組合(nested,去重後僅 7,370 個新
 synthesis);`gen_manifest_synthesis.py` 全部預生成;`sweep_step_gate_signals.py` 以主表
 口徑(rescue→verifier v2→typeaware)掃 16 點 × 3 訊號,sanity =(max_ent, τ=0.3)重現
-主表 EM±0.3 / F1±0.3 / 檢索率與 §4.7 逐格一致。結果 `results/step_gate_signal_sweep.md`:
+主表 EM±0.3 / F1±0.3 / 檢索率與 §4.7 逐格一致。結果 `results/reports/step_gate_signal_sweep.md`:
 
 | 檢索率 | max_ent EM/F1 | min_top5m EM/F1 | max_renyi05 EM/F1 |
 |---:|---:|---:|---:|
@@ -866,7 +866,7 @@ synthesis);`gen_manifest_synthesis.py` 全部預生成;`sweep_step_gate_signals.
 同一組 1000 題(question 文字 100% 對齊 `deeprag_compare/data/top1000/hotpotqa.jsonl`),
 統一用我們的 alias-aware EM/F1 重評兩邊:DeepRAG learned-gate **39.6/51.2**(stored em 同 39.6;
 主表 40.7/51.5 為 summarize 腳本口徑,結論不受影響)vs SEEK canonical replay **35.5**。
-逐題差異檔:`results/hotpotqa_seek_vs_deeprag_diff.jsonl`(237 題),
+逐題差異檔:`results/traces/hotpotqa/hotpotqa_seek_vs_deeprag_diff.jsonl`(237 題),
 分析腳本 scratchpad `hotpot_diff.py`(一次性)。
 
 **2×2**:both-right 257 | SEEK-only **98** | DeepRAG-only **139** | both-wrong 506(net −41 = −4.1 EM)。
@@ -928,7 +928,7 @@ rescue→verifier v2→typeaware→alias-aware EM/F1。三 config:**A**=step pro
 
 ### 4.16 Tail-leakage 家族變體——tl_sum(聯合逃逸 surprisal)小幅顯著贏 min_top5m(2026-07-10)
 
-`scripts/analyze_tail_leakage_variants.py` → `results/tail_leakage_variants.md`。
+`scripts/analyze_tail_leakage_variants.py` → `results/reports/tail_leakage_variants.md`。
 數學身份(論文包裝):TL_t = −log m_t(m_t = token t 的 top-5 質量)
 = **KL(top-5 截斷重歸一分布 ‖ 完整分布)** = 「停留在 top-5」事件的自我資訊;
 min_top5m ≡ max_t TL_t(weakest-link 聚合);**tl_sum = Σ_t TL_t = −log ∏ m_t
@@ -954,7 +954,7 @@ KL 身份給理論根據;min_top5m 作為其 weakest-link 特例、softmax 池�
 
 **End-to-end 統整(2026-07-10 晚,tl_sum 接入主方法三接點,與 §4.13 同口徑)**:
 compute_signals/manifest/sweep 全部加入 tl_sum;step-gate 只需補 153 個新 synthesis
-(`results/step_gate_synth_delta.jsonl`),其餘離線。指標 × 接點統整:
+(`results/traces/other/step_gate_synth_delta.jsonl`),其餘離線。指標 × 接點統整:
 
 | 接點 | max_ent | min_top5m | tl_sum | 結論 |
 |---|---:|---:|---:|---|
@@ -970,13 +970,13 @@ compute_signals/manifest/sweep 全部加入 tl_sum;step-gate 只需補 153 個�
   step-gate 效率點 ~91% 檢索 EM/F1(40.60/47.69)≥ canonical(40.52/47.61)。
 - 深掃區(skip≥0.60)tl_sum 與 renyi05 同樣在 PopQA 崩得較快(joint 統計對單跳長答案
   較敏感),但該區非操作點且為 first-order 近似區。
-- 檔:`results/step_gate_signal_sweep.md`(含 tl_sum 全 16 點)、
+- 檔:`results/reports/step_gate_signal_sweep.md`(含 tl_sum 全 16 點)、
   `conf_signal_threshold_sweep.md`、verifier swap 輸出於腳本 stdout(rate-matched 表)。
 
 ### 4.17 tl_sum gate × prompt fix A 合併 end-to-end rerun(2026-07-11)
 
 `scripts/rerun_tlsum_fixA.py` + `run_tlsum_fixA_gpu{0,1}.sh` → `results/tlsum_fixA_{ds}_shard{0,1}.jsonl`、
-`results/tlsum_fixA_summary.md`。協定 = §4.15 config A(step/tentative prompt 前置原題,
+`results/reports/tlsum_fixA_summary.md`。協定 = §4.15 config A(step/tentative prompt 前置原題,
 decomposition 沿用 canonical trace,direct path 不動,union top-8,synthesis LoRA-off,
 rescue→verifier v2→typeaware→alias-aware),唯一差異:**step gate 改用 tl_sum ≥ 0.008461**
 (舊 sweep skip=0.10 pooled quantile,§4.16 最佳操作點)。每 step 雙 branch 與雙訊號
@@ -1007,7 +1007,7 @@ rescue→verifier v2→typeaware→alias-aware),唯一差異:**step gate 改用 
 
 ### 4.18 tl_sum 為何有辨識力 + 採用後的殘餘錯誤(2026-07-11)
 
-`scripts/analyze_tlsum_confidence_story.py` → `results/tlsum_confidence_story.md`
+`scripts/analyze_tlsum_confidence_story.py` → `results/reports/tlsum_confidence_story.md`
 (direct path battery,n=1000×4,alias-aware EM,全離線)。
 
 **為何 tl_sum 更會辨識(三段證據)**:
@@ -1046,7 +1046,7 @@ rescue→verifier v2→typeaware→alias-aware),唯一差異:**step gate 改用 
 
 ### 4.19 Verifier 訊號統一為 tl_sum——新 trace 重測與最終採用(2026-07-11)
 
-`scripts/replay_verifier_tlsum_fixA.py` → `results/verifier_tlsum_fixA_swap.md`
+`scripts/replay_verifier_tlsum_fixA.py` → `results/reports/verifier_tlsum_fixA_swap.md`
 (tlsum_fixA headline trace 上全離線 replay;sanity:canonical 訊號 0 choice mismatch,
 EM 逐 ds 重現37.7/49.0/25.9/53.2)。先做嚴格 rate-matched swap:direct 側
 `skip_probe_ent<0.3`→direct tl_sum(τ_d=0.0021 @ P=0.235),decomp 側
@@ -1083,7 +1083,7 @@ confidence head達41.50–41.58 EM;最終採用τ_d=0.0005(rate≈0.12),
 - distractor 1000Q 全 4 dataset;PopQA baseline(17.9 / +C 30.3)
 - 2Wiki bridge_comparison 9.6 EM debug → synthesize prompt fix
 - synthesis value→entity guard(2026-06-11,零 regression)
-- HotpotQA failure analysis(2026-06-23):direct-only 151 > decomp-only 98,代表性錯誤案例與改善方向已整理至 `results/hotpotqa_failure_analysis.md`
+- HotpotQA failure analysis(2026-06-23):direct-only 151 > decomp-only 98,代表性錯誤案例與改善方向已整理至 `results/reports/hotpotqa_failure_analysis.md`
 - conservative date-comparison synthesis guard(2026-06-23,offline replay):HotpotQA +0.3 EM/+0.5 F1,2Wiki +0.9 EM/+0.9 F1,MuSiQue/PopQA 0 regression
 - original-question evidence union ablation(2026-06-23,formal 1000Q,current pipeline):正確隔離口徑為 decomp candidate EM,HotpotQA 25.0→30.5(+5.5),2Wiki 47.2→50.2(+3.0),MuSiQue 24.7→25.5(+0.8),PopQA 51.5→52.9(+1.4);full-system reference 為 HotpotQA 31.8/41.2→34.3/44.3,2Wiki 46.9/53.5→49.9/56.4
 - type-aware verifier offline replay(2026-06-23):final candidate avg 40.5/47.6;HotpotQA 34.3/44.3→35.5/46.1,2Wiki 49.9/56.4→50.0/56.6

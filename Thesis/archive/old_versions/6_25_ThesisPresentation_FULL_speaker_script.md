@@ -52,17 +52,17 @@ SEEK 是一個 lightweight adaptive retrieval framework。它的核心不是單�
 
 **Script:**
 
-這張表把前面的 related work 收斂成一個比較。
+這張表刻意只留下三個最容易理解的維度：decision unit、retrieval signal，以及 decision transparency。
 
 Adaptive-RAG 的 decision unit 是整個 question。它用 classifier 判斷一題要不要 retrieval、要 single-step 還是 multi-step。這個方法很直覺，但對 multi-hop reasoning 來說太粗，因為它不能在中間步驟調整 retrieval decision。
 
 FLARE 則是 token 或 sentence level。它用 token probability 來判斷什麼時候 retrieve，比 question-level 更細，但對 multi-hop QA 來說又太細、也比較 noisy。它偵測的是局部 token uncertainty，不一定對應到一個完整 sub-question 是否需要 evidence。
 
-DeepRAG 的 granularity 最接近我們想要的方向，因為它在 sub-question level 做 retrieval decision。這點很重要，也說明 sub-question 是 multi-hop reasoning 裡比較自然的 decision unit。不過 DeepRAG 需要 learned policy，訓練流程包含 tree search 和 preference-style calibration，所以相對比較 heavy，也比較不透明。
+DeepRAG 的 granularity 最接近我們想要的方向，因為它也在 sub-question level 做 retrieval decision。不過它的 signal 是 learned policy，所以 decision 藏在 policy 裡，比較難直接說明某一步為什麼 retrieve。
 
-所以 SEEK 的定位是：保留 sub-question-level decision 這個正確粒度，但用 entropy 和 verifier 這種更輕量、可解釋的 signal 來做。
+SEEK 同樣選擇 sub-question 作為 decision unit，但使用的是可以直接觀察的 tail-leakage signal，最後的 verifier 也是 explicit rules。也就是說，我們不只知道系統選了哪一條路，也可以指出是哪些 confidence 與 consistency 條件觸發這個選擇。
 
-這張表的 takeaway 是：prior work 已經證明 adaptive retrieval 是必要的，但 retrieval decision 應該發生在 sub-question level，而且最好使用 lightweight and interpretable signal。這就是下一段 Methodology 要介紹 SEEK 的切入點。
+所以這張表的 takeaway 很簡單：SEEK 是這裡唯一同時具有 sub-question-level decision，以及 explicit、interpretable confidence signal 的方法。這就是下一段 Methodology 要介紹的切入點。
 
 ---
 
@@ -757,5 +757,3 @@ DeepRAG 把整個 reasoning process 寫成 MDP。
 State 是目前的 partial solution，也就是 original question，加上目前已經產生過的 subqueries 和 intermediate answers。如果某一步有 retrieval，state 裡也會包含 retrieved documents 和基於 documents 產生的 answer。
 
 Action 有兩個部分。第一個是 termination decision，記作 sigma，也就是要 continue 還是 terminate。第二個是 atomic decision，記作 delta，也就是這個 subquery 要 retrieve 還是 parametric。
-
-

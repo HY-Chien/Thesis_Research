@@ -85,7 +85,7 @@ H = H_B(m₅) + m₅·H_top5 + (1−m₅)·H_tail
 tl_sum = Σₜ −log m₅⁽ᵗ⁾ = −log Πₜ m₅⁽ᵗ⁾
 ```
 
-它的語意是「整條答案的每一步都留在自己 top-5 候選集內」的聯合機率取負對數——任何一步漏一點,乘積就往下掉。確定訊號是尾漏之後，我們掃描了聚合方式（完整表在 `results/tail_leakage_variants.md`）：
+它的語意是「整條答案的每一步都留在自己 top-5 候選集內」的聯合機率取負對數——任何一步漏一點,乘積就往下掉。確定訊號是尾漏之後，我們掃描了聚合方式（完整表在 `results/reports/tail_leakage_variants.md`）：
 
 | 聚合方式 | 直覺 | macro AUROC |
 |---|---|---:|
@@ -122,7 +122,7 @@ pooled n=4000：
 | 要抓到 80% 的錯題時，誤報的答對題 | 45.2% | **39.9%** |
 | 同樣誤報 30.6% 時，抓到的錯題 | 67.0% | **71.6%** |
 
-放回 gate 做端到端重放（`results/step_gate_signal_sweep.md`）：跳過 10% 的檢索時，tl_sum 的 macro EM 40.60，與全檢索的 40.58 持平；max_ent 同樣跳過率降到 40.45。也就是說用 tl_sum 當訊號，可以省一成檢索而完全不掉分。
+放回 gate 做端到端重放（`results/reports/step_gate_signal_sweep.md`）：跳過 10% 的檢索時，tl_sum 的 macro EM 40.60，與全檢索的 40.58 持平；max_ent 同樣跳過率降到 40.45。也就是說用 tl_sum 當訊號，可以省一成檢索而完全不掉分。
 
 ## 8. 機制解釋：為什麼贏過 margin 與 log-prob
 
@@ -159,7 +159,7 @@ pooled n=4000：
 
 ### 9.2 殘差：confident-wrong 的組成
 
-即使用了 tl_sum，仍有一批「很有信心地答錯」的題（tl_sum ≤ 答對題中位數的錯題，共 491 題）。人工分類後的組成（`results/tlsum_confidence_story.md`）：
+即使用了 tl_sum，仍有一批「很有信心地答錯」的題（tl_sum ≤ 答對題中位數的錯題，共 491 題）。人工分類後的組成（`results/reports/tlsum_confidence_story.md`）：
 
 | 類別 | 題數 | 說明 |
 |---|---:|---|
@@ -192,8 +192,8 @@ pooled n=4000：
 ## 資料與程式出處
 
 - `results/conf_battery_*.jsonl` — 4×1000 題逐 token 紀錄（原始資料）
-- `results/confidence_battery_analysis_direct.md` — 42 訊號普查完整排行榜
-- `results/tlsum_confidence_story.md` — entropy 分解、長度分層、殘差分析
-- `results/tail_leakage_variants.md` — 聚合形式掃描（sum / min / mean / lse 等 19 種變體）
-- `results/step_gate_signal_sweep.md` — 端到端 gate 重放（skip-rate × 四訊號全表）
+- `results/reports/confidence_battery_analysis_direct.md` — 42 訊號普查完整排行榜
+- `results/reports/tlsum_confidence_story.md` — entropy 分解、長度分層、殘差分析
+- `results/reports/tail_leakage_variants.md` — 聚合形式掃描（sum / min / mean / lse 等 19 種變體）
+- `results/reports/step_gate_signal_sweep.md` — 端到端 gate 重放（skip-rate × 四訊號全表）
 - HTML 簡報版：https://claude.ai/code/artifact/d8e6a91d-f1b9-422f-8992-5d9d7b41ddd5

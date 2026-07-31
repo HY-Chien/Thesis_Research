@@ -38,3 +38,5 @@ calibration_output/
 .vscode/
 .idea/
 .DS_Store
+# 論文圖檔必須進版控(覆蓋上面的 *.png 排除)
+!Thesis/figures/*.png

@@ -206,7 +206,7 @@ Table~\ref{tab:path-selection-rate} reports two descriptive quantities: the aver
 
 \begin{table}[h]
     \centering
-    \caption[Plan Length and Routing Decisions]{Average plan length and verifier choices at the accuracy-first operating point. Selection counts and percentages use all 1{,}000 questions per dataset.}
+    \caption[Plan Length and Routing Decisions]{Average plan length and verifier choices at the accuracy-first operating point ($\tau=0.002305$). Selection counts and percentages use all 1{,}000 questions per dataset.}
     \label{tab:path-selection-rate}
     \setlength{\tabcolsep}{6pt}
     \small
@@ -235,7 +235,7 @@ Table~\ref{tab:path-distribution} compares the correctness of the two answer can
 
 \begin{table}[h]
     \centering
-    \caption[Correctness Overlap Between the Two Answer Paths]{Correctness overlap between the direct and decomposition candidates before final routing. Counts are out of 1{,}000 questions per dataset, and the four columns are mutually exclusive.}
+    \caption[Correctness Overlap Between the Two Answer Paths]{Correctness overlap between the direct and decomposition candidates before final routing at the accuracy-first operating point ($\tau=0.002305$). Counts are out of 1{,}000 questions per dataset, and the four columns are mutually exclusive.}
     \label{tab:path-distribution}
     \setlength{\tabcolsep}{7pt}
     \small
@@ -292,7 +292,7 @@ Because Table~\ref{tab:path-distribution} shows that decomposition supplies most
 
 \begin{table}[H]
     \centering
-    \caption[Effect of Final Routing]{Effect of the final verifier relative to always choosing the decomposition candidate. A recovered case is correct only on the direct path and routed to direct; a lost case is correct only on the decomposition path but routed to direct. Fractions use all corresponding path-only cases as their denominators, and net change equals recovered minus lost.}
+    \caption[Effect of Final Routing]{Effect of the final verifier at the accuracy-first operating point ($\tau=0.002305$), relative to always choosing the decomposition candidate. A recovered case is correct only on the direct path and routed to direct; a lost case is correct only on the decomposition path but routed to direct. Fractions use all corresponding path-only cases as their denominators, and net change equals recovered minus lost.}
     \label{tab:oracle}
     \setlength{\tabcolsep}{8pt}
     \small
@@ -315,7 +315,7 @@ Across all four datasets, the verifier recovers 52 of 173 direct-only cases but 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.78\textwidth]{fig_routing_gap_oracle.png}
-    \caption[Oracle Routing Headroom]{Final confidence-based routing and oracle headroom. The oracle can recover disagreement cases but cannot solve questions for which both candidates are wrong.}
+    \caption[Oracle Routing Headroom]{Final confidence-based routing and oracle headroom at the accuracy-first operating point ($\tau=0.002305$). The oracle can recover disagreement cases but cannot solve questions for which both candidates are wrong.}
     \label{fig:routing-gap-oracle}
 \end{figure}
 

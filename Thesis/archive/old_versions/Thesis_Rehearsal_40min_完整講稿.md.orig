@@ -1,0 +1,727 @@
+# SEEK 碩士論文口試：40 分鐘完整講稿
+
+> 題目：**SEEK: Self-certainty Evaluated Evidence-gated Knowledge-retrieval**  
+> 中文題目：**基於自我確信評估與問題拆解的自適應知識檢索方法**  
+> 報告者：簡宏諭  
+> 建議主講時間：**約 39–41 分鐘**（不含提問）
+
+## 使用方式
+
+這份講稿採用以下播放順序：
+
+1. `Thesis Rehearsal.pptx.pdf` 第 1–54 頁是 40 分鐘主報告，依 PDF 原始頁碼順序播放。
+2. 完整簡報第 55–72 頁是 Appendix，不列入主報告；本檔最後附有口委追問時的簡短說法。
+3. `Thesis Rehearsal.pptx 的副本.pdf` 不再插入主流程，以免 Methodology 頁碼與內容錯位。
+
+講稿中的提示：
+
+- `【指圖】`：用游標或雷射筆指出圖上的位置。
+- `【換頁】`：句子說完再換頁，不要一邊說一邊切換。
+- `【停頓】`：刻意停半秒到一秒，讓口委吸收結論。
+- 粗體句是該頁最重要的 take-home message；時間不足時至少保留粗體句。
+
+## 報告前必須統一的數值版本
+
+目前完整簡報第 43、45、46 頁採用 accuracy-first 設定 `τ = 0.002305`，因此主結果是 **41.88 EM / 48.90 F1**，相對 DeepRAG 是 **+3.43 EM / +3.15 F1**。本講稿依照投影片上的這組數字撰寫。
+
+目前論文正文則把 `τ = 0.008461` 稱為 deployed setting，對應 **41.62 EM / 48.66 F1**，相對 DeepRAG 是 **+3.17 EM / +2.91 F1**。正式口試前應決定最終版本，並同步修改簡報、論文與口頭講法；不要在同一場報告中混用兩組數字。
+
+## 時間配置
+
+| 段落 | 投影片 | 建議時間 | 累計時間 |
+|---|---:|---:|---:|
+| 開場與大綱 | 完整版 1–3 | 1:00 | 1:00 |
+| Introduction | 完整版 4–11 | 6:30 | 7:30 |
+| Related Work | 完整版 12–22 | 6:30 | 14:00 |
+| Methodology | 完整版 23、新版 1–5、完整版 30–40 | 13:00 | 27:00 |
+| Experiments | 完整版 41–47 | 8:00 | 35:00 |
+| Analysis | 完整版 48–51 | 3:00 | 38:00 |
+| Conclusion | 完整版 52–54 | 2:00 | 40:00 |
+
+---
+
+# 一、開場與研究全貌（約 1 分鐘）
+
+## 完整版 Slide 1｜Title（約 35 秒）
+
+各位口試委員、老師，大家好，我是簡宏諭。今天要報告的碩士論文題目是 **SEEK：基於自我確信評估與問題拆解的自適應知識檢索方法**。
+
+這份研究關心的是一個很實際的問題：大型語言模型在回答問題時，有時靠自己的參數知識就足夠，有時必須查詢外部資料；而面對複雜問題時，它可能還需要把問題拆開、逐步檢索。可是如果每一題、每一步都固定檢索，不只成本高，也可能把不相關的內容帶進來。
+
+因此，我的核心問題是：**系統能不能根據模型當下的確信程度，決定何時檢索，同時也決定何時應該相信問題拆解的結果？**
+
+【換頁】
+
+## 完整版 Slide 2｜Outline（約 40 秒）
+
+今天的報告分成六個部分。首先在 Introduction，我會從傳統 RAG 的限制出發，說明為什麼我們需要 adaptive retrieval，以及問題拆解可能帶來的風險。
+
+接著在 Related Work，我會介紹 FLARE、Adaptive-RAG 與 DeepRAG，並比較它們在檢索時機、決策粒度和訓練方式上的差異。第三部分是 Methodology，我會說明 SEEK 的 Tail-Leakage 信心分數、問題拆解器、雙路徑架構與最終的 verifier。
+
+第四部分是 Experiments，我會介紹實驗設定、主要結果，以及 retrieval、threshold 和 title handling 的消融實驗。第五部分是 Analysis，進一步分析 direct 與 decomposition 兩條路徑的互補性，以及目前 verifier 距離理想路由還有多少空間。最後，我會總結這份研究的主要貢獻、限制與未來方向。
+
+## 完整版 Slide 3｜Introduction 分隔頁（約 5 秒）
+
+首先從 RAG 的基本動機開始。
+
+---
+
+# 二、Introduction：從固定檢索走向自適應檢索（約 6 分 30 秒）
+
+## 完整版 Slide 4｜Question Answer with RAG（約 50 秒）
+
+大型語言模型的知識主要來自訓練資料，所以遇到近期、冷門，或訓練時沒有看過的資訊時，容易產生 hallucination。
+
+【指圖，由右往左說明】
+
+RAG 的做法，是先把外部文件建立索引。收到問題之後，系統先找出相關文件，再把文件內容和原始問題一起交給語言模型生成答案。圖的下方可以看到：沒有 RAG 時，模型可能只依賴記憶而產生錯誤資訊；加入外部證據後，答案就能根據檢索內容生成。
+
+所以 RAG 的價值不只是「讓模型知道更多」，而是把回答依據從封閉的參數記憶，延伸到可以更新、也可以追溯的外部知識。
+
+不過，**有檢索不代表檢索策略一定正確**。下一頁就是這項研究真正的起點。
+
+## 完整版 Slide 5｜The Limitations of Standard RAG（約 1 分 10 秒）
+
+固定式 RAG 有兩個相反的問題。
+
+【指上半部第一點，再指表格第一列】
+
+第一，對簡單問題來說，模型原本可能就知道答案。表格中的問題問海平面水的沸點，正確答案是 100 度；但是檢索文件談的是高海拔，模型反而被不相干的 95 度帶偏。這代表檢索不一定只會補知識，也可能引入 noise。
+
+【指第二點與表格第二列】
+
+第二，對複雜問題來說，一次檢索可能不夠。這裡問的是「發現盤尼西林的科學家畢業於哪一所大學」。系統必須先知道科學家是 Alexander Fleming，再查他的教育背景。若第一次只找到他發現盤尼西林的資料，仍不足以回答最後問題，模型就可能自行補出錯誤答案。
+
+因此，簡單題的問題是「查太多」，複雜題的問題是「查不夠」。**真正需要的不是永遠檢索或永遠不檢索，而是根據問題與推理狀態選擇合適的策略。**
+
+## 完整版 Slide 6｜The Rise of Multi-Step Retrieval（約 45 秒）
+
+為了解決複雜問題，研究開始採用 multi-step retrieval，也就是把推理和檢索交錯進行。
+
+【沿圖由上往下指】
+
+以圖中的問題為例，我們先問《Lost Gravity》是由哪一家公司製造，得到 Mack Rides；再以 Mack Rides 為新的線索查詢，得到它來自 Germany，最後才能回答原始問題。
+
+這張圖的意義是：**多跳問題需要的證據通常不會一次出現；前一步的答案，本身就是下一次檢索的查詢線索。** 問題拆解因此不只是推理技巧，也是在改寫檢索 query。
+
+## 完整版 Slide 7｜The Need for Adaptive RAG（約 40 秒）
+
+但如果把 multi-step retrieval 無條件套在每一題上，又會回到成本與雜訊的問題。
+
+【指中央兩條分支】
+
+左邊代表模型本來就知道，卻仍然付出檢索延遲；右邊代表問題需要深度推理，但檢索不足，結果仍然不完整。Adaptive RAG 的目標，就是讓系統不要固定停在這兩個極端，而能在準確率、延遲與成本之間做選擇。
+
+## 完整版 Slides 8–9｜Recent Works in Adaptive RAG（合計約 1 分鐘）
+
+現有自適應 RAG 大致有兩條路線。
+
+【Slide 8，指 FLARE 圖】
+
+第一類是 active retrieval，例如 FLARE。它在生成過程中觀察 token 機率；當模型即將生成低信心內容時，才形成查詢並補充資料。重點是從「每題固定查一次」，變成「模型不確定時才查」。
+
+【換至 Slide 9，指三條路徑】
+
+第二類是 complexity-aware routing，例如 Adaptive-RAG。它先判斷整題難度，再分配到不檢索、單步檢索或多步檢索。簡單題直接回答，知識缺口題查一次，多跳題則反覆檢索與推理。
+
+這兩類方法分別回答了「何時檢索」與「整題應走哪一種流程」，但對多步推理來說，還有一個問題沒有被充分處理：**拆開之後的每個子問題，不一定都同樣可靠。**
+
+## 完整版 Slide 10｜Motivation（約 1 分鐘）
+
+這一頁把研究動機整理成三層。
+
+第一，多步檢索通常要先拆題，但 decomposition 並不是永遠可靠。子問題雖然更短、更適合檢索，卻也可能把原始問題中的比較條件、指涉或限制移除。
+
+第二，因此 adaptive RAG 不應該只決定「要不要查」，也要決定「現在是否能相信拆題路徑」。如果直接把所有題目強制拆解，錯誤的中間答案可能一路傳下去。
+
+第三，我希望建立一個輕量、以子問題為決策單位的框架：它能在每個步驟控制檢索，但同時保留原始問題路徑，讓系統在拆解失敗時仍有另一個候選答案。
+
+換句話說，這份研究把自適應檢索從單純的 retrieve-or-skip，擴大成 **retrieve、decompose 與 route 三個互相關聯的決策。**
+
+## 完整版 Slide 11｜SEEK（約 1 分鐘）
+
+基於前面的動機，我提出 SEEK。名稱中的 Evidence-gated，表示檢索由模型的證據需求與不確定性控制。
+
+SEEK 有四個主要設計。
+
+【依序指四個方框】
+
+第一是 **dual-path answering**：同時保留原始問題的 direct answer，以及拆題後的 decomposed answer。
+
+第二是 **evidence-gated sub-question retrieval**：每個子問題先嘗試回答；只有不確定時才檢索，不把整條 chain 綁成全查或全不查。
+
+第三是 **original-question context preservation**：子問題檢索時，也把原始問題所找到的證據加入 context，補回拆題可能遺失的全域限制。
+
+第四是 **training-free verification**：最後用可解釋規則比較兩條路徑，而不是再訓練一個大型 routing model。
+
+接下來，我先用三個相關工作說明 SEEK 的設計位置。
+
+---
+
+# 三、Related Work：決策粒度與訓練成本（約 6 分 30 秒）
+
+## 完整版 Slide 12｜Related Work 分隔頁（約 5 秒）
+
+相關工作包含 FLARE、Adaptive-RAG 與 DeepRAG，最後會用一張表比較它們和 SEEK 的差異。
+
+## 完整版 Slide 13｜FLARE（約 50 秒）
+
+FLARE 的出發點是：長答案不應該只在一開始檢索一次，因為生成到後面仍可能出現新的知識缺口。
+
+它有兩個原則。第一是 **when to retrieve**：模型只有在不確定下一段內容時才查。第二是 **what to retrieve**：query 應該反映模型接下來想說的內容，而不是只重複已經生成的文字。
+
+所以它會先生成一個 tentative sentence，把低機率 token 視為知識缺口，再檢索並重新生成。這個觀念很重要，因為 SEEK 也保留了「用模型自己的信心啟動檢索」這個精神。
+
+## 完整版 Slide 14｜FLARE-direct: Iterative Loop（約 45 秒）
+
+【沿左側 1 到 4 指示】
+
+FLARE-direct 的循環分成四步：先預測下一句；再用最低 token probability 找出低信心位置；接著把預測內容轉成 query；取得文件後重新生成並提交這一句。
+
+右圖顯示這個循環可以在不同句子補入不同文件。它的優點是 training-free，而且訊號透明；但只要一句話裡有一個不重要的低機率 token，就可能觸發檢索，所以 token 或 sentence 層級有時太敏感。
+
+## 完整版 Slide 15｜FLARE Query Formulation（約 40 秒）
+
+偵測到低信心 token 後，FLARE 有兩種形成 query 的方法。
+
+【指右上】Implicit masking 是把不確定部分遮掉，用剩餘句子搜尋；【指右下】explicit question generation 則請模型針對缺少的資訊產生完整問題。
+
+這張圖的意義是：檢索品質不只取決於是否檢索，也取決於 query 怎麼形成。SEEK 後面採用子問題作為查詢單位，原因就是完整子問題通常比被遮掉的半句話更接近真正的資訊需求。
+
+## 完整版 Slide 16｜Adaptive-RAG Overview（約 40 秒）
+
+Adaptive-RAG 把問題放在 query-level routing。它指出單一策略不適合所有問題：always retrieve 對簡單題浪費成本；single retrieval 對多跳題又不夠。
+
+它的核心做法，是訓練一個小型 classifier 判斷問題複雜度，再把問題送到合適的檢索流程。
+
+## 完整版 Slide 17｜Three Retrieval Strategies（約 35 秒）
+
+【指 A、B、C】
+
+它的三種策略分別是不檢索、單步檢索與多步檢索。這個設計很直觀，也把計算資源和題目難度連結起來。
+
+不過，一題一旦被分到其中一條路徑，後續就固定執行那條流程；如果分類器一開始把困難題判成簡單題，中途沒有新的信心訊號可以修正。
+
+## 完整版 Slide 18｜The Complexity Classifier（約 45 秒）
+
+Adaptive-RAG 使用 T5-Large，輸入是原始問題，輸出 A、B、C 三個 label。
+
+它的訓練標籤不需要人工標註，而是讓每題實際跑過三種策略，再選擇「能答對的最便宜策略」作為 silver label。例如不檢索和單步檢索都答對，就標成不檢索。若自動標記失敗，則用資料集原本是 single-hop 或 multi-hop 作為 fallback。
+
+這很節省人工標註，但訊號仍然主要來自題目表面與資料集先驗，而不是模型在每個推理步驟的實際不確定性。
+
+## 完整版 Slide 19｜Adaptive-RAG End-to-End Pipeline（約 25 秒）
+
+【指流程圖】
+
+這張圖總結前面三頁：每一題只先通過一次 classifier，之後三選一，最後得到答案。它的決策粒度是整個 question；SEEK 則把檢索決策往下移到 sub-question，並且保留兩條候選路徑到最後再判斷。
+
+## 完整版 Slide 20｜DeepRAG（約 45 秒）
+
+DeepRAG 和 SEEK 更接近，因為它也把決策放在子問題層級。它認為 iterative RAG 有兩個問題：第一，語言模型產生的子問題可能不夠 atomic；第二，不是每個子問題都需要查詢，固定檢索會增加延遲與雜訊。
+
+因此 DeepRAG 把整個過程建模成 Markov Decision Process，在每一步決定使用 parametric memory，或呼叫 retriever。
+
+## 完整版 Slide 21｜DeepRAG Three-Phase Pipeline（約 55 秒）
+
+DeepRAG 的能力來自三階段訓練。
+
+第一階段，對每個子問題展開 retrieve 與 parametric 兩個分支，用 binary tree search 找到能答對、且檢索次數最少的路徑。
+
+第二階段，對最佳路徑做 supervised fine-tuning，讓模型學會子問題、決策與中間答案的序列。
+
+第三階段，再建立好與壞的決策 pair，利用 DPO 校準模型的 knowledge boundary。
+
+右圖的意義是：DeepRAG 的路由能力並不是單一 threshold，而是由 trajectory search、SFT 與 preference optimization 共同學出來。效果很強，但資料建構與訓練流程也較重，決策訊號較不容易直接檢查。
+
+## 完整版 Slide 22｜Summary of Related Works（約 1 分鐘）
+
+這張表用兩個維度整理前面的差異：**在哪一個單位做決策，以及根據什麼訊號做決策。**
+
+Adaptive-RAG 在整題層級使用 classifier，成本低，但對多步推理太粗。FLARE 在 token 或 sentence 層級看 token probability，能即時反應，但可能過度受單一 token 影響。DeepRAG 在 sub-question 層級學習 policy，決策粒度合適，但訓練較重、透明度較低。
+
+SEEK 也選擇 sub-question 層級，因為這和多跳推理的自然單位一致；差別是使用從單次生成 logits 取得的信心訊號，再搭配 rule-based verifier。
+
+所以相關工作的結論不是哪個方法完全錯，而是它們分別提供三個線索：FLARE 告訴我們要看生成信心；Adaptive-RAG 告訴我們要做路由；DeepRAG 告訴我們決策應落在子問題。**SEEK 的目標，是把這三點組合成一個較輕量、可解釋的架構。**
+
+---
+
+# 四、Methodology（約 13 分鐘）
+
+## 完整版 Slide 23｜Methodology 分隔頁（約 10 秒）
+
+接下來進入 Methodology。我會先說明 confidence signal 如何從 entropy 的 head-tail decomposition 推導出來，再依序介紹 SEEK 的整體架構、資料建構與 decomposer training，最後沿著圖走一次 dual-path inference 和 rule-based verifier。
+
+## 完整版 Slide 24｜Separate Entropy into Head and Tail：定義（約 55 秒）
+
+SEEK 要在每一個 sub-question 判斷是否需要 retrieval，因此第一個問題是：如何從模型自己的輸出機率判斷答案是否不穩定？
+
+【先指第一個公式】
+
+一般使用 Shannon entropy，也就是把整個 vocabulary 中每個 token 的 `−p log p` 加總。但完整 entropy 同時混合了「主要候選保留多少機率」與「候選之間如何分散」兩件事，所以我們先把分布切成 head 和 tail。
+
+【再指 `m_head` 與下面兩個條件分布】
+
+在本研究中，head 是機率最高的五個候選；`m_head` 是這五個候選的總機率，`1−m_head` 則是落到其餘 vocabulary、也就是 tail 的機率。接著分別除以兩邊的總 mass，得到正規化後的 `p_head` 與 `p_tail`。
+
+這一頁的意義是先建立三個可以分開觀察的量：**head 保留多少 mass、head 內部有多分散，以及 tail 內部有多分散。** 下一頁再把它們代回 entropy。
+
+## 完整版 Slide 25｜Separate Entropy into Head and Tail：公式拆解（約 55 秒）
+
+這一頁是前一頁定義的展開結果。
+
+【由上往下指公式】
+
+先把 vocabulary 的總和拆成 head 與 tail，再把 `p(v)` 分別寫成 `m_head × p_head(v)`，以及 `(1−m_head) × p_tail(v)`。整理之後，原始 entropy 可以精確拆成三部分。
+
+【依顏色指公式最下面一行】
+
+紅線是 head 與 tail 之間的 mass allocation，也就是總機率究竟留在 head 還是漏到 tail；橘線是 head 內部的不確定性；藍線是 tail 內部的不確定性。
+
+這不是近似公式，而是同一個 Shannon entropy 的恆等分解。它的價值在於：我們不再只知道「entropy 高」，而能實際測量 **entropy 的哪一個來源最能預測錯誤。**
+
+## 完整版 Slide 26｜Head/Tail Mass Is Most Predictive（約 55 秒）
+
+這張圖比較三個部分辨識錯誤答案的能力。指標是四個資料集平均的 error-detection AUROC；0.5 接近隨機，數值越高代表越能把錯誤答案排在高風險端。
+
+【由上往下指三個橫條】
+
+Head 與 tail 之間的 retained-mass signal 最高，AUROC 是 **0.742**。只看 head 內部的不確定性是 0.712，仍有部分判別力；但 tail 內部 uncertainty 只有 0.502，幾乎等同隨機。
+
+0.502 並不是說 tail 完全不重要。它代表的是：**真正有用的訊息是有多少機率從 head 漏出去，而不是漏出去之後，在大量低機率 token 之間如何重新分配。**
+
+因此後續不需要追蹤整個 tail 的複雜形狀，而可以把焦點放在 `m_head`。下一頁要處理的是，如何把 `m_head` 轉成方向一致的風險分數。
+
+## 完整版 Slide 27｜Why Use `−log m_head`?（約 55 秒）
+
+我們希望 leakage 越嚴重，風險分數就持續變大。
+
+【先指左圖】
+
+如果直接使用 entropy 形式的 `−m_head log m_head`，前面的 `m_head` 會讓曲線先上升、之後下降。圖上以 leakage `ℓ=1−m_head` 表示；當 leakage 超過大約 0.632 後，明明漏出的機率更多，分數反而開始變小。這不適合作為單方向的風險尺度。
+
+【再指右圖】
+
+因此我們使用 `−log m_head`。當 head 幾乎保留全部機率時，分數接近 0；當更多機率漏到 tail、`m_head` 越小時，分數就持續上升，不會反向下降。
+
+需要強調的是，`−log m_head` 不是把 entropy 公式直接化簡得到的；**entropy decomposition 幫我們找出關鍵變數，`−log` 則把這個變數轉成單調、容易解釋的 surprisal。**
+
+## 完整版 Slide 28｜Higher Tail Leakage Predicts More Errors（約 1 分鐘）
+
+接下來直接檢查這個分數和實際錯誤的關係。
+
+【指圖的標題與橫軸】
+
+這張圖使用四個資料集共 4,000 筆 direct-path answers，依 Tail-Leakage Score 分成八個等量區間。橫軸由低分到高分，綠色是正確比例，紅色是錯誤比例。
+
+【由左往右指各柱】
+
+最低分區間的錯誤率是 33%；之後依序上升為 62%、74%、76%、86%、88%、91%，最高分區間達到 97%。Spearman correlation 是 **+0.419**，表示分數越高，錯誤率整體上也越高。
+
+這張圖的意義不只是「相關係數是正的」，而是呈現一個非常一致的排序：**Tail Leakage 越高，答案越可能出錯。** 但它仍是 ranking signal，不是校準後的錯誤機率，所以低分答案仍可能 confident but wrong；這也是最後仍需要雙路徑與 verifier 的原因。
+
+## 完整版 Slide 29｜Aggregating Leakage Across the Answer（約 55 秒）
+
+前面定義的是單一 token 位置的 `−log m_head`，但一個答案通常包含多個 token。錯誤訊號也不一定集中在某一個特別差的位置，可能是多個位置各自漏出一小部分機率。
+
+【先指公式，再指下方 token 圖】
+
+因此，對生成答案的每一個位置 `t`，都重新計算一次 `m_head^(t)`；再將每個位置的 `−log m_head^(t)` 加總，定義成整個答案的 Tail-Leakage Score。
+
+下方三個 token 的圖把這件事視覺化：每一步只有一小段粉紅色 leakage，看起來都不嚴重；但加總之後，分散在整個答案中的不穩定性就會被保留下來。
+
+這個 answer-level score 直接使用原本 decoding 已經產生的 logits，不需要額外 sampling，也不需要訓練新的 confidence model。接下來把它放進完整 SEEK pipeline。
+
+## 完整版 Slide 30｜SEEK Overview（約 1 分鐘）
+
+這張圖是 SEEK 的整體架構，可以分成三個 stage。
+
+【先指上半部左側】
+
+Stage 1 是資料建構：MuSiQue、2Wiki 與 PopQA 各提供 4K，合計形成 12K decomposition SFT data。Stage 2 使用 LoRA fine-tuning 訓練 decomposer。
+
+【再指下半部兩條路徑】
+
+Stage 3 是 inference。同一個 original question 同時進入藍色 direct path 與綠色 decomposition path。Direct path 保留完整問題；decomposition path 逐步生成 sub-questions、量測信心並在不確定時 retrieval。最後 verifier 比較兩個 candidate，輸出 final answer。
+
+這張圖最重要的意義是把「學會拆題」和「推論時怎麼路由」分開：**SEEK 只訓練 decomposer；sub-question gate 與 final verifier 都不另外訓練 retrieval policy。**
+
+## 完整版 Slide 31｜Method – Data Construction（約 1 分鐘）
+
+這一頁放大 Stage 1。三個資料來源各自補足不同的 decomposition 型態。
+
+MuSiQue 使用原本的 gold question decomposition，讓模型學習 multi-hop chain；2Wiki 把 evidence triples 轉成 entity-relation steps，並提供 relation-style comparison；PopQA 則把 knowledge-graph triple 轉成單一步驟，教模型簡單題可以是一個有效的 decomposition，而不是一定要硬拆成多跳。
+
+【指下方例子】
+
+原始問題問：「擁有 The Collegian 的機構是在什麼時候成立？」第一步先得到 `The Collegian >> owned by`；第二步再問第一步的答案何時成立。
+
+【指右側 Final SFT Format】
+
+在最後的訓練格式中，第一個步驟用 `#1` 編號，第二步則用 `#1` 當 placeholder。這表示第二步依賴第一步未來產生的答案。**這個格式的意義，是讓 decomposer 輸出一個可依序執行的 plan，而不是幾個彼此無關的句子。**
+
+## 完整版 Slide 32｜Method – Training Stage（約 40 秒）
+
+Stage 2 只訓練 decomposer。
+
+【依序指左側 Input、Learning Target、Output】
+
+輸入是剛才建構的 12K decomposition dataset；學習目標是把原始問題拆成合適的 sub-questions，並用 `#N` marker 表示前後依賴；輸出則是一個能在 inference 時產生 sub-question plan 的 decomposer model。
+
+這裡要區分 decomposer 與 answerer：decomposer 學的是問題結構和執行順序，不負責記住所有答案。**拆題可以改善 query，但不能取代後面的知識檢索。**
+
+## 完整版 Slide 33｜Inference Stage: Three Components（約 35 秒）
+
+推論階段由三個元件組成。
+
+【依序指左側三點，再指右圖對應顏色】
+
+第一是 Direct Path，直接從 original question 產生答案；第二是 Decomposition Path，把問題拆成 sub-questions 並逐步作答；第三是 Rule-based Verifier，根據信心與一致性訊號，在兩個候選中選出 final answer。
+
+接下來幾頁是同一張圖逐步展開：先走藍色 direct path，再沿著綠色 decomposition path，最後回到 verifier。
+
+## 完整版 Slide 34｜Direct Path（約 40 秒）
+
+【沿著下方藍色流程由左往右指】
+
+Direct path 的「direct」是指不做 decomposition，而不是完全不檢索。系統保留 original question，直接用它做 retrieval；接著根據 retrieved context 產生一個 direct candidate，並記錄這個答案的 confidence，供後面的 verifier 使用。
+
+保留 original question 的意義，是保住完整的 entity、比較條件和消歧線索。如果 decomposition 遺漏條件或中間答案出錯，direct candidate 就提供另一個仍可能正確的答案來源。
+
+## 完整版 Slide 35｜Decomposition Path: Generate Sub-Questions（約 30 秒）
+
+【指橘色步驟 1 與綠色步驟 2】
+
+另一條路徑先把 original question 交給剛才訓練的 decomposer model，再產生一組可執行、具有前後依賴的 sub-questions。
+
+這一頁只完成 plan generation；灰色的後續步驟還沒有執行。下一頁才開始回答第一個 sub-question。
+
+## 完整版 Slide 36｜Answer Sub-Q1 and Measure Confidence（約 35 秒）
+
+【指新增的步驟 3】
+
+系統先用模型本身的 parametric knowledge 回答 Sub-Q1，得到一個 tentative sub-answer；同時使用前面定義的 answer-level Tail-Leakage Score 測量 confidence。
+
+這裡還沒有立刻 retrieval。這個順序很重要：**先讓模型回答並觀察不確定性，才能決定這一個 sub-question 是否真的需要外部 evidence。**
+
+## 完整版 Slide 37｜Retrieve and Re-answer When Uncertain（約 40 秒）
+
+【指紅色 low-confidence 箭頭與步驟 4】
+
+如果 Sub-Q1 的 Tail Leakage 高於門檻，也就是 low confidence，系統才啟動 retrieval，並根據 retrieved evidence 重新回答一次。
+
+如果原本答案是 high confidence，流程就不需要經過這個 retrieval box，而是沿著上方路徑直接往下一步。這張圖所表達的核心是：**retrieval decision 發生在每一個 sub-question，而不是整題只做一次固定選擇。**
+
+至於不同 query 如何設定 title matching，以及如何合併 original-question evidence，會在後面的 Experiment ablation 再說明；這一頁先聚焦 gate 本身。
+
+## 完整版 Slide 38｜Pass the Finalized Answer into Sub-Q2（約 40 秒）
+
+【指上方 high-confidence 路徑、下方 retrieval 路徑與步驟 5】
+
+不論 Sub-Q1 是直接保留 high-confidence answer，還是經過 retrieval 重新回答，兩條分支最後都會形成 finalized answer，再把它傳入 Sub-Q2。
+
+具體來說，前一頁資料格式中的 `#1` 會被這個 finalized answer 替換，讓下一跳 query 帶有明確的 bridge entity。這一步很重要，因為如果第一步傳入錯誤 entity，後面即使 retriever 正常，也會沿著錯誤方向搜尋。
+
+## 完整版 Slide 39｜Repeat and Synthesize（約 45 秒）
+
+【指步驟 6 與步驟 7】
+
+接著，系統對剩下的 sub-questions 重複相同流程：先回答、計算 confidence、必要時 retrieval，再把 finalized answer 傳到下一步。
+
+完成所有 sub-questions 後，最後一個步驟是 synthesis。系統整合 original question 與逐步得到的中間答案，生成 decomposition path 的 final candidate，而不是直接把最後一個 sub-answer 當成整題答案。
+
+這張圖的意義是：decomposition path 不只是把題目切小，還包含 **逐步的信心門控、答案傳遞與最後整合**；任何一個環節出錯，都可能影響最後 candidate。
+
+## 完整版 Slide 40｜Rule-Based Verifier（約 55 秒）
+
+最後，direct path 與 decomposition path 都會產生 candidate，再交給 rule-based verifier。
+
+【先指上方兩個條件】
+
+本頁把切回 direct answer 的規則濃縮成兩個必要條件。第一，original question 的 direct answer 本身必須是 confident；第二，decomposed sub-questions 即使已經 retrieval，仍然保持 uncertain。只有兩個條件同時成立，系統才選 direct path；其他情況則保留 decomposition result。
+
+這個雙條件設計的意義是：不能只因為 direct answer 看起來有信心就立刻相信它，因為模型也可能 confident but wrong；必須同時觀察到 decomposition path 在補充 evidence 後仍不穩定，direct fallback 才有充分理由。
+
+【最後沿兩條路徑指向 verifier 和 final answer】
+
+因此，SEEK 的完整流程可以濃縮成一句話：**用 Tail Leakage 在 sub-question level 控制 retrieval，再用兩條路徑的相對信心決定最終應相信 direct 還是 decomposition。**
+
+---
+# 五、Experiments（約 8 分鐘）
+
+## 完整版 Slide 41｜Experiment 分隔頁（約 5 秒）
+
+接下來進入 Experiments。這一段的精華不只是主結果表，而是依序回答四個問題：SEEK 整體有沒有提升、decomposition 是否真的改善檢索、retrieval 在拆題後是否仍然必要，以及 gate 與 title handling 各自扮演什麼角色。
+
+## 完整版 Slide 42｜Experiment Setup（約 55 秒）
+
+實驗 backbone 是 Llama-3-8B-Instruct，decomposer 使用 LoRA SFT。訓練資料共 12K，MuSiQue、2Wiki 與 PopQA 各 4K；LoRA rank 是 16、alpha 32、dropout 0.05，共訓練三個 epoch。
+
+評估涵蓋四個資料集：HotpotQA、2WikiMultihopQA、MuSiQue 與 PopQA；前三者主要測 multi-hop reasoning，PopQA 則提供 single-hop factual QA。每個資料集使用 1,000 題。
+
+指標包含 Exact Match 與 token-level F1。EM 要求正規化後完全一致，較嚴格；F1 則允許答案部分 token 重疊。比較方法包含不檢索的 CoT、active retrieval 的 FLARE，以及 learned adaptive retrieval 的 DeepRAG。
+
+## 完整版 Slide 43｜Main Result（約 1 分 45 秒）
+
+這張表是主要結果。閱讀方式是：每個資料集各有 EM 與 F1，最右邊是四個資料集的 macro average。
+
+【先指最右側平均欄】
+
+SEEK 的平均表現是 **41.88 EM、48.90 F1**，相對最強的外部 baseline DeepRAG，提高 **3.43 EM 與 3.15 F1**。所以整體而言，SEEK 在不另外學習 retrieval policy 的情況下，仍取得最佳平均結果。
+
+【再指各資料集 SEEK 與 DeepRAG 兩列】
+
+分資料集看，SEEK 在 PopQA、2Wiki 與 MuSiQue 領先。最大差距出現在 PopQA：EM 從 DeepRAG 的 42.50 上升到 53.90，增加 11.4 點。2Wiki 是 49.30，MuSiQue 是 26.50。
+
+但 HotpotQA 是重要例外：SEEK 的 37.80 EM 低於 DeepRAG 的 40.70。這代表 SEEK 並不是每個資料集都全面勝出；HotpotQA 的問題型態與路由錯誤，也是後面保留 direct path 和分析 oracle gap 的原因。
+
+這張表支持的是一個較精確的結論：**SEEK 在四個資料集的平均最好，且主要優勢來自三個資料集，但 HotpotQA 仍有明顯改善空間。**
+
+## 完整版 Slide 44｜Retrieval Recall（約 1 分 15 秒）
+
+主結果變好之後，第一個要問的是：decomposition 是否真的讓檢索更容易找到答案？
+
+這裡使用 answer-containing hit@5。如果前五篇檢索段落至少一篇包含 gold answer 或別名，就算成功。灰色是 original query，藍色是 decomposed query。
+
+【由左往右指四組 bars】
+
+2Wiki 從 32.6 提升到 60.6，增加 28 點；HotpotQA 從 47.4 到 52.9，增加 5.5；MuSiQue 從 19.0 到 38.8，接近翻倍。這三個 multi-hop dataset 都有提升。
+
+PopQA 則從 71.2 到 71.1，幾乎不變。這也合理，因為它主要是 single-hop，拆成一個結構化 query 不需要建立新的多跳橋接。
+
+所以這張圖的意義是：**decomposition 的主要功能之一，是把原始複雜問題改寫成更容易命中證據的 query；它對 multi-hop retrieval 特別有用，而不是所有資料集都一樣受益。**
+
+## 完整版 Slide 45｜Retrieval Is Necessary After Decomposition（約 1 分 15 秒）
+
+下一個問題是：既然已經拆題，是否可以只靠模型逐步回答，不再檢索？
+
+圖中紅色是 never-RAG，只拆題但完全不查；綠色是 Tail-Leakage gate；灰色是每一步 always-RAG。
+
+【指各資料集紅色與另外兩柱的差距】
+
+結果很明顯。HotpotQA 從 29.8 提升到約 37.8；2Wiki 從 33.9 到 49.3；MuSiQue 從 15.4 到 26.5；PopQA 從 24.8 到 53.9。拆題可以改善 query 結構，卻不能憑空補上模型不知道的事實。
+
+另一方面，gate 和 always-RAG 幾乎相同：四個資料集差距都在 0.1 EM 左右。這表示信心 gate 能跳過一部分檢索，同時維持接近 always-retrieve 的準確率。
+
+因此這張圖同時回答兩件事：**decomposition 不能取代 retrieval；而 gate 的主要功能是效率控制，不是藉由少查資料創造額外知識。**
+
+## 完整版 Slide 46｜Threshold Sensitivity（約 1 分 30 秒）
+
+`τ` 決定何時檢索。分數高於門檻才查，因此 `τ` 越小，系統越容易啟動 retrieval；`τ` 越大，檢索率越低。
+
+【先指第一欄與最下方 retrieval rate】
+
+在 accuracy-first 設定 `τ=0.002305` 時，平均是 41.88 EM、48.90 F1，檢索率 93.84%。這也是目前主結果採用的設定。
+
+【由左向右指表格】
+
+把門檻提高到 0.008461，檢索率降到 87.82%，平均只下降 0.26 EM 與 0.24 F1。再提高到 0.044170，檢索率降到 75.51%，但平均 EM 下降到 40.60。最高門檻 0.116500 只檢索 64.40%，EM 則降到 39.42。
+
+這張表不是要說某個 threshold 在所有場景都唯一正確，而是呈現可調整的 cost-accuracy curve。低門檻適合 accuracy-first；如果應用更在意延遲與檢索費用，可以提高門檻，用小幅準確率交換較大的 retrieval reduction。
+
+這裡需要補充實驗口徑：這張 threshold 表採用 **fixed-chain sensitivity replay**。也就是固定已完成的問題拆解、中間答案與候選路徑，只改變門檻並重新做 gating 與 synthesis。這樣可以隔離 threshold 本身的影響，但它不是每個門檻都從頭重跑完整 pipeline。因此，這張表最適合用來看門檻改變時的相對趨勢，而不是比較不同 end-to-end 系統版本。
+
+## 完整版 Slide 47｜Path-Aware Title Retrieval（約 1 分 20 秒）
+
+除了「要不要查」，query 的形態也會影響應該怎麼查。
+
+短的 sub-question 常指向特定 entity，例如一個人或機構，因此把 Wikipedia title 納入 BM25 matching，有助於找到正確條目。相反地，原始問題通常較長，包含多個條件；若 title matching 權重過高，可能被其中某個字帶到不相關文章。
+
+所以 path-aware strategy 是：direct path 的 original query 關閉 title；decomposition path 的 sub-question 開啟 title。
+
+| Dataset | Title-off EM | Title-off F1 | Title-on EM | Title-on F1 | Path-aware EM | Path-aware F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| PopQA | 51.9 | 54.0 | 52.4 | 54.6 | **53.4** | **55.7** |
+| HotpotQA | 37.3 | 48.7 | 37.1 | 48.4 | **37.9** | **49.3** |
+| MuSiQue | 23.3 | 31.6 | 24.9 | **34.5** | **26.2** | 34.4 |
+| 2Wiki | 44.5 | 50.4 | 49.1 | 55.5 | **49.6** | **56.3** |
+
+> 最新重跑口徑（2026-07-23）：`τ=0.002305`、Fix A、original-question evidence union、type-aware verifier；每個資料集 `N=1000`。
+
+這張 title-handling 表和前一頁的 fixed-chain 分析不同，是三種 title 設定各自從頭執行的 **live end-to-end rerun**；retrieval 結果、後續 context 與最終答案都可能跟著改變。因此，這裡的 path-aware 數字不需要和主結果表逐格完全相同，應該在本張表的共同重跑口徑內比較三種設定。
+
+【指表格三組欄位】
+
+和 title 永遠關閉、永遠開啟相比，path-aware 在 PopQA、HotpotQA 與 2Wiki 的 EM、F1 都是最高：PopQA 是 53.4、55.7；HotpotQA 是 37.9、49.3；2Wiki 是 49.6、56.3。MuSiQue 的 path-aware EM 最高，為 26.2；但 F1 是 global title-on 的 34.5 略高於 path-aware 的 34.4，差距只有 0.1。
+
+因此，新表支持的精確結論是：path-aware 在四個資料集的 EM 全部最佳，並在三個資料集的 F1 最佳；唯一例外是 MuSiQue F1，比 global title-on 低 0.1。整體趨勢仍顯示依路徑調整 title matching 最穩定，但不應再說它在每一個資料集、每一個指標都嚴格最佳。
+
+這張表的 broader meaning 是：**adaptive RAG 不只要調整是否檢索，也要讓 retrieval configuration 配合不同路徑的 query 特性。**
+
+---
+
+# 六、Analysis：為什麼需要雙路徑（約 3 分鐘）
+
+## 完整版 Slide 48｜Analysis 分隔頁（約 5 秒）
+
+最後進入 Analysis。這一段是解釋「為什麼有效」以及「下一步該改哪裡」的精華：先看兩條路徑各自救回多少題，再看 verifier 實際怎麼選，最後用 oracle gap 區分 routing 問題與兩條路徑都答錯的 generation、retrieval 問題。
+
+## 完整版 Slide 49｜Correct Answer Distribution Across Two Paths（約 1 分 20 秒）
+
+這張表把每個資料集的 1,000 題分成四種互斥情況：兩條都對、只有 direct 對、只有 decomposition 對，以及兩條都錯。
+
+| Dataset | Both correct | Direct only | Decomposition only | Both wrong |
+|---|---:|---:|---:|---:|
+| HotpotQA | 225 | 78 | 135 | 562 |
+| 2Wiki | 144 | 36 | 353 | 467 |
+| MuSiQue | 75 | 27 | 192 | 706 |
+| PopQA | 346 | 32 | 194 | 428 |
+
+> 本表已統一為主結果的 accuracy-first 設定 `τ=0.002305`；若投影片仍顯示舊數字，需同步替換。
+
+【先指圖中的藍綠 bars】
+
+所有資料集都是 decomposition-only 多於 direct-only。HotpotQA 是 135 對 78；2Wiki 是 353 對 36；MuSiQue 是 192 對 27；PopQA 是 194 對 32。這證明 decomposition 不是只在平均分數上有效，而是確實解出大量 direct path 解不出的題目。
+
+但 direct-only 也不是零，尤其 HotpotQA 有 78 題只有 direct path 正確。因此如果永遠相信拆題，這些答案就會被犧牲，保留 direct candidate 仍然有價值。
+
+【指 Both Wrong 欄】
+
+另一方面，HotpotQA 有 562 題、2Wiki 有 467 題、MuSiQue 有 706 題、PopQA 有 428 題是兩條路徑都錯。這一欄很重要，因為再好的 router 也只能在現有兩個候選中選擇，不能修復 both-wrong。它們需要更好的 retrieval coverage、中間答案或 synthesis，而不是只調 verifier。
+
+## 完整版 Slide 50｜Verifier Path Selection（約 40 秒）
+
+這張表描述 verifier 實際選擇哪一條路徑。平均而言，91.8% 選 decomposition，8.2% 選 direct；2Wiki 與 PopQA 幾乎都走 decomposition，而 HotpotQA 的 direct selection 比例最高，是 17.1%。
+
+這些百分比是 routing behavior，不是正確率。它反映 verifier 的設計確實偏向 decomposition，但沒有完全丟掉 direct path。這也和上一頁一致：decomposition 的獨有正確答案較多，而 direct fallback 在 HotpotQA 特別重要。
+
+這張圖也提醒我們，8.2% 並不是越高或越低越好；真正重要的是 fallback 是否落在 direct-only 的例子。HotpotQA 有較多 direct-only 題，因此 verifier 也更常切回 direct。相反地，2Wiki 的 decomposition-only 優勢非常大，所以保守地留在 decomposition 比較合理。
+
+## 完整版 Slide 51｜Direct-vs-Decompose Oracle Gap（約 1 分鐘）
+
+Oracle routing 假設我們事後知道 gold answer，只要兩條路徑其中一條正確，就永遠選到正確的那一條。它不能部署，但可以測量「只改善路由，最多還能進步多少」。
+
+【指 Average row】
+
+目前 router 平均是 41.88 EM；oracle 可以到 45.93，差距是 4.05。分資料集看，HotpotQA 的空間最大，還有 6.0 EM；2Wiki 是 4.0；PopQA 3.3；MuSiQue 2.9。
+
+若把目前 router 和單一路徑比較，也能看到 verifier 的效果並不完全一致。HotpotQA 的 decomposition-only EM 是 36.0，加入 direct fallback 後提高到 37.8，代表雙路徑選擇確實救回一部分答案；但 2Wiki 的 decomposition-only 是 49.7，目前 router 是 49.3，反而少 0.4，顯示少數錯誤 fallback 仍會造成代價。這也是為什麼平均結果雖然最好，oracle 仍保留明顯空間。
+
+這張表帶來兩個結論。第一，direct 與 decomposition 的互補性還沒有被 verifier 完全利用，未來更好的 evidence-aware routing 仍有約 4 EM 的平均空間。第二，oracle 仍然受到 both-wrong 限制，所以路由不是唯一瓶頸。
+
+因此，我們不應把 decomposition 當成固定前處理，而應把它視為 routing problem：**系統不只要學會拆，也要知道何時相信拆解。**
+
+---
+
+# 七、Conclusion（約 2 分鐘）
+
+## 完整版 Slide 52｜Conclusions 分隔頁（約 5 秒）
+
+最後總結這份研究的主要貢獻與限制。
+
+## 完整版 Slide 53｜Conclusions（約 1 分 35 秒）
+
+這份研究提出 SEEK，一個以子問題為決策單位的輕量自適應 RAG framework。
+
+第一個貢獻是 Tail-Leakage Surprisal。我們先把 entropy 拆開，發現真正能辨識錯誤的是 top-5 留住多少 probability mass，而不是 tail 內部如何分布；再用 `−log m₅` 建立單調、可跨 token 累積，而且不需要額外推論的信心訊號。
+
+第二個貢獻是 evidence-gated dual-path inference。SEEK 保留原始問題與拆題兩條路徑，在每個 sub-question 根據信心決定是否檢索，並把 original-question evidence 合併回拆題 context。實驗顯示，decomposition 明顯改善三個 multi-hop dataset 的 retrieval recall，而檢索本身對拆題後的準確率仍然必要。
+
+第三個貢獻是 training-free verifier。它結合 direct confidence、decomposition stability、結構與 answer type，在不另外訓練 routing policy 的情況下選擇 final answer。最終平均結果優於三個比較方法，並且 oracle 分析顯示雙路徑 routing 仍有約 4.05 EM 的改善空間。
+
+這項方法也有三個限制。第一，目前 accuracy-first gate 的檢索率仍然很高，所以不能宣稱推論時一定更省；lightweight 主要指較簡化的 adaptation 與 routing training。第二，Tail Leakage 衡量的是分布不確定性，不是正確性的保證，模型仍可能 confident but wrong。第三，both-wrong 例子無法靠 verifier 解決，未來需要改善 evidence coverage、bridge-answer propagation 與 final synthesis，並在更多 backbone 上驗證 threshold 的可轉移性。
+
+總結來說，**SEEK 的核心觀點是：自適應 RAG 不應只問「要不要檢索」，而要同時管理檢索、拆題與路由，並且保留原始問題作為可恢復的答案路徑。**
+
+## 完整版 Slide 54｜Thanks（約 20 秒）
+
+以上是我的報告。感謝高宏宇老師的指導，也謝謝各位口試委員今天撥空聆聽。敬請各位老師指教，謝謝。
+
+【停頓，面向口委，不要立刻切到 Appendix】
+
+---
+
+# Appendix：被問到時的快速講法
+
+以下不列入 40 分鐘主報告。回答時先直接給結論，再切到對應頁面補證據。
+
+## 完整版 Slide 55｜Appendix
+
+「這個問題我有另外做分析，我切到附錄說明。」
+
+## 完整版 Slide 56｜Gating Improves Efficiency
+
+「這張表把 gate 和 always-RAG 直接比較。四個資料集的 EM 幾乎不變，但 gate 沒有每一步都查。它支持的是 gate 可以省下一部分 retrieval，而不是 gate 本身讓答案比 always-retrieve 更準。」
+
+## 完整版 Slide 57｜Multi-Step Retrieval and Its Cost
+
+「Multi-step retrieval 能解多跳題，但若無條件使用，會讓每題都付出多輪檢索與生成成本。SEEK 因此把決策放到每個 sub-question，而不是整條 chain 全查或全不查。」
+
+## 完整版 Slide 58｜DeepRAG: Two Core Components
+
+「DeepRAG 用 retrieval narrative 維持逐步推理，再對每個子問題做 retrieve 或 parametric 的 atomic decision。SEEK 接受相同的 sub-question granularity，但把 learned atomic policy 換成可檢查的 Tail-Leakage gate。」
+
+## 完整版 Slide 59｜Original-Question Evidence Union Ablation
+
+「Evidence union 把 sub-question 文件與 original-question 文件合併。平均 EM、F1 都增加 1.47；提升主要在 HotpotQA 與 2Wiki，代表複雜問題拆短後確實可能丟失全域限制。不過 MuSiQue F1 下降 0.68，所以它不是每個資料集都保證提升。」
+
+## 完整版 Slide 60｜Rényi α / Emphasizing the Tail
+
+「這是我們發現 tail-sensitive signal 的另一項診斷。在 2Wiki 上，α 從 2 降到 1，再降到 0.5，AUROC 從 0.651、0.671 上升到 0.716。較小 α 讓低機率候選有更高相對權重，因此引導我們進一步分解 head 與 tail。」
+
+## 完整版 Slides 61–63｜Self-Consistency Diagnostic
+
+「這組實驗測試 sampling-based self-consistency 能否抓到 confident hallucination。HotpotQA 每題取五個 no-CoT samples，比較五次都對和五次都錯的群組。Answer entity 附近的局部 uncertainty 與 unique-answer count，AUROC 都約 0.784；full-sequence self-certainty 與 perplexity 只有約 0.55。結論是錯誤訊號通常集中在答案實體，而整段平均會把它稀釋。」
+
+## 完整版 Slide 64｜FLARE Takeaways
+
+「FLARE 的優點是 training-free、能在生成時主動查詢，訊號也透明；限制是單一低機率 token 可能造成誤觸發，sentence granularity 和 sub-question reasoning 不完全對齊，而且 threshold 會受模型校準影響。SEEK 保留 confidence-driven retrieval，但把單位移到 sub-question。」
+
+## 完整版 Slide 65｜DeepRAG Takeaways
+
+「DeepRAG 證明 sub-question-level adaptive retrieval 有效，但需要 binary tree search、SFT 和 DPO。SEEK 的差異不在於否定 learned policy，而是探索能否用單次生成即可取得的透明訊號，省去 retrieval-policy training pipeline。」
+
+## 完整版 Slide 66｜Adaptive-RAG Takeaways
+
+「Adaptive-RAG 的 router 很清楚、也具有 cost awareness；但它只在問題開頭決定一次，無法在推理中途根據某個 sub-question 的實際不確定性恢復。SEEK 把決策延後到各步驟。」
+
+## 完整版 Slide 67｜FLARE-instruct
+
+「FLARE-instruct 讓模型主動輸出 `[Search(query)]` token。優點是 query 自然、具意圖；缺點是依賴模型遵循 tool-use prompt 的能力，較弱模型可能不穩定。SEEK 不要求模型學特殊 search token。」
+
+## 完整版 Slide 68｜DeepRAG MDP Formulation
+
+「DeepRAG 把 state 定義成原始問題與目前 chain，action 包含是否結束以及 retrieve 或 parametric，reward 同時考慮答對與檢索成本。Binary tree search 找最佳軌跡，SFT 模仿，再用 DPO 校準。這頁主要用來解釋 DeepRAG 為什麼能力強、但訓練流程較重。」
+
+## 完整版 Slides 69–72｜Tail Leakage 備用推導頁
+
+若口委追問公式，依序回答：
+
+1. top-5 是每個 generation step 依 softmax probability 排序得到，不是隨機抽樣；tail 是第六名到完整 vocabulary。
+2. Entropy decomposition 是精確等式；它只用來定位 `m₅`。`−log m₅` 是後續根據零點、單調性與可加性設計的風險函數，不是代數化簡。
+3. Answer-level score 為 `Σₜ −log m₅⁽ᵗ⁾ = −log ∏ₜm₅⁽ᵗ⁾`。這是 retained-mass path score，不是 generated-answer likelihood。
+4. Error-rate 圖使用四個資料集共 4,000 筆答案、八個 equal-frequency bins；它證明 ranking 關係，不代表分數已校準成錯誤機率。
+
+---
+
+# 常見口委追問：一句話先答
+
+## 為什麼是 top-5，不是 top-1 或 top-10？
+
+「Top-5 是經實驗選擇的實用 cutoff，不是數學常數；它允許別名、tokenization 與表面形式在主要候選內競爭，同時把真正分散到大量低機率候選的現象視為 leakage。換 backbone 或 tokenizer 時仍應重新驗證。」
+
+若需要補數字：`tl_sum@2 = 0.7412`、`tl_sum@5 = 0.7493`、`tl_sum@10 = 0.7498`；top-5 與 top-10 差異不顯著，因此選較小 cutoff。
+
+## 為什麼不用一般 entropy？
+
+「一般 entropy 把 mass leakage、top-5 內部競爭和 tail 內部形狀混在一起；實驗顯示最有判別力的是 mass split 0.742，而 tail internal shape 只有 0.502。Tail Leakage 因此只保留 `m₅` 這個關鍵變數。」
+
+## 為什麼不用 `1−m₅`，而用 `−log m₅`？
+
+「兩者在 leakage 很小時近似，但 `−log m₅` 具有 retained-mass surprisal 的機率意義、能把跨 token 的乘積轉成總和，而且在 `m₅` 很低時不會飽和，會更強地懲罰嚴重 leakage。」
+
+## Tail Leakage 能抓到所有錯誤嗎？
+
+「不能。它衡量的是模型分布的不確定性，不是正確性保證；模型可能很穩定地 hallucinate。這也是 SEEK 不把它當成單一最終 judge，而是和 decomposition stability、結構與 answer type 一起放進 verifier。」
+
+## SEEK 是否一定比 DeepRAG 便宜？
+
+「不能宣稱推論時一定更便宜，因為不同資料集的檢索次數不同。SEEK 的 lightweight 主要是訓練與適配流程：只訓練 LoRA decomposer，不需要為 retrieval policy 建 binary-tree trajectories，再做 SFT 與 DPO。」
+
+## 為什麼還需要 direct path？
+
+「因為拆題會提高 multi-hop retrieval recall，但也可能移除原始限制或傳遞錯誤 bridge entity。四個資料集都有 direct-only correct cases，尤其 HotpotQA 有 78 題，所以 direct path 是實際有貢獻的 fallback，不只是 baseline。」
+
+## Oracle gap 是否代表只要改善 verifier 就能再加 4.05 EM？
+
+「它表示現有兩個候選之間還有平均 4.05 EM 的選擇空間，但這是使用 gold answer 的上限，不是可直接達成的結果；而且 both-wrong cases 完全不受益，仍要改善 retrieval、intermediate answer 與 synthesis。」
