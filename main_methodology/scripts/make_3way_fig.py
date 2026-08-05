@@ -1,87 +1,80 @@
 #!/usr/bin/env python3
-"""Grouped bar chart for the never/gate/always three-way RAG ablation (RESULTS_MASTER §4.6).
+"""Three-way retrieval-after-decomposition ablation.
 
-Shows both core findings in one figure:
-  (1) never -> gate huge jump  => retrieval after decomposition is necessary
-  (2) gate ~= always overlap   => the per-step gate costs ~0 accuracy (efficiency, not accuracy)
+Compare no retrieval, the accuracy-first tail-leakage gate, and full retrieval.
 """
-import os
-import re
-import sys
+from pathlib import Path
+import json
 
 import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import font_manager
 
-# register a CJK font so Chinese labels render (not as boxes)
-_cjk = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
-font_manager.fontManager.addfont(_cjk)
-matplotlib.rcParams["font.family"] = font_manager.FontProperties(fname=_cjk).get_name()
-matplotlib.rcParams["axes.unicode_minus"] = False
+ROOT = Path(__file__).resolve().parents[1]
+OUT = ROOT.parent / "Thesis" / "figures" / "fig_3way_ablation.png"
+RESULTS = ROOT / "results" / "tlsum_fixA_step_gate_final.json"
 
-# gate tau is configurable: `python make_3way_fig.py 0.8` swaps the gate bar to
-# tau=0.8 and writes a separate PNG (keeps the canonical tau=0.3 figure).
-GATE_TAU = float(sys.argv[1]) if len(sys.argv) > 1 else 0.3
-SCRIPTS = os.path.dirname(os.path.abspath(__file__))
-DS_KEYS = ["hotpotqa", "2wiki", "musique", "popqa"]
+dataset_keys = ["hotpotqa", "2wiki", "musique", "popqa"]
 datasets = ["HotpotQA", "2Wiki", "MuSiQue", "PopQA"]
-_EM_RE = re.compile(r"^EM:\s+([\d.]+)%", re.M)
 
+# This ablation evaluates the decomposition candidate itself, before the final
+# direct-vs-decomposition verifier.  Using `em` here would instead report the
+# final-system result and mix the direct path into the comparison.
+with RESULTS.open(encoding="utf-8") as handle:
+    results = json.load(handle)["results"]
 
-def read_em(path):
-    m = _EM_RE.search(open(os.path.join(SCRIPTS, path)).read())
-    if not m:
-        raise SystemExit(f"no EM found in {path} (run not finished?)")
-    return float(m.group(1))
-
-
-def gate_log(ds):
-    if abs(GATE_TAU - 0.3) < 1e-9:
-        return f"3way_gate_{ds}.log"
-    return f"sweep_{ds}_tau{str(GATE_TAU).replace('.', 'p')}.log"
-
-
-never  = [read_em(f"3way_never_{ds}.log") for ds in DS_KEYS]
-gate   = [read_em(gate_log(ds)) for ds in DS_KEYS]
-always = [read_em(f"3way_always_{ds}.log") for ds in DS_KEYS]
-jump   = [g - n for g, n in zip(gate, never)]
-print(f"gate τ={GATE_TAU}: never={never} gate={gate} always={always}")
+never = [results[ds]["never"]["decomp_em"] for ds in dataset_keys]
+accuracy_first = [results[ds]["tau_0.002305"]["decomp_em"] for ds in dataset_keys]
+always = [results[ds]["always"]["decomp_em"] for ds in dataset_keys]
+gate_retrieval = 100 * sum(
+    results[ds]["tau_0.002305"]["retrieved_steps"] for ds in dataset_keys
+) / sum(results[ds]["tau_0.002305"]["total_steps"] for ds in dataset_keys)
 
 x = np.arange(len(datasets))
-w = 0.26
+width = 0.24
 
-fig, ax = plt.subplots(figsize=(8.4, 4.8))
-b_never  = ax.bar(x - w, never,  w, label="never-RAG", color="#c0392b")
-b_gate   = ax.bar(x,     gate,   w, label=f"gate τ={GATE_TAU:g}", color="#27ae60")
-b_always = ax.bar(x + w, always, w, label="always-RAG", color="#7f8c8d")
+fig, ax = plt.subplots(figsize=(9.4, 5.4), dpi=170)
+bars_never = ax.bar(
+    x - width,
+    never,
+    width,
+    label="Never retrieve (0%)",
+    color="#c05a47",
+)
+bars_accuracy = ax.bar(
+    x,
+    accuracy_first,
+    width,
+    label=rf"Tail-Leakage gate ($\tau=0.002305$; {gate_retrieval:.2f}%)",
+    color="#27ae60",
+)
+bars_always = ax.bar(
+    x + width,
+    always,
+    width,
+    label="Always retrieve (100%)",
+    color="#7f8c8d",
+)
 
-# value labels on every bar
-for bars in (b_never, b_gate, b_always):
-    for r in bars:
-        ax.annotate(f"{r.get_height():.1f}",
-                    (r.get_x() + r.get_width() / 2, r.get_height()),
-                    textcoords="offset points", xytext=(0, 2),
-                    ha="center", va="bottom", fontsize=8)
+for bars in (bars_never, bars_accuracy, bars_always):
+    ax.bar_label(bars, fmt="%.1f", padding=2, fontsize=7.5)
 
-# annotate the never->gate jump (assumption (1))
-for i, d in enumerate(jump):
-    ax.annotate(f"+{d:.1f}", (x[i] - w / 2, max(never[i], gate[i]) + 4),
-                ha="center", va="bottom", fontsize=9, fontweight="bold",
-                color="#196f3d")
-
-ax.set_ylabel("EM")
-ax.set_title("Necessity of Retrieval after Decomposition")
+ax.set_ylabel("Decomposition-Path EM")
+ax.set_title("Retrieval within the Decomposition Path", fontsize=14, pad=12)
 ax.set_xticks(x)
 ax.set_xticklabels(datasets)
-ax.set_ylim(0, 62)
-ax.legend(loc="upper left", fontsize=9, framealpha=0.95)
-ax.grid(axis="y", alpha=0.3)
-fig.tight_layout()
+ax.set_ylim(0, 61)
+legend = ax.legend(loc="upper left", fontsize=8.6, frameon=False)
+legend.get_texts()[1].set_color("#c62828")
+legend.get_texts()[1].set_fontweight("bold")
+ax.grid(axis="y", linestyle="--", alpha=0.28)
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
 
-suffix = "" if abs(GATE_TAU - 0.3) < 1e-9 else f"_tau{str(GATE_TAU).replace('.', 'p')}"
-out = os.path.join(SCRIPTS, "..", "slides", "figures",
-                   f"fig_3way_ablation{suffix}.png")
-out = os.path.normpath(out)
-fig.savefig(out, dpi=150)
-print(f"saved {out}")
+fig.tight_layout()
+OUT.parent.mkdir(parents=True, exist_ok=True)
+fig.savefig(OUT, bbox_inches="tight")
+plt.close(fig)
+print(f"Wrote {OUT}")

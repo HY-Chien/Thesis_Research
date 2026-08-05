@@ -1,8 +1,8 @@
-本研究提出 SEEK (Self-certainty Evaluated Entropy-gated Knowledge-retrieval)，一個用於開放領域問答的輕量化自適應檢索增強生成 (Retrieval-Augmented Generation, RAG) 框架。傳統 RAG 對所有問題採用固定檢索策略：簡單問題可能因不必要的檢索引入雜訊，多跳問題則可能因單次檢索無法找到中介證據而回答失敗。既有自適應方法不是在問題層級做過於粗糙的路由，就是在詞元層級使用嘈雜的不確定性訊號，或像 DeepRAG 一樣透過樹搜尋與偏好最佳化學習昂貴的子問題決策策略。
+本論文提出 SEEK (Self-certainty Evaluated Evidence-gated Knowledge-retrieval)，一個用於開放領域問答的輕量化自適應檢索增強生成 (Retrieval-Augmented Generation, RAG) 框架。固定的檢索策略可能為簡單問題引入干擾證據，卻又無法替多跳問題找出後續檢索所需的中介實體。因此，自適應 RAG 不只需要判斷是否檢索，也需要判斷問題分解能否揭露缺失的證據，或反而遺失原始問題中的全域資訊。既有方法多採用粗略的問題層級決策、不完全可靠的詞元層級不確定性訊號，或透過軌跡建構與偏好最佳化學習成本較高的逐步決策策略。
 
-SEEK 使用一個以 KG-triple 格式表示的分解器，透過單次 LoRA SFT 在 12K 筆 MuSiQue、2WikiMultihopQA 與 PopQA 混合資料上訓練。最終版本不再把熵值當成單一硬性 skip gate，而是同時產生 direct answer 與 decomposed answer，並將 original-question evidence 加回 decomposed sub-question context，最後由 training-free verifier 搭配保守的 type-aware fallback 選擇最終答案。這種 late-routing 設計保留了熵訊號的可解釋性，同時避免單一全域閾值在跨資料集時的不穩定。
+SEEK 將自適應決策分成兩個相互關聯的層次：每個分解子問題是否需要檢索，以及最終答案應取自原始問題路徑或分解路徑。系統以 MuSiQue、2Wiki\-MultihopQA 與 PopQA 的一萬兩千筆資料，透過單次 LoRA 監督式微調訓練一個輕量分解器。推論時，SEEK 同時保留兩條作答路徑，以尾端洩漏驚異度控制子問題檢索，將原始問題的檢索證據加入各分解步驟的上下文，最後再由無需額外訓練、包含答案類型規則的驗證器選出答案。此設計使問題分解成為可撤回的候選策略，並讓路由決策保持可檢視性。
 
-在與 DeepRAG 對齊的 honest wiki-21M 檢索設定下，SEEK 平均達到 40.52 EM 與 47.61 F1，高於 DeepRAG 的 38.45 EM 與 45.75 F1。分資料集來看，SEEK 在 2WikiMultihopQA 達到 50.00 EM、MuSiQue 達到 24.70 EM、PopQA 達到 51.90 EM，皆高於 DeepRAG；HotpotQA 則為 35.50 EM，仍低於 DeepRAG 的 40.70 EM。分析顯示 direct path 與 decomposition path 具有互補性，oracle direct-vs-decompose routing 仍有 3.8 到 6.1 EM 的提升空間，而 entropy 適合作為 sub-question retrieval signal，但不能被視為 correctness guarantee。
+在 HotpotQA、2Wiki\-MultihopQA、MuSiQue 與 PopQA 的完整維基百科語料檢索實驗中，問題分解使三個多跳資料集的答案命中率提升 5.53 至 28.03 個 hit@5 百分點，而單跳 PopQA 僅降低 0.10 個百分點。直接路徑與分解路徑能解決不同問題，理想路由仍有 2.9 至 6.0 EM 的提升空間。在 accuracy-first 閾值 0.002305 下，信心閘門會在 93.84\% 的分解步驟觸發檢索；相較全部檢索，它在論文所報精度下維持相同的平均 EM，同時省下 6.16\% 的檢索呼叫。然而，尾端洩漏驚異度不能保證答案正確，且三個多跳資料集中，47.6\% 至 70.1\% 的分解路徑錯誤源自檢索缺口。整體而言，SEEK 平均達到 41.88 EM 與 48.90 F1，相較之下 DeepRAG 為 38.45 EM 與 45.75 F1；進一步分析則指出，檢索覆蓋、中介答案傳遞與路徑選擇仍是主要瓶頸。
 
 \bigskip
-\noindent\textbf{關鍵字：}檢索增強生成、自適應檢索、多跳問答、熵、驗證器路由、大型語言模型
+\noindent\textbf{關鍵字：}檢索增強生成、自適應檢索、多跳問答、尾端洩漏驚異度、驗證器路由、大型語言模型

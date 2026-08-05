@@ -18,7 +18,7 @@
 
 \begin{document}
 \pagestyle{plain} %This is the default style for most document classes. It places the page number centered in the footer, with an empty header.
-\begin{CJK}{UTF8}{bkai}
+\begin{thesiscjk}
 
 \let\cleardoublepage=\clearpage
 
@@ -27,15 +27,15 @@
 
 \newcommand{\degreeZH}{碩}  % 畢業學位，碩 for masters 或 博 for PHD
 \newcommand{\degreeEN}{Master's Thesis}  %  Fill in your degree "Master's Thisis" for masters 或 "Doctoral Dissertation" for PHD
-\newcommand{\titleZH}{基於自我確定性評估與熵門控的知識檢索} % 此括弧內填入論文中文標題Chinese title here
-\newcommand{\titleEN}{SEEK: Self-certainty Evaluated Entropy-gated Knowledge-retrieval} % 此括弧內填入論文英文標題
+\newcommand{\titleZH}{基於自我確信評估與問題拆解的\\自適應知識檢索方法} % 此括弧內填入論文中文標題Chinese title here
+\newcommand{\titleEN}{SEEK: Self-certainty Evaluated Evidence-gated Knowledge-retrieval} % 此括弧內填入論文英文標題
 \newcommand{\instituteZH}{資訊系統與應用研究所} % 此括弧內填入畢業生所屬學系班
 \newcommand{\instituteEN}{Institute of Information Systems and Applications} % Graduation Dept./Inst. Name
-\newcommand{\studentID}{S113065528} %填入畢業生的學號 your student ID
+\newcommand{\studentID}{113065528} %填入畢業生的學號 your student ID
 \newcommand{\studentZH}{簡宏諭} % 此括弧內填入畢業生的中文名字 Graduate's Chinese Name here
 \newcommand{\studentEN}{Hung-Yu Chien} %此括弧內填入畢業生的英文姓名 Graduate's Eng. Name here
-\newcommand{\advisorZH}{高宏宇~博士} %此括弧內填入指導教授的中文名字，如有兩個，請自行增加
-\newcommand{\advisorEN}{Dr. Hong-Yu Kao} % 此括弧內填入 advisor's English Name
+\newcommand{\advisorZH}{高宏宇} %此括弧內填入指導教授的中文名字，如有兩個，請自行增加
+\newcommand{\advisorEN}{Hung-Yu Kao} % 此括弧內填入 advisor's English Name
 \newcommand{\yearZH}{115} %此括弧內填入畢業年(民國) Year of ROC  ，就是口試日期的那個月
 \newcommand{\monthZH}{7} % Graduation (Oral exam) month of ROC
 \newcommand{\yearEN}{2026} % Graduation (oral exam) Year
@@ -43,25 +43,24 @@
 
 \input{2025Titlepage}
 
-%\restoregeometry  %back to NTHU required geometry setting
+\restoregeometry  % back to the thesis body geometry after the standard cover
 
-\cftaddtitleline{toc}{chapter}{學位論文授權書}{}
+% \cftaddtitleline{toc}{chapter}{學位論文授權書}{}
 
-\includepdf[pages=1-3, angle=0, fitpaper=true,
-       keepaspectratio, pagecommand={{\thispagestyle{empty}}},offset=-0.0cm 0.0cm]{./front/Authorized agreement.pdf} %offset=+right +up
-       
-\includepdf[pages=1, angle=0, fitpaper=true,
-    keepaspectratio, pagecommand={{\thispagestyle{empty}}}]{./front/Advisor Approval Form.pdf}
+% \includepdf[pages=1-3, angle=0, fitpaper=true,
+%        keepaspectratio, pagecommand={{\thispagestyle{empty}}},offset=-0.0cm 0.0cm]{./front/Authorized agreement.pdf} %offset=+right +up
 
-%\cftaddtitleline{<ext>}{<kind>}{<text>}{<page>} intead of using \addcontentsline command  for without page numbering
+% %\cftaddtitleline{<ext>}{<kind>}{<text>}{<page>} intead of using \addcontentsline command  for without page numbering
 
-       
-\cftaddtitleline{toc}{chapter}{指導教授推薦書}{}
+% \cftaddtitleline{toc}{chapter}{指導教授推薦書}{}
 
-\includepdf[pages=1, angle=0, fitpaper=true,
-       keepaspectratio, pagecommand={{\thispagestyle{empty}}},offset=-0.0cm 0.0cm]{./front/Thesis Review Form.pdf} % offset=+right +up
+% \includepdf[pages=2, angle=0, fitpaper=true,
+%     keepaspectratio, pagecommand={{\thispagestyle{empty}}}]{./front/Advisor Approval Form.pdf}
 
-\cftaddtitleline{toc}{chapter}{考試委員審定書}{}
+% \cftaddtitleline{toc}{chapter}{考試委員審定書}{}
+
+% \includepdf[pages=1, angle=0, fitpaper=true,
+%        keepaspectratio, pagecommand={{\thispagestyle{empty}}},offset=-0.0cm 0.0cm]{./front/Thesis Review Form.pdf} % offset=+right +up
 
 \frontmatter %Use for book class 
 
@@ -82,10 +81,10 @@
 \clearpage
 
 
-\chapter*{Acknowledgements}
-\addcontentsline{toc}{chapter}{Acknowledgements}
-\input{front/acknowledgement}      % Acknowledgement
-\clearpage
+% \chapter*{Acknowledgements}
+% \addcontentsline{toc}{chapter}{Acknowledgements}
+% \input{front/acknowledgement}      % Acknowledgement
+% \clearpage
 
 % generate Contents of Tables, lists of figures, tables, 
 
@@ -118,6 +117,7 @@
 \input{contents/chapter04}
 \input{contents/chapter05}
 \input{contents/chapter06}
+\input{contents/chapter07}
 
 % 參考文獻  References
 
@@ -137,5 +137,5 @@ title={References}
 
 \input{back/appendix01}
 
-\end{CJK}
+\end{thesiscjk}
 \end{document}

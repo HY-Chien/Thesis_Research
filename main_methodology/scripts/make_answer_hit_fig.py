@@ -65,7 +65,7 @@ def main() -> None:
         ax.text(
             x[i],
             decomposed[i] + 4.2,
-            f"+{gain:.1f}",
+            f"{gain:+.1f}",
             ha="center",
             va="bottom",
             fontsize=10,

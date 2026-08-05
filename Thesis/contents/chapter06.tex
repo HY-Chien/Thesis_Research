@@ -1,61 +1,65 @@
 
-\chapter{Conclusions and Future Work}
-\label{ch:conclusion}
+\chapter{Discussion}
+\label{ch:discussion}
 
-\section{Summary of Contributions}
+This chapter interprets the final results from Chapter~\ref{ch:results}. Taken together, they argue against reducing adaptive RAG to a single retrieve-or-skip decision. In multi-hop QA, the system must also decide when to trust decomposition, when to preserve the original question, and when the remaining error is outside the reach of routing.
 
-This thesis introduced \textbf{SEEK}, a lightweight adaptive RAG framework for open-domain question answering. The main contribution is to frame adaptive RAG as a \emph{decomposition-routing problem}: the system must decide not only when to retrieve, but also when to trust a decomposed reasoning path and when to preserve the original question.
+\section{Cost--Accuracy Trade-off}
+\label{sec:cost-benefit}
 
-The principal contributions are:
+SEEK operates at a finer granularity than standard retrieve-then-read RAG, and the final experiments require a careful cost claim. SEEK should not be described as uniformly cheaper at inference time: in the retrieval-count audit over the full-corpus Wikipedia retrieval traces, it retrieves more often than DeepRAG~\cite{deeprag} on HotpotQA and 2Wiki and less often on MuSiQue. The full audit is given in Appendix~\ref{app:cost-audit}.
 
-\begin{enumerate}
-    \item \textbf{Dual-path adaptive RAG.} SEEK generates both a direct answer and a decomposed answer, allowing the final system to compare original-question reasoning with step-by-step decomposition.
-    \item \textbf{KG-triple decomposition for sub-question retrieval.} The decomposer emits compact \texttt{entity >> relation} fragments with \texttt{\#N} dependencies, making multi-hop retrieval queries explicit and executable.
-    \item \textbf{Entropy-gated sub-question retrieval.} Maximum token entropy provides a transparent and training-free signal for deciding whether each decomposed step should retrieve external evidence.
-    \item \textbf{Original-question evidence preservation.} The final system unions original-question evidence into each decomposed step, reducing context loss caused by overly short sub-questions.
-    \item \textbf{Training-free verification.} SEEK selects between direct and decomposed candidates using confidence, answer type, decomposition stability, and candidate agreement, without classifier training, tree search, DPO, or preference data.
-    \item \textbf{Honest wiki-21M evaluation.} Under the DeepRAG-aligned open-domain pool, SEEK reaches 40.52 average EM and 47.61 average F1, outperforming DeepRAG on average and winning on 2Wiki, MuSiQue, and PopQA.
-\end{enumerate}
+The efficiency claim that survives this audit concerns offline adaptation and routing training, not guaranteed lower inference retrieval. SEEK trains only a LoRA decomposer; its retrieval gate, direct-vs-decompose verifier, and type-aware fallback are training-free. Learned-policy systems instead acquire a retrieval policy through trajectory construction, supervised fine-tuning, and preference optimisation. Counting only forward- and backward-pass computation, the two systems require comparable training compute: SEEK uses $2.40\times10^{17}$ floating-point operations (FLOPs), whereas DeepRAG's published pipeline is estimated at about $3.3\times10^{17}$. FLOPs count arithmetic operations rather than elapsed time. The claim is therefore not that SEEK is an order of magnitude cheaper in raw backpropagation. What SEEK saves is the preference-optimisation stage, the tree-search trajectory construction pipeline, and any retrieval-policy retraining when the setting changes; Appendix~\ref{app:cost-audit} itemises this comparison. This is the practical meaning of the ``lightweight'' claim in this thesis.
 
-\section{Limitations}
+\section{Why Direct and Decomposition Paths Must Coexist}
+\label{sec:path-complementarity}
 
-The principal limitations are:
+The answer-level 2x2 analysis shows that decomposition is valuable on every dataset, although the two paths remain complementary. Decompose-only wins outnumber direct-only wins by 135 to 78 on HotpotQA, 353 to 36 on 2Wiki, 192 to 27 on MuSiQue, and 194 to 32 on PopQA. HotpotQA has the smallest net advantage for decomposition, so preserving the direct candidate still matters most there.
 
-\begin{itemize}
-    \item \textbf{HotpotQA remains below DeepRAG.} SEEK improves HotpotQA to 35.50 EM, but still trails DeepRAG's 40.70 EM. HotpotQA is the clearest case where direct and decomposed paths are complementary but the current verifier does not fully exploit the headroom.
-    \item \textbf{Verifier headroom remains.} Oracle direct-vs-decompose routing still offers 3.8 to 6.1 EM over the current verifier, so routing is not solved.
-    \item \textbf{Entropy is not a correctness guarantee.} Entropy is useful for sub-question retrieval gating, but 9.5\% to 28.8\% of both-wrong examples can look as confident as both-correct examples. A pilot battery of 42 alternative confidence signals did not find a decisive per-question error detector either (Section~\ref{sec:entropy-analysis}).
-    \item \textbf{Bridge-answer drift limits decomposition.} On MuSiQue, SEEK nearly matches gold decomposition when the first-hop bridge entity is correct, but wrong intermediate answers drag the second query away from the target evidence.
-    \item \textbf{Both-wrong cases require better retrieval and synthesis.} Routing cannot fix examples where both direct and decomposed candidates are wrong; retrieval gaps explain 47\% to 68\% of decomposition-path errors on the multi-hop datasets.
-    \item \textbf{Single-seed greedy decoding.} Variance estimates are not reported and would strengthen small-difference claims.
-\end{itemize}
+This is why SEEK keeps both paths. The direct path preserves the full question context, while the decomposition path serves as a retrieval strategy that exposes intermediate entities. Each path fails on different examples, and that is what makes the verifier necessary.
 
-\section{Future Work}
+The contrast with chain-conditioned decomposition extends this point across systems. DeepRAG generates each follow-up question conditioned on the chain answered so far, which lets it adapt the plan during reasoning but also lets a wrong intermediate answer rewrite the rest of the plan; the case-level comparison in Appendix~\ref{app:deeprag-cases} documents traces whose later follow-up questions keep elaborating an earlier wrong entity instead of recovering. SEEK's decomposition is produced up front from the original question alone. A wrong bridge answer still degrades the second-hop retrieval query, as the MuSiQue analysis in Section~\ref{sec:decomposer-training-discussion} shows, but it cannot corrupt the structure of the remaining sub-questions, and the direct path remains available as a fallback.
 
-\subsection{Stronger Verifier Signals}
+The retrieval decision differs in the same way. A learned retrieve-or-answer policy can choose the parametric option at every step and hallucinate an entire chain; Appendix~\ref{app:deeprag-cases} quantifies how often this occurs on 2Wiki. At the accuracy-first threshold, SEEK retrieves for 2{,}014/2{,}257 (89.2\%) HotpotQA steps, 2{,}367/2{,}472 (95.8\%) 2Wiki steps, and 1{,}926/2{,}032 (94.8\%) MuSiQue steps. At the question level, only 23/1{,}000 (2.3\%), 19/1{,}000 (1.9\%), and 4/1{,}000 (0.4\%) traces, respectively, skip retrieval at every step. Other skipped steps occur in partially retrieved chains, so the step-level retrieval rate and the fully no-retrieval trace rate are not complements. PopQA is omitted from this multi-hop comparison because every planned path contains one step; its corresponding rates are 97.6\% and 2.4\%.
 
-The largest immediate opportunity is improving the verifier. Candidate signals include self-consistency disagreement, top-1 versus top-2 logit margin, hidden-state variance, answer-type compatibility, and lightweight learned calibration from a small validation set. The signal battery in Chapter~\ref{ch:exp} suggests that gains from any single scalar signal are modest, so combining confidence with evidence-side checks is more promising than searching for another scalar. The goal is to approach the oracle direct-vs-decompose headroom without losing SEEK's interpretability.
+\paragraph{Original-question evidence preservation.} Original-question evidence is retained in the decomposition path to preserve global context without changing the decomposer or training another retriever. Table~\ref{tab:answer-recall} isolates query reformulation: it compares retrieval from the original question with retrieval from decomposed sub-questions and shows gains on the three multi-hop datasets. It does not test the evidence union, so this table cannot establish the union's independent contribution under the final configuration.
 
-\subsection{Better Retrieval and Reranking}
+\section{What Training the Decomposer Buys}
+\label{sec:decomposer-training-discussion}
 
-The large both-wrong counts show that routing alone is insufficient. Dense retrieval, hybrid BM25+dense retrieval, or reranking over the unioned evidence could improve cases where neither path retrieves enough supporting information.
+The MuSiQue gold-decomposition analysis clarifies the role of decomposer training. SEEK's predicted decomposition raises answer-containing hit@5 from 19.0 to 38.8, while a gold decomposition with a gold intermediate answer reaches 55.8. When the SEEK sub-question text is given the gold bridge entity, it reaches 54.1, nearly the same as gold. This means the decomposer's wording is not the main bottleneck; the main bottleneck is whether the first-hop bridge entity is answered correctly before the second query is formed.
 
-\subsection{Length-Conditioned Decomposer}
+The untuned base-model comparison gives the other half of the story. The base Llama-3-8B-Instruct model can produce useful query text under oracle substitution, but it produces a valid two-step decomposition for only 149 of 1{,}000 MuSiQue examples and has a 15.3\% parsing failure rate. LoRA training therefore buys structural reliability: valid step counts, valid placeholders, and compact query style. That reliability is what makes the decomposition path executable at inference time.
 
-A target-depth control token such as \texttt{[K=1]}, \texttt{[K=2]}, or \texttt{[K=4]} could reduce negative transfer between single-hop and multi-hop data. The verifier or a small complexity predictor could choose the target depth at inference time.
+\section{Tail-Leakage Surprisal: Useful Signal, Not Correctness Guarantee}
+\label{sec:gate-design}
 
-\subsection{Multi-Sample Decomposition}
+Tail-leakage surprisal remains useful for deciding whether a sub-question should retrieve. The final retrieval-gate ablation compares never retrieving, the headline accuracy-first tail-leakage-surprisal threshold, and always retrieving, while the direct-path confidence battery shows that tail-leakage surprisal has the strongest macro error-detection AUROC among the tested signals.
 
-Sampling multiple decompositions and selecting by final-answer confidence or agreement could reduce wrong-first-hop propagation. This is especially relevant because the MuSiQue analysis shows that bridge-answer drift, rather than decomposition wording alone, explains much of the gap between SEEK and gold decomposition. This would trade inference cost for robustness without requiring DPO.
+However, it is not a correctness guarantee. The direct-path analysis shows a stable confident-wrong region: 7\% to 22\% of wrong direct answers carry surprisal at or below the median of correct answers, and the verifier-side quadrant analysis shows the same overlap for direct-answer tail-leakage surprisal. Appendix~\ref{app:confidence-diagnostics} reports the dataset-level counts and error categories.
 
-\subsection{Evidence-Aware Verification}
+A compact way to state these findings is that confidence signals measure properties of the answer distribution, not the correctness of the reasoning behind it. The most common confident error in our traces is an incomplete reasoning path: the model stops at the first-hop bridge entity, or returns an attribute where the question asks for a comparison winner, and it does so with the same near-zero leakage as a fully correct answer. In a separate diagnostic experiment, each question was answered fifteen times with a fixed top-five BM25 context. In 1{,}538 of 4{,}000 cases, all fifteen normalised answers were identical and the mean maximum token entropy was also zero, yet 620 (40.3\%) were wrong. Disagreement-based detection cannot flag such cases because there is no answer variation to detect; Appendix~\ref{app:confidence-diagnostics} gives the per-dataset breakdown. The confident-wrong analysis in Chapter~\ref{ch:results} shows the analogous limitation for tail-leakage surprisal: clean parametric hallucinations can be produced with essentially zero leakage. The mirror group of low-confidence correct answers also deserves care: nearly half of them pass only through token-F1 overlap rather than exact match, so they are officially correct but not always semantically correct, and high surprisal is an equally poor reason to discard an answer.
 
-Confidently wrong answers cannot be removed by another entropy threshold alone. Future verifiers should test whether the selected answer is externally supported by retrieved evidence, possibly with lightweight entailment checks, answer-type validation, or self-consistency over evidence snippets.
+The final quadrant analysis reinforces this point: direct-answer tail-leakage surprisal separates both-wrong from both-correct examples with a pooled AUROC of 0.816, yet 9.3\% of both-wrong examples still fall at or below the both-correct median.
 
-\subsection{Span Calibration}
+This explains why the final system uses confidence inside a broader verifier rather than as a single hard router. Tail-leakage surprisal locates uncertainty at the step level, but the direct-vs-decompose choice also needs answer type and decomposition stability. Even then, the remaining confidently wrong cases point toward future evidence-checking or self-consistency methods rather than another global threshold.
 
-A small post-training or post-processing module for terse answer spans could close EM-only failures while preserving F1. This is especially relevant for verbose entity descriptions and comparison questions.
+\section{Remaining Headroom and Remaining Problems}
+\label{sec:remaining-headroom}
 
-\section{Closing Remarks}
+The oracle analysis gives a measured upper bound for better routing. In the final traces, oracle direct-vs-decompose routing reaches 43.8 EM on HotpotQA, 53.3 on 2Wiki, 29.4 on MuSiQue, and 57.2 on PopQA. The final verifier leaves 2.9 to 6.0 EM of routing headroom.
 
-This thesis argues that adaptive RAG should ask two questions: when should the system retrieve, and when should it trust decomposition? SEEK shows that a lightweight system can answer both questions with interpretable inference-time signals. Decomposition improves retrieval, entropy helps control sub-question evidence use, original-question evidence preserves global context, and a training-free verifier makes the final route explicit. The remaining oracle gap leaves a clear path for future work, but the central result is already useful: adaptive RAG can be competitive with heavier learned-policy systems without hiding its routing decisions inside another trained model.
+This headroom should be interpreted carefully. Oracle routing is not deployable because it uses the gold answer after the fact. It also cannot fix examples where both paths are wrong. The final traces contain 562 both-wrong HotpotQA examples, 467 2Wiki examples, 706 MuSiQue examples, and 428 PopQA examples. These examples require improvements below the router: better retrieval, reranking, bridge-answer propagation, or final synthesis.
+
+The auxiliary $\tau=0.008461$ failure taxonomy in Table~\ref{tab:failure-taxonomy} makes the bottleneck concrete. Among wrong decomposition candidates, missing full supporting-title coverage in both the original and decomposed retrieval arms accounts for 47.6\% on HotpotQA, 61.8\% on 2Wiki, and 70.1\% on MuSiQue. Synthesis failures account for another 18.0\% to 25.2\%, while constraint loss is concentrated on HotpotQA at 5.9\%. The remaining problem therefore splits into routing headroom, retrieval coverage, synthesis robustness, and confidently wrong answers.
+
+\section{Threats to Validity}
+\label{sec:threats}
+
+\paragraph{External baseline numbers are paper numbers.} The external baseline results in Table~\ref{tab:main-results} are taken from the DeepRAG paper rather than reproduced in the exact same harness. Normalisation, prompting, and implementation details may differ slightly. To reduce protocol mismatch, SEEK uses the same approximately 21M-passage Wikipedia collection and BM25 retriever as DeepRAG, and the reported averages are recomputed only over the four overlapping datasets.
+
+\paragraph{Dataset slicing.} All headline results use the first 1{,}000 dev questions. MuSiQue dev is sorted by hop depth, so this slice understates full-dev difficulty. Full-dev MuSiQue remains harder, especially for 4-hop questions.
+
+\paragraph{Single seed and greedy decoding.} All numbers use greedy decoding without seed averaging. Small differences of 1 to 2 EM should be interpreted cautiously; the larger PopQA and 2Wiki gains over DeepRAG are more robust.
+
+\paragraph{Routing cannot fix both-wrong cases.} The verifier can only choose between two existing candidates. If both direct and decomposed answers are wrong, routing cannot recover the example. This is the main reason oracle routing is an upper bound on routing quality rather than an upper bound on the whole QA system.

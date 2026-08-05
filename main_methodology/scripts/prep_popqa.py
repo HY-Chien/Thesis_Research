@@ -32,15 +32,21 @@ def search(es: Elasticsearch, q: str, k: int = 30):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", default="/home/S113065528/Research/deeprag_compare/data/top1000/popqa.jsonl")
-    ap.add_argument("--out", default="/home/S113065528/Research/main_methodology/datasets/popqa/raw/dev.jsonl")
+    root = Path(__file__).resolve().parent.parent
+    ap.add_argument(
+        "--src",
+        default=root.parent / "deeprag_compare/data/top1000/popqa.jsonl",
+        type=Path,
+    )
+    ap.add_argument("--out", default=root / "datasets/popqa/raw/dev.jsonl",
+                    type=Path)
     ap.add_argument("--k", type=int, default=30)
     args = ap.parse_args()
 
     es = Elasticsearch(["http://localhost:9200"], request_timeout=60)
     assert es.ping(), "ES not reachable on localhost:9200"
 
-    rows = [json.loads(l) for l in open(args.src)]
+    rows = [json.loads(line) for line in open(args.src, encoding="utf-8")]
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
 
     n_empty = 0
