@@ -52,14 +52,68 @@ PopQA   53.90/55.73
 Macro   41.88/48.90
 ```
 
-This reproduction is CPU/offline. A live end-to-end run additionally requires
-the Llama-3 base model, the SEEK LoRA decomposer, evaluation JSONL files, and
-either per-question paragraphs or a compatible Elasticsearch Wikipedia index.
+The command above is a fast CPU/offline result-integrity check. To execute the
+SEEK model itself, follow the GPU path below.
+
+## GPU live inference
+
+The current implementation is tested with Python 3.11 and a CUDA GPU. A GPU
+with at least 24 GB of VRAM is recommended for Llama-3-8B in bf16. Install the
+PyTorch build matching the host CUDA driver before installing
+`requirements.txt`, then confirm that CUDA is visible:
+
+```bash
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+A live run needs these assets:
+
+| Asset | What to provide |
+|---|---|
+| Base model | `meta-llama/Meta-Llama-3-8B-Instruct` or a local copy |
+| SEEK decomposer | The author-provided PEFT/LoRA adapter directory |
+| Evaluation data | JSONL with `id`, `question`, `answer`, and optional aliases |
+| Retrieval source | Per-question `paragraphs`, or the external Elasticsearch `wiki` index |
+
+Accept the Meta Llama license, authenticate with Hugging Face, and place the
+LoRA adapter on the reviewer machine:
+
+```bash
+hf auth login
+```
+
+For the simplest GPU smoke run, use a JSONL file containing per-question
+paragraphs and execute:
+
+```bash
+python scripts/run_seek_dual.py \
+  --base meta-llama/Meta-Llama-3-8B-Instruct \
+  --adapter /path/to/seek-lora-adapter \
+  --dev /path/to/dev.jsonl \
+  --mode C \
+  --signal tail_leakage \
+  --tau 0.002305 \
+  --corpus paragraphs \
+  --top-k 8 \
+  --title-mode pathaware \
+  --direct-context-union \
+  --no-evidence \
+  --direct-confidence-tau 0.0005 \
+  --decomp-post-confidence-tau 0.0158 \
+  --typeaware-fallback \
+  --fallback auto \
+  --limit 10 \
+  --out results/generated/gpu_smoke.jsonl
+```
+
+Remove `--limit 10` for a full run. Full-Wikipedia evaluation uses the same
+command with `--corpus wiki --es-host localhost --es-port 9200`.
 
 See [the full reproduction guide](main_methodology/README.md) for the exact
-input schema, live inference command, external assets, dataset preparation,
+JSONL schema, Wikipedia index setup, dataset preparation, decomposer training,
 and the distinction between live inference and the paper's controlled
-fixed-chain evaluation.
+fixed-chain evaluation. The relative link follows whichever Git branch is
+currently being viewed.
 
 ## Repository map
 
