@@ -29,8 +29,11 @@ INSTRUCTION = (
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dev", default="/home/S113065528/Research/main_methodology/datasets/popqa/raw/dev.jsonl")
-    ap.add_argument("--out", default="/home/S113065528/Research/main_methodology/datasets/popqa/gold/popqa_decomp_lf.json")
+    root = Path(__file__).resolve().parent.parent
+    ap.add_argument("--dev", default=root / "datasets/popqa/raw/dev.jsonl",
+                    type=Path)
+    ap.add_argument("--out", default=root / "datasets/popqa/gold/popqa_decomp_lf.json",
+                    type=Path)
     ap.add_argument("--n", type=int, default=4000)
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()

@@ -1,8 +1,7 @@
 """Download HotpotQA (distractor) and convert to MuSiQue-aligned raw format.
 
 Run:
-    conda activate adaptive_rag
-    python /home/S113065528/Research/main_methodology/scripts/prepare_hotpotqa.py
+    python scripts/prepare_hotpotqa.py
 
 Output:
     main_methodology/datasets/hotpotqa/raw/{train,dev}.jsonl
@@ -16,7 +15,8 @@ from datasets import load_dataset
 
 REPO = "hotpotqa/hotpot_qa"
 CONFIG = "distractor"
-OUT_ROOT = Path("/home/S113065528/Research/main_methodology/datasets/hotpotqa")
+ROOT = Path(__file__).resolve().parent.parent
+OUT_ROOT = ROOT / "datasets" / "hotpotqa"
 SPLIT_MAP = {"train": "train", "validation": "dev"}
 
 

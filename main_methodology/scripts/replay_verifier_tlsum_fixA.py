@@ -31,8 +31,11 @@ from replay_typeaware_verifier import choose_typeaware, load_jsonl  # noqa: E402
 from analyze_confidence_battery import compute_signals  # noqa: E402
 
 DATASETS = ["hotpotqa", "2wiki", "musique", "popqa"]
-TRACE = "results/{ds}_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl"
-NEW = "results/tlsum_fixA_{ds}_shard{sh}.jsonl"
+TRACE = (
+    "results/traces/{ds}/"
+    "{ds}_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl"
+)
+NEW = "results/traces/{ds}/tlsum_fixA_{ds}_shard{sh}.jsonl"
 DIRECT_TAU_ENT = 0.3
 POST_TAU_ENT = 0.8
 MARGIN = 2.5
@@ -42,7 +45,10 @@ def build(ds: str) -> list[dict]:
     """Join the tlsum_fixA rows with direct records + golds; keep step order."""
     trace = {str(r["id"]): r for r in load_jsonl(ROOT / TRACE.format(ds=ds))}
     golds, dsig = {}, {}
-    for line in open(ROOT / f"results/conf_battery_{ds}.jsonl", encoding="utf-8"):
+    for line in open(
+        ROOT / f"results/traces/{ds}/conf_battery_{ds}.jsonl",
+        encoding="utf-8",
+    ):
         r = json.loads(line)
         golds[str(r["id"])] = [r["gold"]] + (r.get("aliases") or [])
         s = compute_signals(r) if r.get("tokens") else None

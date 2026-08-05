@@ -1,0 +1,32 @@
+# Portable direct dependencies for SEEK inference and result analysis.
+# Tested with Python 3.11. Transitive dependencies are intentionally omitted.
+#
+# PyTorch below is not tied to a CUDA wheel. For GPU execution, install the
+# build matching the host driver from https://pytorch.org/get-started/locally/
+# before installing this file; pip will then keep the compatible installation.
+
+# Core model inference
+torch>=2.4,<3
+transformers>=4.45,<6
+accelerate>=1.0,<2
+peft>=0.13,<1
+sentencepiece>=0.2,<1
+
+# Retrieval and data preparation
+rank-bm25>=0.2.2,<0.3
+elasticsearch>=7.17,<8
+datasets>=3,<5
+tqdm>=4.66,<5
+
+# Offline analysis, figures, and table export
+numpy>=1.26,<3
+scipy>=1.12,<2
+matplotlib>=3.8,<4
+openpyxl>=3.1,<4
+
+# Optional components are deliberately not installed here:
+# - The 21M-passage Wikipedia index is external; SEEK's Elasticsearch client
+#   is included, but the index itself must be built or obtained separately.
+# - Decomposer training needs the pinned LLaMA-Factory revision in the README.
+# - scripts/run_decomposition.py needs a vLLM build compatible with the host
+#   CUDA environment; install vLLM separately only when using that legacy path.

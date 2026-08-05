@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate fixed-chain synthesis outputs for the final tl_sum step-gate ablation.
 
-The input is *only* ``results/tlsum_fixA_{ds}_shard{0,1}.jsonl``.  Those
+The input is *only* ``results/traces/{ds}/tlsum_fixA_{ds}_shard{0,1}.jsonl``.
+Those
 records contain, for every deployed-chain step, both the no-retrieval
 ``tentative`` answer and the retrieved ``post_pred`` answer, together with the
 tentative ``tl_sum`` and retrieved-answer ``post_tl_sum`` signals.
@@ -24,10 +25,10 @@ Example (two GPUs)::
 
     CUDA_VISIBLE_DEVICES=0 python scripts/replay_tlsum_fixA_step_gate_synthesis.py \
       --shard 0 --num-shards 2 \
-      --out results/tlsum_fixA_step_gate_synth_shard0.jsonl --resume
+      --out results/generated/tlsum_fixA_step_gate_synth_shard0.jsonl --resume
     CUDA_VISIBLE_DEVICES=1 python scripts/replay_tlsum_fixA_step_gate_synthesis.py \
       --shard 1 --num-shards 2 \
-      --out results/tlsum_fixA_step_gate_synth_shard1.jsonl --resume
+      --out results/generated/tlsum_fixA_step_gate_synth_shard1.jsonl --resume
 """
 from __future__ import annotations
 
@@ -67,7 +68,10 @@ def load_rows() -> list[dict]:
     for ds in DATASETS:
         ds_rows: list[dict] = []
         for shard in (0, 1):
-            path = ROOT / f"results/tlsum_fixA_{ds}_shard{shard}.jsonl"
+            path = (
+                ROOT / "results" / "traces" / ds
+                / f"tlsum_fixA_{ds}_shard{shard}.jsonl"
+            )
             with path.open(encoding="utf-8") as handle:
                 ds_rows.extend(json.loads(line) for line in handle if line.strip())
         # IDs make sharding deterministic and independent of file order.
