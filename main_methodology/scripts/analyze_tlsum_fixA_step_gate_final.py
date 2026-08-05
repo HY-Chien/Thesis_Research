@@ -45,7 +45,10 @@ TYPEAWARE_MARGIN = 2.5
 def load_fix_rows(ds: str) -> dict[str, dict]:
     rows: dict[str, dict] = {}
     for shard in (0, 1):
-        path = ROOT / f"results/tlsum_fixA_{ds}_shard{shard}.jsonl"
+        path = (
+            ROOT / "results" / "traces" / ds
+            / f"tlsum_fixA_{ds}_shard{shard}.jsonl"
+        )
         for line in path.open(encoding="utf-8"):
             row = json.loads(line)
             rows[str(row["id"])] = row
@@ -71,7 +74,7 @@ def load_aux(ds: str) -> tuple[dict[str, dict], dict[str, list[str]], dict[str, 
     }
     golds: dict[str, list[str]] = {}
     direct_tl: dict[str, float] = {}
-    path = ROOT / f"results/conf_battery_{ds}.jsonl"
+    path = ROOT / "results" / "traces" / ds / f"conf_battery_{ds}.jsonl"
     for line in path.open(encoding="utf-8"):
         row = json.loads(line)
         identity = str(row["id"])
@@ -238,7 +241,7 @@ def format_cell(row: dict) -> str:
 
 def build_report(results: dict[str, dict[str, dict]], mismatches: dict[str, int]) -> str:
     lines = [
-        "# Final-trace tl_sum step-gate ablation (fixed-chain replay)",
+        "# Final Tail Leakage step-gate analysis (fixed-chain replay)",
         "",
         "Inputs: `tlsum_fixA_{ds}_shard{0,1}.jsonl` only for alternate step-answer vectors. "
         "For each threshold, a step uses `post_pred` iff `tl_sum >= tau`; otherwise it uses "
@@ -250,7 +253,7 @@ def build_report(results: dict[str, dict[str, dict]], mismatches: dict[str, int]
         "queries are not regenerated or re-resolved. Scores away from the deployed threshold are "
         "therefore controlled fixed-chain replays, not live end-to-end reruns.",
         "",
-        "Downstream routing is the adopted all-`tl_sum` verifier: direct tau=0.0005 and "
+        "Downstream routing is the adopted all-Tail-Leakage verifier: direct tau=0.0005 and "
         "post-decomposition tau=0.0158. No entropy score participates in gating or routing. "
         "EM/F1 are alias-aware. Retrieval rate is the percentage of decomposed steps that retrieve.",
         "",
@@ -266,7 +269,7 @@ def build_report(results: dict[str, dict[str, dict]], mismatches: dict[str, int]
         "",
         "Each cell is final-system EM/F1/step-retrieval-rate.",
         "",
-        "| Dataset | Never | Deployed tau=0.008461 | Always | Gate EM - Never EM |",
+        "| Dataset | Never | Source-chain tau=0.008461 | Always | Gate EM - Never EM |",
         "|---|---:|---:|---:|---:|",
     ])
     for ds in DATASETS:
@@ -329,14 +332,23 @@ def build_report(results: dict[str, dict[str, dict]], mismatches: dict[str, int]
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--synth", nargs="+", required=True, type=Path)
+    parser.add_argument(
+        "--synth",
+        nargs="+",
+        type=Path,
+        default=[
+            ROOT / "results/traces/other/tlsum_fixA_step_gate_synth_shard0.jsonl",
+            ROOT / "results/traces/other/tlsum_fixA_step_gate_synth_shard1.jsonl",
+        ],
+        help="fixed-chain synthesis JSONLs (defaults to the bundled two shards)",
+    )
     parser.add_argument(
         "--out", type=Path,
-        default=ROOT / "results/tlsum_fixA_step_gate_final.md",
+        default=ROOT / "results/reproduced/tlsum_fixA_step_gate_final.md",
     )
     parser.add_argument(
         "--json-out", type=Path,
-        default=ROOT / "results/tlsum_fixA_step_gate_final.json",
+        default=ROOT / "results/reproduced/tlsum_fixA_step_gate_final.json",
     )
     args = parser.parse_args()
 
@@ -379,6 +391,8 @@ def main() -> None:
         "deployed_synthesis_mismatches": mismatches,
         "results": results,
     }
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.json_out.parent.mkdir(parents=True, exist_ok=True)
     args.json_out.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import string
 import sys
@@ -26,7 +27,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from seek.pipeline import run_seek  # noqa: E402
 
-BASE = "/workspace/S113065528/RAG-DDR/models/Llama3-8B-Instruct"
+BASE = os.environ.get(
+    "SEEK_BASE_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct"
+)
 
 
 def _norm(s: str) -> str:
@@ -64,24 +67,35 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--adapter", required=True)
     ap.add_argument("--base", default=BASE,
-                    help="base model path (default Llama-3-8B; pass Qwen2.5-7B for that backbone)")
+                    help="Hugging Face model ID or local path (default: "
+                         "SEEK_BASE_MODEL or meta-llama/Meta-Llama-3-8B-Instruct)")
     ap.add_argument("--dev", required=True)
     ap.add_argument("--mode", choices=["B", "C"], required=True)
     ap.add_argument("--signal",
-                    choices=["max_ent", "mean_ent", "min_lp",
+                    choices=["tail_leakage", "tl_sum", "max_ent", "mean_ent", "min_lp",
                              "maqa_margin", "mean_margin", "max_margin",
                              "targ_unc", "targ_logit_gap"],
-                    default="max_ent")
+                    default="tail_leakage")
     ap.add_argument("--targ-prefix-k", type=int, default=8,
                     help="number of generated prefix tokens for TARG-style logit-gap averaging")
     ap.add_argument("--targ-beta", type=float, default=1.0,
                     help="temperature beta for TARG uncertainty exp(-gap / beta)")
-    ap.add_argument("--tau", type=float, default=0.8)
+    ap.add_argument(
+        "--tau",
+        type=float,
+        default=None,
+        help="retrieval threshold (default: 0.002305 for Tail Leakage, 0.8 otherwise)",
+    )
     ap.add_argument("--top-k", type=int, default=5)
     ap.add_argument("--corpus", default="paragraphs",
                     help="'paragraphs' = per-question pool (default); otherwise "
                          "an ES index name (e.g. 'wiki') for open-domain "
                          "retrieval matching DeepRAG.")
+    ap.add_argument("--es-host", default=os.environ.get("SEEK_ES_HOST", "localhost"),
+                    help="Elasticsearch host (default: SEEK_ES_HOST or localhost)")
+    ap.add_argument("--es-port", type=int,
+                    default=int(os.environ.get("SEEK_ES_PORT", "9200")),
+                    help="Elasticsearch port (default: SEEK_ES_PORT or 9200)")
     ap.add_argument("--skip-decompose-tau", type=float, default=None,
                     help="if set, probe original question with retrieval first; "
                          "if signal confident, skip decomposition entirely")
@@ -98,11 +112,15 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--out", default=None, help="optional jsonl trace dump")
     args = ap.parse_args()
+    if args.tau is None:
+        args.tau = 0.002305 if args.signal in {"tail_leakage", "tl_sum"} else 0.8
 
     open_retriever = None
     if args.corpus != "paragraphs":
         from seek.retriever import OpenDomainBM25
-        open_retriever = OpenDomainBM25(corpus_name=args.corpus)
+        open_retriever = OpenDomainBM25(
+            corpus_name=args.corpus, host=args.es_host, port=args.es_port
+        )
 
     tok = AutoTokenizer.from_pretrained(args.base)
     if tok.pad_token is None:
@@ -112,11 +130,19 @@ def main() -> None:
     model = PeftModel.from_pretrained(base, args.adapter)
     model.eval()
 
-    rows = [json.loads(l) for l in open(args.dev)]
+    rows = [
+        json.loads(line)
+        for line in open(args.dev, encoding="utf-8")
+        if line.strip()
+    ]
     if args.limit:
         rows = rows[:args.limit]
 
-    out_f = open(args.out, "w", encoding="utf-8") if args.out else None
+    out_f = None
+    if args.out:
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_f = out_path.open("w", encoding="utf-8")
     n = len(rows)
     em_sum = f1_sum = 0.0
     retr_steps = total_steps = 0

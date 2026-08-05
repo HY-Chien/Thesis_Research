@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 import torch
 
-from .answerer import answer_with_entropy, ANSWER_INSTRUCTION
+from .answerer import answer_with_entropy
 from .retriever import PerQuestionBM25, format_context
 
 DECOMP_INSTRUCTION = (
@@ -26,7 +26,9 @@ DECOMP_INSTRUCTION = (
 STEP_RE = re.compile(r"^#(\d+):\s*(.*)$")
 REF_RE = re.compile(r"#(\d+)")
 
-HIGHER_IS_UNCERTAIN_SIGNALS = {"max_ent", "mean_ent", "targ_unc"}
+HIGHER_IS_UNCERTAIN_SIGNALS = {
+    "max_ent", "mean_ent", "tail_leakage", "tl_sum", "targ_unc"
+}
 LOWER_IS_UNCERTAIN_SIGNALS = {
     "min_lp", "maqa_margin", "mean_margin", "max_margin", "targ_logit_gap"}
 SIGNAL_NAMES = HIGHER_IS_UNCERTAIN_SIGNALS | LOWER_IS_UNCERTAIN_SIGNALS
@@ -46,6 +48,7 @@ class StepTrace:
     tentative: str
     max_ent: float
     mean_ent: float
+    tail_leakage: float
     min_lp: float
     maqa_margin: float
     mean_margin: float
@@ -354,7 +357,8 @@ def run_seek(model, tok, row: dict, *, tau: float = 0.8,
     """Run SEEK on one dev row.
 
     Gate rule:
-      max_ent / mean_ent / targ_unc retrieve when value >= tau (high = uncertain)
+      max_ent / mean_ent / tail_leakage / targ_unc retrieve when value >= tau
+        (high = uncertain)
       min_lp / maqa_margin / mean_margin / max_margin / targ_logit_gap
         retrieve when value <= tau (low = uncertain)
 
@@ -423,7 +427,8 @@ def run_seek(model, tok, row: dict, *, tau: float = 0.8,
         with _answer_ctx(model, mode):
             res = answer_with_entropy(
                 model, tok, resolved,
-                targ_prefix_k=targ_prefix_k, targ_beta=targ_beta)
+                targ_prefix_k=targ_prefix_k, targ_beta=targ_beta,
+                orig_question=question)
         sig = res.signal(signal)
         retrieved = (sig >= tau) if higher_is_uncertain else (sig <= tau)
         final_ans = res.text
@@ -438,7 +443,8 @@ def run_seek(model, tok, row: dict, *, tau: float = 0.8,
             with _answer_ctx(model, mode):
                 post = answer_with_entropy(
                     model, tok, resolved, context=ctx,
-                    targ_prefix_k=targ_prefix_k, targ_beta=targ_beta)
+                    targ_prefix_k=targ_prefix_k, targ_beta=targ_beta,
+                    orig_question=question)
             post_sig = post.signal(signal)
             signal_drop = sig - post_sig if higher_is_uncertain else post_sig - sig
             if post_retrieval_drop_tau is not None:
@@ -469,6 +475,7 @@ def run_seek(model, tok, row: dict, *, tau: float = 0.8,
         trace.steps.append(StepTrace(
             step_id=sid, raw_sub_q=raw_sub_q, sub_q=resolved,
             tentative=res.text, max_ent=res.max_ent, mean_ent=res.mean_ent,
+            tail_leakage=res.tail_leakage,
             min_lp=res.min_lp, maqa_margin=res.maqa_margin,
             mean_margin=res.mean_margin, max_margin=res.max_margin,
             targ_logit_gap=res.targ_logit_gap, targ_unc=res.targ_unc,

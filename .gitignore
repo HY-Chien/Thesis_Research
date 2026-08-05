@@ -10,12 +10,35 @@ experiment/cache/
 *.json
 *.jsonl
 
+# Minimal SEEK artifact bundle used by the documented offline reproduction.
+# All other JSON/JSONL datasets, traces, and generated outputs remain ignored.
+!main_methodology/results/traces/hotpotqa/hotpotqa_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl
+!main_methodology/results/traces/hotpotqa/conf_battery_hotpotqa.jsonl
+!main_methodology/results/traces/hotpotqa/tlsum_fixA_hotpotqa_shard0.jsonl
+!main_methodology/results/traces/hotpotqa/tlsum_fixA_hotpotqa_shard1.jsonl
+!main_methodology/results/traces/2wiki/2wiki_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl
+!main_methodology/results/traces/2wiki/conf_battery_2wiki.jsonl
+!main_methodology/results/traces/2wiki/tlsum_fixA_2wiki_shard0.jsonl
+!main_methodology/results/traces/2wiki/tlsum_fixA_2wiki_shard1.jsonl
+!main_methodology/results/traces/musique/musique_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl
+!main_methodology/results/traces/musique/conf_battery_musique.jsonl
+!main_methodology/results/traces/musique/tlsum_fixA_musique_shard0.jsonl
+!main_methodology/results/traces/musique/tlsum_fixA_musique_shard1.jsonl
+!main_methodology/results/traces/popqa/popqa_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl
+!main_methodology/results/traces/popqa/conf_battery_popqa.jsonl
+!main_methodology/results/traces/popqa/tlsum_fixA_popqa_shard0.jsonl
+!main_methodology/results/traces/popqa/tlsum_fixA_popqa_shard1.jsonl
+!main_methodology/results/traces/other/tlsum_fixA_step_gate_synth_shard0.jsonl
+!main_methodology/results/traces/other/tlsum_fixA_step_gate_synth_shard1.jsonl
+
 
 # 實驗輸出與快取資料夾
 *_output/
 *_output_*/
 calibration_output/
 .ipynb_checkpoints/
+main_methodology/results/generated/
+main_methodology/results/reproduced/
 
 # 2. 機器學習常見大型檔案 (避免撐爆 GitHub 容量)
 *.pkl

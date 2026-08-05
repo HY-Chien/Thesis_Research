@@ -1,27 +1,58 @@
-# results/ 結構
+# SEEK 結果與最小復現資料
 
-> 2026-07-31 整理:原本 500+ 檔案平鋪,現依類型/資料集分層。
-> **注意**:`scripts/` 內舊分析腳本寫死的是整理前的平鋪路徑(`results/xxx.jsonl`);
-> 重跑歷史腳本時需自行對應到新位置。RESULTS_MASTER.md 與 ADVISOR_FEEDBACK_QA.md 的引用已全部更新。
->
-> **橋接技巧**(2026-07-31 驗證可行):跑舊腳本前在 results/ 建 symlink 指向新位置,跑完刪除:
-> ```bash
-> # 例:replay_verifier_tlsum_fixA.py 需要的 16 個檔
-> for ds in hotpotqa 2wiki musique popqa; do
->   for f in "${ds}_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl" \
->            "tlsum_fixA_${ds}_shard0.jsonl" "tlsum_fixA_${ds}_shard1.jsonl" \
->            "conf_battery_${ds}.jsonl"; do
->     ln -sf "traces/$ds/$f" "results/$f"; done; done
-> # 用畢:find results -maxdepth 1 -type l -delete
-> ```
-> 以此流程已完整重現 RESULTS_MASTER §4.19 final adopted headline(41.62/48.66,逐位一致)。
+Git 內附一份約 **49 MB（47 MiB）** 的 canonical minimal trace bundle，讓 reviewer
+在 clone repository 後，不需要 GPU、Llama 權重或 Elasticsearch，即可離線重算
+論文的 Tail Leakage threshold analysis 與最終 EM/F1。
+
+## Clone 後直接重算
+
+從 `main_methodology/` 執行：
+
+```bash
+python scripts/analyze_tlsum_fixA_step_gate_final.py
+```
+
+腳本會直接讀取下列 bundled files，不需要建立 symlink 或另外指定輸入路徑。
+產物寫入：
+
+```text
+results/reproduced/tlsum_fixA_step_gate_final.md
+results/reproduced/tlsum_fixA_step_gate_final.json
+```
+
+`results/reproduced/` 是本機產生目錄，不納入 Git。accuracy-first 操作點應重現：
+
+```text
+Tail Leakage tau = 0.002305
+Macro EM / F1    = 41.88 / 48.90
+```
+
+## Git 內附的四類檔案
+
+令 `{ds}` 為 `hotpotqa`、`2wiki`、`musique` 或 `popqa`。
+
+| 類別 | 路徑樣式 | 數量 | 用途 |
+|---|---|---:|---|
+| Final dual-path traces | `traces/{ds}/{ds}_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl` | 4 | 題目、gold、direct/decomposition 路徑與 verifier 所需欄位 |
+| Direct confidence traces | `traces/{ds}/conf_battery_{ds}.jsonl` | 4 | 由 token probabilities 重算 direct-path Tail Leakage |
+| Tail Leakage step traces | `traces/{ds}/tlsum_fixA_{ds}_shard{0,1}.jsonl` | 8 | 每一步 tentative/retrieved answer、`tl_sum` 與 `post_tl_sum` |
+| Fixed-chain syntheses | `traces/other/tlsum_fixA_step_gate_synth_shard{0,1}.jsonl` | 2 | 各 threshold 對應的 final synthesis，供離線重播 |
+
+共 18 個 JSONL。這是重算正式 accuracy-first 結果所需的最小集合，而不是所有研究
+期間產生的 traces。
+
+## `results/` 目錄
 
 | 位置 | 內容 |
-|------|------|
-| `traces/{hotpotqa,2wiki,musique,popqa}/` | 各資料集的實驗 trace(jsonl;依檔名中的資料集關鍵字分類) |
-| `traces/other/` | 跨資料集 / smoke test / manifest 類 jsonl |
-| `reports/` | 分析報告 md(confidence battery、failure taxonomy、sweep 摘要等)+ sweep 文字摘要 |
-| `tables/` | 最終表格(xlsx / tsv / json) |
-| `figures/` | 圖檔 |
+|---|---|
+| `traces/{hotpotqa,2wiki,musique,popqa}/` | 依資料集分層的實驗 traces；Git 只追蹤上表的 canonical subset |
+| `traces/other/` | 跨資料集的 synthesis 或 manifest；Git 只追蹤上表的兩個 synthesis shards |
+| `reports/` | confidence、failure taxonomy、threshold sweep 等分析報告 |
+| `tables/` | 最終表格與 machine-readable summaries |
+| `figures/` | 由分析產生的圖 |
+| `reproduced/` | reviewer 在本機重算的輸出（gitignored） |
 
-正式結果的權威彙整在上層 `../RESULTS_MASTER.md`(2026-06-13 起唯一正典,fragment md 已收斂於此)。
+完整實驗曾產生數百個歷史 sweep、ablation traces 與 logs，總量遠大於最小 bundle，
+因此仍由 `.gitignore` 排除。這些大型歷史檔案不是執行上方 canonical reproduction
+command 的必要條件。研究過程與其他消融結果的彙整可查閱上層
+`../RESULTS_MASTER.md`；腳本索引位於 `../scripts/README.md`。

@@ -1,130 +1,327 @@
-# SEEK — 復現指南(Reproduction Guide)
+# SEEK Reproduction Guide
 
-**SEEK**(Self-certainty Evaluated Evidence-gated Knowledge-retrieval):以 sub-question 為決策單位、
-tail-leakage surprisal 為信心訊號的 adaptive RAG 框架。本目錄是碩士論文(`../Thesis/`)的完整實驗程式碼與結果。
+SEEK is a dual-path adaptive retrieval system for knowledge-intensive question
+answering. It keeps both a direct answer and a decomposed reasoning path,
+retrieves evidence only for uncertain sub-questions, and uses a deterministic
+verifier to select the final answer.
 
-- 正式結果的唯一權威彙整:**`RESULTS_MASTER.md`**(操作點、主表、所有 ablation 出處)
-- 腳本索引與命名慣例:`scripts/README.md`;結果檔結構:`results/README.md`
-- 資料集說明:`DATASETS.md`
+The confidence signal is **Tail Leakage**. For every generated answer token,
+SEEK measures the probability mass outside the five leading next-token
+candidates. The answer-level score is
 
----
-
-## 0. 系統需求
-
-| 項目 | 需求 |
-|------|------|
-| GPU | 推論/訓練 Llama-3-8B(bf16 + LoRA):單卡 ≥24GB VRAM(實驗使用 2×GPU 分 shard) |
-| 環境 | conda env `thesis`(Python 3.11,**torch 2.10.0+cu128** — 勿裝預設 cu130) |
-| 檢索 | Elasticsearch 7.10.2 + `wiki` 索引(psgs_w100,21M passages,對齊 DeepRAG) |
-| 論文編譯 | TeX Live 2026(pdflatex + biber) |
-
-## 1. 環境安裝
-
-```bash
-conda env create -f environment_thesis.yml   # 建出名為 thesis 的環境
-conda activate thesis
-# 或用 pip 對照:pip install -r requirements_thesis.txt
-
-# 訓練 decomposer 需要 LLaMA-Factory(pin 至實驗使用的 commit):
-git clone https://github.com/hiyouga/LLaMA-Factory ~/LLaMA-Factory
-cd ~/LLaMA-Factory && git checkout 7e20db5735443861fad91766614b3415ff8966a4
-pip install -e ~/LLaMA-Factory
-```
-註:`environment_thesis.yml` 不含 llamafactory(dev 版無法從 PyPI 安裝),依上式從 git 裝。
-
-## 2. 版控之外、必須另外取得的資產
-
-`.gitignore` 排除大檔(`*.jsonl` `*.log` `*.safetensors` 等),**git clone 後缺以下內容**。
-打包給別人時請附上(或依「重建方式」自建):
-
-| 資產 | 位置 | 大小 | 重建方式 |
-|------|------|------|---------|
-| LoRA decomposer(正典) | `checkpoints/llama3-8b-decomposer-musique-2wiki-popqa/` | ~百 MB | §4-b 重新訓練 |
-| 原始資料集 + 12K SFT | `datasets/{musique,2wiki,hotpotqa,popqa}/` | 數 GB | 官方載點 + `scripts/prepare_*.py` |
-| wiki-21M ES 索引 | 外部(`~/Adaptive-RAG/elasticsearch-7.10.2` 的 data dir) | ~數十 GB | Adaptive-RAG repo `retriever_server/build_index.py`(psgs_w100) |
-| 基座模型 | HF `meta-llama/Meta-Llama-3-8B-Instruct` | 16GB | HF 下載(需授權) |
-| 實驗 traces / logs | `results/traces/`(721MB)、`logs/`(254MB) | ~1GB | 唯一原始證據,無法重建,**務必隨包附上** |
-
-```bash
-# 打包範例(程式碼走 git,大檔走 tar):
-tar czf seek_assets.tar.gz results/traces logs checkpoints datasets
+```text
+Tail Leakage = sum_t -log(sum of the top-5 next-token probabilities at t)
 ```
 
-## 3. 復現路徑 A:從既有 traces 重現分析與圖表(免 GPU,建議先走這條)
+A larger score indicates greater uncertainty. The active implementation accepts
+`tail_leakage` as the public CLI name; `tl_sum` remains an equivalent legacy
+alias for old experiment scripts.
 
-所有論文表格與分析都是離線讀 `results/traces/` 產生:
+## Reproduction status
+
+| Task | Works after a normal clone? | Additional resources |
+|---|---:|---|
+| Import the code and inspect every CLI | Yes | None |
+| Reproduce the reported 41.88 EM / 48.90 F1 | Yes | Bundled canonical artifacts; CPU only |
+| Re-run fixed-chain synthesis | No | Llama-3-8B-Instruct and a CUDA GPU |
+| Run SEEK live on a JSONL dataset | No | Base model, LoRA adapter, dataset, and optionally an ES index |
+| Train the decomposer | No | Training data and the pinned LLaMA-Factory checkout |
+
+Large raw datasets, the base model, the LoRA weights, and the 21M-passage
+Wikipedia index are deliberately not committed to Git. The approximately
+50 MB artifact bundle needed for the official offline evaluation **is**
+committed.
+
+## 1. Clone and install
+
+The current code-review snapshot is the `seek-code-review` branch:
 
 ```bash
-conda activate thesis
-python scripts/analyze_tail_leakage_variants.py      # 例:訊號 battery(→ results/reports/)
-python scripts/make_threshold_tradeoff_fig.py        # 例:論文 ch5 圖(→ ../Thesis/figures/)
-python ../Thesis/make_ch3_signal_figs.py             # ch3 Fig 3.4–3.7(數字內建,無外部依賴)
+git clone --branch seek-code-review --single-branch \
+  https://github.com/HY-Chien/Thesis_Research.git
+cd Thesis_Research/main_methodology
+
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-各 analyze/replay 腳本對應的論文章節見 `scripts/README.md` 的實驗家族表;
-注意:2026-07-31 整理後 traces 移到 `results/traces/{dataset}/`,舊腳本內寫死的平鋪路徑需對應調整。
+`requirements.txt` contains the portable direct dependencies. It does not
+contain author-specific paths or CUDA packages. For GPU inference, install the
+PyTorch build matching the host CUDA driver before installing the requirements;
+the compatible existing PyTorch installation will be retained.
 
-## 4. 復現路徑 B:完整重跑 pipeline(需 GPU + ES)
+Confirm that the active entry points load:
 
-**a. 資料準備(12K 三來源 SFT)**
 ```bash
-python scripts/prepare_musique.py && python scripts/prepare_2wiki.py
-python scripts/build_popqa_sft.py          # PopQA 已剔除 1,000 筆評測題
-python scripts/sample_gold_sft.py          # 合成 12K(MuSiQue/2Wiki/PopQA 各 4K)
+python scripts/run_seek.py --help
+python scripts/run_seek_dual.py --help
+python scripts/analyze_tlsum_fixA_step_gate_final.py --help
 ```
 
-**b. 訓練 decomposer(LoRA on Llama-3-8B-Instruct)**
+The files `requirements_thesis.txt` and `environment_thesis.yml` are
+provenance snapshots of the original workstation. They are not the recommended
+installation path because they include machine-specific transitive packages.
+
+## 2. Reproduce the thesis headline without a GPU
+
+Run:
+
 ```bash
-llamafactory-cli train configs/llama3_8b_decomposer_lora_3ds.yaml
-# cross-backbone 消融:scripts/qwen25_decomposer_lora.yaml
+python scripts/analyze_tlsum_fixA_step_gate_final.py
 ```
 
-**c. 啟動 Elasticsearch(heap 需 ≥8g,1g 會 429)**
+The command reads the bundled trace and synthesis shards under
+`results/traces/`, applies the all-Tail-Leakage verifier, and writes a report
+and machine-readable JSON under `results/reproduced/`.
+
+The accuracy-first row `tau=0.002305` should be:
+
+| Dataset | EM / F1 |
+|---|---:|
+| HotpotQA | 37.80 / 49.03 |
+| 2WikiMultihopQA | 49.30 / 56.22 |
+| MuSiQue | 26.50 / 34.63 |
+| PopQA | 53.90 / 55.73 |
+| **Macro average** | **41.88 / 48.90** |
+
+Its pooled step-retrieval rate is 93.84%. This is a controlled fixed-chain
+evaluation: each threshold chooses between already stored no-retrieval and
+retrieved step answers, then uses the stored base-model synthesis. Later
+resolved sub-questions remain fixed. It is not presented as an independent
+live rerun at every threshold.
+
+### Bundled inputs
+
+For each of `hotpotqa`, `2wiki`, `musique`, and `popqa`, Git contains:
+
+- the canonical direct/decomposition trace;
+- the direct-answer confidence battery;
+- two `tlsum_fixA` step-answer shards.
+
+Two deduplicated fixed-chain synthesis shards are stored in
+`results/traces/other/`. Other historical traces remain excluded because the
+complete local experiment directory is substantially larger.
+
+## 3. Live end-to-end inference
+
+### 3.1 Required assets
+
+| Asset | Expected form |
+|---|---|
+| Base model | Hugging Face ID `meta-llama/Meta-Llama-3-8B-Instruct` or a local path |
+| SEEK decomposer | PEFT/LoRA adapter directory containing `adapter_config.json` and `adapter_model.safetensors` |
+| Evaluation data | One JSON object per line; schema below |
+| Retrieval source | Per-question `paragraphs`, or an Elasticsearch index such as `wiki` |
+
+The Meta Llama model is gated. Accept its license and authenticate before the
+first download:
+
 ```bash
-ES_JAVA_OPTS="-Xms8g -Xmx8g" ~/Adaptive-RAG/elasticsearch-7.10.2/bin/elasticsearch -d
-curl -s localhost:9200/_cat/indices | grep wiki   # 確認 wiki 索引存在
+hf auth login
 ```
 
-**d. 主 pipeline:兩階段(trace 生成 → 離線 headline 鏈)**
+The LoRA weights are larger than GitHub's normal file limit and are not part of
+the clone. Place the author-provided adapter at any path and pass that path to
+`--adapter`, or train it from the supplied configuration in Section 5.
 
-階段一:dual-path trace 生成(GPU;entropy gate 產生並儲存每步的 no-retrieval / retrieved 答案與訊號):
+### 3.2 Input JSONL
+
+For per-question retrieval, each row has this minimal form:
+
+```json
+{
+  "id": "example-1",
+  "question": "Which city is the birthplace of the author of Example Book?",
+  "answer": "Example City",
+  "answer_aliases": [],
+  "paragraphs": [
+    {
+      "title": "Example Book",
+      "paragraph_text": "Example Book was written by Example Author."
+    },
+    {
+      "title": "Example Author",
+      "paragraph_text": "Example Author was born in Example City."
+    }
+  ]
+}
+```
+
+When `--corpus wiki` is used, retrieval comes from Elasticsearch and the
+`paragraphs` field may be omitted. `question` and `answer` are required for
+evaluation; `answer_aliases` is optional.
+
+### 3.3 Run with per-question paragraphs
+
+This path does not require Elasticsearch:
+
 ```bash
 python scripts/run_seek_dual.py \
-  --adapter checkpoints/llama3-8b-decomposer-musique-2wiki-popqa \
-  --dev <dataset 的 1000 題評測 jsonl> \
-  --mode C --corpus wiki --top-k 8 --title-mode pathaware \
-  --signal max_ent --tau 0.3 --no-evidence --fallback auto
-# 批次啟動器參考:scripts/run_wiki_deeprag_setting.sh(以 "ds:devfile" 形式傳參)
+  --base meta-llama/Meta-Llama-3-8B-Instruct \
+  --adapter /path/to/seek-lora-adapter \
+  --dev /path/to/dev.jsonl \
+  --mode C \
+  --signal tail_leakage \
+  --tau 0.002305 \
+  --corpus paragraphs \
+  --top-k 8 \
+  --title-mode pathaware \
+  --direct-context-union \
+  --no-evidence \
+  --direct-confidence-tau 0.0005 \
+  --decomp-post-confidence-tau 0.0158 \
+  --typeaware-fallback \
+  --fallback auto \
+  --limit 10 \
+  --out results/generated/example.jsonl
 ```
 
-階段二:論文 headline 鏈(對儲存的 trace 做離線重播,對應 RESULTS_MASTER §4.15–4.19):
+Remove `--limit 10` for the full dataset.
+
+### 3.4 Run with the full Wikipedia corpus
+
+The thesis uses Elasticsearch 7.10.2 with the `wiki` index built from
+`psgs_w100` (approximately 21 million passages). SEEK now contains its own
+small Elasticsearch query client; another Python source checkout is not
+required at runtime.
+
+Start or obtain a compatible index, then verify it:
+
 ```bash
-python scripts/rerun_prompt_fix.py   --ds <ds> ...    # prompt fix A:step 回答前置原題
-python scripts/rerun_tlsum_fixA.py   --ds <ds> --out <jsonl>
-#   ↳ tl_sum step gate,內建 TLSUM_TAU=0.002305(論文 accuracy-first 操作點)
-python scripts/replay_verifier_tlsum_fixA.py ...      # all-tl_sum verifier
-python scripts/rescue_value_answers.py ...            # value→entity synthesis guard(離線)
+curl -s http://localhost:9200/_cluster/health
+curl -s http://localhost:9200/_cat/indices/wiki?v
 ```
-**注意 `--signal` 沒有 `tl_sum` 選項**——tl_sum 操作點一律由階段二的 replay 腳本套用;
-各腳本的精確閾值與參數以 `RESULTS_MASTER.md` canonical 區塊為準。synthesis 一律 LoRA-off。
 
-**e. 驗收**:對照 `RESULTS_MASTER.md` 主表(honest wiki-21M,n=1000×4,
-macro EM/F1 = 41.62/48.66,vs DeepRAG 38.45/45.75 三勝一負)。
-
-## 5. 論文編譯
+Run the same command with:
 
 ```bash
-cd ../Thesis
-~/texlive/2026/bin/x86_64-linux/pdflatex -interaction=nonstopmode main.tex
-~/texlive/2026/bin/x86_64-linux/biber main
-~/texlive/2026/bin/x86_64-linux/pdflatex -interaction=nonstopmode main.tex   # ×2
-# 差異標註版同法編 main_diff.tex
+python scripts/run_seek_dual.py \
+  --base meta-llama/Meta-Llama-3-8B-Instruct \
+  --adapter /path/to/seek-lora-adapter \
+  --dev /path/to/dev.jsonl \
+  --mode C \
+  --signal tail_leakage \
+  --tau 0.002305 \
+  --corpus wiki \
+  --es-host localhost \
+  --es-port 9200 \
+  --top-k 8 \
+  --title-mode pathaware \
+  --direct-context-union \
+  --no-evidence \
+  --direct-confidence-tau 0.0005 \
+  --decomp-post-confidence-tau 0.0158 \
+  --typeaware-fallback \
+  --fallback auto \
+  --out results/generated/seek_predictions.jsonl
 ```
 
-## 6. 已知的坑
+The model can also be configured with `SEEK_BASE_MODEL`; Elasticsearch uses
+`SEEK_ES_HOST` and `SEEK_ES_PORT` when the corresponding CLI options are
+omitted.
 
-- **ES heap**:預設 1g 會大量 429,務必 8g(2026-06-04 修正)。
-- **synthesis 必須關 LoRA**:開著會長答案劣化(2Wiki 37.7→62.1 修正的由來)。
-- **torch 版本**:必須 cu128;`pip install torch` 預設 cu130 與本機 driver 不合。
-- **PopQA top_k**:2026-06-17 舊 canonical 用 top_k=3,現行 headline 鏈四資料集一律 top_k=8。
-- **distractor pool 與 honest wiki-21M 是兩套 protocol**,數字不可混表(RESULTS_MASTER §2 vs §3)。
+### Live run versus reported fixed-chain score
+
+`run_seek_dual.py` is the active live implementation: it generates and
+resolves each chain in sequence. The reported 41.88/48.90 threshold comparison
+uses the controlled fixed-chain protocol described in Section 2. Because an
+earlier answer can change a later resolved query in a live run, the two
+protocols should not be described as identical reruns.
+
+## 4. Re-run fixed-chain synthesis
+
+The clone already contains the two synthesis shards, so this section is only
+needed to regenerate them. It requires the base model and GPU but not the LoRA
+adapter:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python scripts/replay_tlsum_fixA_step_gate_synthesis.py \
+  --base meta-llama/Meta-Llama-3-8B-Instruct \
+  --shard 0 --num-shards 2 \
+  --out results/generated/tlsum_fixA_step_gate_synth_shard0.jsonl
+
+CUDA_VISIBLE_DEVICES=1 python scripts/replay_tlsum_fixA_step_gate_synthesis.py \
+  --base meta-llama/Meta-Llama-3-8B-Instruct \
+  --shard 1 --num-shards 2 \
+  --out results/generated/tlsum_fixA_step_gate_synth_shard1.jsonl
+
+python scripts/analyze_tlsum_fixA_step_gate_final.py \
+  --synth \
+    results/generated/tlsum_fixA_step_gate_synth_shard0.jsonl \
+    results/generated/tlsum_fixA_step_gate_synth_shard1.jsonl
+```
+
+## 5. Dataset preparation and decomposer training
+
+The raw datasets and generated SFT files are excluded from Git. The preparation
+scripts always write relative to this checkout:
+
+```bash
+python scripts/prepare_musique.py
+python scripts/prepare_2wiki.py
+python scripts/prepare_hotpotqa.py
+```
+
+PopQA evaluation data follows the DeepRAG-aligned 1,000-question protocol and
+must be supplied to `scripts/prep_popqa.py --src ...`. After the held-out
+evaluation IDs exist, build the 4,000-example PopQA decomposer set with:
+
+```bash
+python scripts/build_popqa_sft.py
+```
+
+The final decomposer uses 12,000 examples: 4,000 each from MuSiQue,
+2WikiMultihopQA, and PopQA. See `DATASETS.md` for data construction details.
+
+Training uses the LLaMA-Factory revision recorded for the experiment:
+
+```bash
+git clone https://github.com/hiyouga/LLaMA-Factory.git
+cd LLaMA-Factory
+git checkout 7e20db5735443861fad91766614b3415ff8966a4
+python -m pip install -e .
+
+# Register the three generated datasets in LLaMA-Factory's data/dataset_info.json,
+# then run from the LLaMA-Factory checkout:
+llamafactory-cli train \
+  /path/to/Thesis_Research/main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml
+```
+
+The YAML uses a public Hugging Face model ID and a relative output directory.
+If the base model is already downloaded locally, replace
+`model_name_or_path` with that path.
+
+## 6. Active code and research artifacts
+
+| Path | Role |
+|---|---|
+| `seek/answerer.py` | Greedy answer generation and confidence signals, including Tail Leakage |
+| `seek/pipeline.py` | Decomposition, step gate, retrieval, answer propagation, and synthesis |
+| `seek/retriever.py` | Per-question BM25 and open-domain Elasticsearch retrieval |
+| `seek/verifier.py` | Deterministic direct-versus-decomposition verifier |
+| `scripts/run_seek_dual.py` | Main live dual-path entry point |
+| `scripts/rerun_tlsum_fixA.py` | Generate stored no-retrieval/retrieved branches for Tail Leakage replay |
+| `scripts/replay_tlsum_fixA_step_gate_synthesis.py` | Regenerate fixed-chain synthesis outputs |
+| `scripts/analyze_tlsum_fixA_step_gate_final.py` | Reproduce final metrics and threshold sensitivity |
+| `scripts/README.md` | Index of ablation, probe, replay, and plotting scripts |
+| `RESULTS_MASTER.md` | Chronological experiment record; older sections retain historical operating points |
+
+Scripts outside the active path are retained because they generated thesis
+ablations and diagnostic figures. They are research artifacts rather than
+required steps in the quick-start path.
+
+## 7. Resource expectations
+
+- Offline headline reproduction: CPU and approximately 8 GB RAM are sufficient.
+- Live Llama-3-8B inference: one CUDA GPU with at least 24 GB VRAM is
+  recommended for the current bf16 implementation.
+- Decomposer training: the original run used LoRA with batch size 4 and
+  gradient accumulation 4.
+- Full-corpus retrieval: Elasticsearch plus the external 21M-passage index;
+  the index is tens of gigabytes and is not distributed through Git.
+
+When reporting results, distinguish the full `wiki` protocol from
+per-question distractor paragraphs. They are different retrieval settings and
+their numbers should not be compared as if they used the same corpus.

@@ -1,8 +1,7 @@
 """Download dgslibisey/MuSiQue and emit raw + SFT-ready jsonl splits.
 
 Run from any directory:
-    conda activate adaptive_rag
-    python /home/S113065528/Research/main_methodology/scripts/prepare_musique.py
+    python scripts/prepare_musique.py
 
 Output layout:
     main_methodology/datasets/musique/
@@ -17,7 +16,8 @@ from pathlib import Path
 from datasets import load_dataset
 
 REPO = "dgslibisey/MuSiQue"
-OUT_ROOT = Path("/home/S113065528/Research/main_methodology/datasets/musique")
+ROOT = Path(__file__).resolve().parent.parent
+OUT_ROOT = ROOT / "datasets" / "musique"
 
 # HF split name -> our filename stem
 SPLIT_MAP = {"train": "train", "validation": "dev"}

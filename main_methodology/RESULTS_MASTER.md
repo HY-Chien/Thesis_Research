@@ -7,7 +7,10 @@
 > wiki21M_oracle_direct_decompose_full, decompose_vs_direct_2x2, recall_ab_m3}.md`。
 > 原始 JSONL 結果仍在 `results/`,本檔只整併文字彙整。
 >
-> 最後更新:2026-07-04。2026-07-04 新增 direct-only confidence-gated RAG baseline
+> 最後更新:2026-08-05。目前論文 headline 採 accuracy-first Tail Leakage
+> step gate（tau=0.002305）與 all-Tail-Leakage verifier；較早實驗段落保留當時
+> 的 operating point 與命名，屬 chronological record。2026-07-04 新增
+> direct-only confidence-gated RAG baseline
 > (§4.11,`results/reports/direct_gate_ablation.md`):不拆解、只用 max_ent gate 檢索,
 > best-τ 仍輸 decompose+gate +12~+29 EM(HotpotQA 例外)→ 拆解貢獻不可被 gate 取代;
 > 2026-07-03 新增跨資料集 decomposition failure taxonomy
@@ -26,7 +29,9 @@
 
 ## 0. Canonical 摘要 / 最終選定法
 
-**最終選定法(2026-06-17)= training-free entropy-aware verifier v2(no evidence)+ path-aware title 檢索**。
+**目前論文系統（2026-08-05）= Tail Leakage step gate + dual path +
+path-aware title retrieval + original-question evidence union + conservative
+type-aware verifier。**
 
 ```text
 Base model        : Llama-3-8B-Instruct
@@ -34,17 +39,16 @@ Adapter           : checkpoints/llama3-8b-decomposer-musique-2wiki-popqa  (12K t
 Inference mode    : Mode C(decompose & answer 都用 LoRA),synthesis LoRA-off(synthOFF)
 Synthesis guard   : value→entity guard + conservative date-comparison guard
                     (2026-06-23 offline replay;正式 JSONL headline 待重算/套用)
-Gate              : token max-entropy, τ=0.3
-Verifier          : query-level, fallback=auto, direct_entropy_tau=0.4, decomp_post_entropy_tau=0.8
+Gate              : Tail Leakage, accuracy-first τ=0.002305
+Verifier          : all-Tail-Leakage, direct_tau=0.0005, decomp_post_tau=0.0158
+                    + conservative type-aware fallback
 Evidence support  : 關閉(只當 ablation,見 §3.2)
-Retrieval(honest): wiki-21M BM25(title+text,對齊 DeepRAG), top_k=8;PopQA top_k=3
-                    (top_k=3 僅限本 2026-06-17 canonical;2026-07-11 現行 headline 鏈——directctx→
-                    prompt fix A→tl_sum——四資料集一律 top_k=8,popqa_directctx.log 可證)
+Retrieval(honest): wiki-21M BM25(title+text,對齊 DeepRAG),四資料集 top_k=8
                     PATH-AWARE title:decompose 短 sub-q 開 title、direct 長原問題關 title
                     (單一 dataset-agnostic 規則,見 §4.4)
 ```
 
-最終選定法 @ honest wiki-21M(§3.1 path-aware 表):
+2026-06-17 historical path-aware baseline @ honest wiki-21M(§3.1):
 
 | Dataset | path-aware(final)EM/F1 | DeepRAG paper | ΔEM | verdict |
 |---|---:|---:|---:|---|
@@ -59,14 +63,19 @@ verifier + path-aware title)—— **PopQA / MuSiQue 兩勝、2Wiki 近平(F1 �
 title-off)再進一步:MuSiQue 由平轉勝、2Wiki gap −2.9→−1.2。distractor pool 的亮眼數字(§2)是另一個
 protocol,不可與 honest pool 直接相比。
 
-**2026-07-11 headline 升級(現行主表,見 §4.17 與 §4.19)**:evidence union + type-aware 之上再加
-**prompt fix A(step 回答前置原題,§4.15)+ tl_sum step gate(τ=0.008461,§4.16)+ all-tl_sum verifier**
-(`direct_tl_tau=0.0005`,`decomp_post_tl_tau=0.0158`),final adopted n=1000×4:
-HotpotQA **37.50/48.72**、2Wiki **48.70/55.63**、MuSiQue **26.60/34.74**、
-PopQA **53.70/55.53**,**macro 41.62/48.66**(vs DeepRAG 38.45/45.75,三勝一負)。
-pooled step 檢索率維持 87.8%;entropy-verifier canonical 41.45/48.72 保留作參考。
-all-tl_sum 相對該版本為 +0.17 EM/−0.06 F1,差異屬噪音範圍,採用理由是全系統信心訊號一致,
-不宣稱 verifier swap 本身帶來顯著提升。
+**目前論文 headline（accuracy-first，見 §4.17–§4.19 與
+`scripts/analyze_tlsum_fixA_step_gate_final.py`）**：evidence union +
+type-aware verifier 之上使用 prompt fix A、Tail Leakage step gate
+（τ=0.002305）及 all-Tail-Leakage verifier
+（`direct_tl_tau=0.0005`、`decomp_post_tl_tau=0.0158`）。n=1000×4：
+HotpotQA **37.80/49.03**、2Wiki **49.30/56.22**、MuSiQue **26.50/34.63**、
+PopQA **53.90/55.73**，**macro 41.88/48.90**；pooled step retrieval
+rate = **93.84%**。此 accuracy-first 閾值表採固定鏈 resynthesis：
+各閾值選擇 trace 中已儲存的 retrieved/no-retrieval step answers，後續已解析的
+sub-question 固定，不宣稱為每個閾值各自重跑的 live end-to-end 實驗。
+
+2026-07-11 的 τ=0.008461（41.62/48.66，87.82% step retrieval）保留為
+較省檢索的 historical operating point，不再是論文 headline。
 
 **2026-06-23 incremental update(不覆蓋主表):** 新增 HotpotQA failure analysis
 `results/reports/hotpotqa_failure_analysis.md`。結論:HotpotQA 與 2Wiki/MuSiQue 不同, direct-only
@@ -948,7 +957,7 @@ Direct path(n=1000×4;此表 **prompt-fix 前後不變**——direct 路徑 prom
 
 Decomp path:tl_sum 0.631 ≈ min_top5m 0.630 > max_ent 0.614(同 §4.13,decomp 側天花板低)。
 
-**建議**:論文主指標可升級為 tl_sum(命名 tail-leakage surprisal /候選管逃逸驚異度),
+**建議**:論文主指標可升級為 tl_sum（論文命名為 Tail Leakage）,
 KL 身份給理論根據;min_top5m 作為其 weakest-link 特例、softmax 池化族作為
 「軟聚合不如硬聚合」的 ablation。EM 端結論不變(§4.13 oracle ceiling)。
 

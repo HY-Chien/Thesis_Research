@@ -3,6 +3,20 @@
 > 2026-07-31 整理。檔名**未改動**(`.sh` 以 `python scripts/xxx.py` 呼叫、RESULTS_MASTER.md 也引用原名,改名會斷)。
 > 執行紀錄(`.log`/`.done`/`.out`/`.nohup`)已移至 `../logs/script_runs/`。
 
+## Code-review 起點（現役）
+
+| 目的 | 入口 |
+|---|---|
+| Live dual-path SEEK | `run_seek_dual.py`（`--signal tail_leakage`） |
+| 單一路徑 / gate 診斷 | `run_seek.py` |
+| 產生 Tail Leakage 雙分支 trace | `rerun_tlsum_fixA.py` |
+| 固定鏈重新 synthesis | `replay_tlsum_fixA_step_gate_synthesis.py` |
+| 重現 41.88 EM / 48.90 F1 | `analyze_tlsum_fixA_step_gate_final.py` |
+
+只想檢查或執行正式方法時，先看上表與上層 `README.md`。其餘檔案保留作
+論文 ablation、diagnostic 與 historical experiment provenance，不是 quick-start
+必跑步驟。
+
 ## 命名慣例(前綴 = 用途)
 
 | 前綴 | 意義 |
@@ -17,7 +31,7 @@
 | `recall_*` / `recompute_*` | 檢索品質評估 |
 | `eval_*` / `test_*` | decomposer 評估 |
 
-## 核心檔案(現役)
+## 其他核心與支援檔案
 
 - `run_seek.py` / `run_seek_dual.py` — SEEK 主 pipeline(單路徑 / dual-path);核心邏輯在 `../seek/`(`pipeline.py`, `answerer.py`, `retriever.py`, `verifier.py`)
 - `rescue_value_answers.py` — comparison 題 value→entity 離線修正(論文 §synthesis guard)

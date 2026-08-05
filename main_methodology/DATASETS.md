@@ -1,118 +1,37 @@
-# SEEK 資料集說明
+# SEEK 資料集與評估設定
 
-> 更新日期:2026-05-21
-> 專案:SEEK(Sub-question Entropy-driven Efficient Retrieval)
-> 用途:SEEK 第一階段「Data Construction」—— 建構 **SFT decomposer**(把複雜多跳問題拆成原子子問題)的訓練資料。
+本文件描述目前論文採用的資料設定。SEEK 的 decomposer 使用三個來源、共
+12,000 筆 SFT 樣本訓練；完整系統則在四個 QA 資料集上評估。
 
----
+## 1. 正式設定總覽
 
-## 1. 三個資料集與其角色
+| 資料集 | 類型 | Decomposer 訓練 | 完整系統評估 |
+|---|---|---:|---:|
+| **MuSiQue** | 多跳 QA | 4,000 筆 gold decomposition | 1,000 題 |
+| **2WikiMultiHopQA** | 多跳 QA | 4,000 筆由 `evidences` 轉換的 decomposition | 1,000 題 |
+| **PopQA** | 單跳 QA | 4,000 筆單步 decomposition；排除評估題 | 1,000 題 |
+| **HotpotQA** | 多跳 QA | 不參與訓練 | 1,000 題 |
 
-SEEK 的 decomposer 要學會把多跳問題拆成帶依賴關係的子問題序列。我們用三個標準多跳 QA 資料集當訓練/評測來源:
+因此，正式 decomposer 是：
 
-| 資料集 | train | dev | 角色 |
-|---|---:|---:|---|
-| **MuSiQue** | 19,938 | 2,417 | 主力訓練。原生 `question_decomposition` gold,已抽 4000 筆 SFT |
-| **2WikiMultiHopQA** | 167,454 | 12,576 | 訓練。`evidences` 三元組轉 gold 分解,已抽 4000 筆 SFT |
-| **HotpotQA** | 90,447 | 7,405 | **僅下游評估**。無任何 gold 分解,不拿來訓練 decomposer |
-
-**目前進度:** MuSiQue + 2Wiki 各 4000 筆 gold SFT 已建好。HotpotQA 經評估無 gold 分解訊號,定位為 SEEK 全流程的 out-of-domain 評估集,不參與 decomposer 訓練。
-
----
-
-## 2. 為什麼需要分解資料
-
-SEEK 的推論流程(見 proposal p.10):
-
-```
-複雜多跳問題 → a.Decompose(SFT decomposer)→ 子問題序列
-            → b.Probe Entropy → c.Gate(低熵走參數記憶 / 高熵叫檢索)
+```text
+MuSiQue 4K + 2Wiki 4K + PopQA 4K = 12K SFT
 ```
 
-第一步 Decompose 需要一個輕量 SFT decomposer。本資料夾的所有資料就是為了訓練/評估這個 decomposer。
+訓練設定位於
+`configs/llama3_8b_decomposer_lora_3ds.yaml`，其中 LLaMA-Factory 的資料集名稱為
+`musique_decomp,twowiki_decomp,popqa_decomp`。HotpotQA 沒有加入 decomposer
+訓練，可用來觀察模型對未見訓練來源的泛化。
 
----
+## 2. 12K decomposer 資料如何建構
 
-## 3. GPT-OSS-20B 分解能力評測
+### MuSiQue（4K）
 
-我們用本地的 **GPT-OSS-20B**(mxfp4,~13GB,單張 L40S,TP=1)對 MuSiQue 全量 train(19,938 筆)做分解,結果:
+MuSiQue train split 有 19,938 題，dev split 有 2,417 題。訓練樣本直接採用
+原始 `question_decomposition`，並依原始 hop 類別的自然比例抽取 4,000 題。
+`#N` 佔位符會保留，用來表示子問題之間的依賴關係。
 
-| 指標 | 數值 | 說明 |
-|---|---|---|
-| parse_rate | **93.5%** (18,645/19,938) | 輸出能解析成合法 JSON 分解 |
-| count_match | **66.1%** (12,318/18,645) | 生成步數 == gold 步數(佔已解析) |
-| step_answer EM | 65.1% | 各步答案對 gold(僅步數吻合列) |
-| psi_acc | 78.4% | 各步支持段落索引對 gold |
-| final_answer EM / F1 | 53.2% / 65.5% | 最終答案對 gold —— **不採用** |
-
-**關鍵判斷:** 「20B 分解能力準不準」要看 **parse_rate + count_match + 拓樸合法性**,不該看 final-answer EM。EM 會隨「回答能力」浮動,而回答能力是模型相依的,跟「分解能力」是兩回事 —— 資料建構階段只在意分解對不對。
-
-> 早先看到的「59% 準確率」是誤導:raw train 按 hop 排序,前 2048 筆全是 2hop,那個數字只反映 2hop 子集。
-
----
-
-## 4. 兩條建構路線(OSS-20B vs GOLD)
-
-針對 MuSiQue,我們做了兩個 4000 筆 SFT 候選集:
-
-### 路線 A:OSS-20B 分解 + 步數吻合篩選 〔已棄用〕
-- 全量分解 → `filter_count_match.py`(parse OK + depends_on 邊合法 + 步數吻合)→ 12,313 筆存活(61.8%)
-- `sample_sft.py` 按自然分佈抽 4000 筆
-- **問題:** 12.9% 的依賴拓樸跟 gold 不一致;4hop 類別品質差(4hop3 拓樸只 15% 對)
-
-### 路線 B:MuSiQue GOLD 分解 〔採用 ✅〕
-- 直接從 raw train 按自然分佈抽 4000 筆,gold 分解依定義 100% 正確
-- 把 gold `question_decomposition` 轉成 decomposer 訓練 schema
-- **決定:先用這份 gold 4000 筆訓練,驗證 MuSiQue 單資料集能否拉升 performance**
-
----
-
-## 5. 檔案清單(`datasets/musique/`)
-
-### ✅ 現役檔案
-
-| 檔案 | 筆數 | 說明 |
-|---|---:|---|
-| `gold/musique_gold_sft_4000.jsonl` | 4,000 | **訓練用 SFT 集**。gold 分解,自然 hop 分佈 |
-| `raw/train.jsonl` | 19,938 | MuSiQue 原始 train |
-| `raw/dev.jsonl` | 2,417 | MuSiQue 原始 dev(評測用) |
-| `oss-20b/musique_full_decomposition.jsonl` | 19,938 | 20B 全量分解輸出(評測 20B 能力用) |
-
-### 參考 / 中間產物
-
-| 檔案 | 筆數 | 說明 |
-|---|---:|---|
-| `oss-20b/musique_full_decomposition_count_matched.jsonl` | 12,313 | 步數吻合篩選後存活 |
-| `oss-20b/musique_sft_4000.jsonl` | 4,000 | 路線 A 候選集(已被 gold 取代) |
-| `sft/train.jsonl` / `sft/dev.jsonl` | 19,938 / 2,417 | 早期簡易 SFT 轉檔(`input`/`output`,`#N` 格式) |
-
-### 過時 / 可清理
-
-| 檔案 | 筆數 | 說明 |
-|---|---:|---|
-| `oss-120b/selected_2048_with_oss120b_decomposition.jsonl` | 2,048 | 舊的「只分解、無子答案」run(本機其實無 120B) |
-| `oss-20b/musique_train_2048*.jsonl` | 2048/1162/878 | 2048 筆種子批 + EM 篩選舊版(EM 已棄用) |
-| `oss-20b/musique_train_100.jsonl`、`*smoketest*` | 100 / 10 / 0 | 煙霧測試 |
-
----
-
-## 6. GOLD SFT 集規格(`musique_gold_sft_4000.jsonl`)
-
-每列保留 raw 欄位,並新增 `gold_decomposition`(decomposer 訓練目標 schema):
-
-```json
-{
-  "step_id": 1,
-  "sub_question": "Hello Love >> performer",   // 保留 MuSiQue #N 佔位符
-  "depends_on": [],                            // 從 #N 還原的依賴邊
-  "answer": "Hank Snow",
-  "paragraph_support_idx": 2
-}
-```
-
-**hop 類別組成(完全貼合 raw train 自然分佈):**
-
-| hop | 筆數 | 佔比 |
+| hop 類別 | 筆數 | 比例 |
 |---|---:|---:|
 | 2hop | 2,884 | 72.1% |
 | 3hop1 | 750 | 18.8% |
@@ -121,44 +40,115 @@ SEEK 的推論流程(見 proposal p.10):
 | 4hop2 | 26 | 0.7% |
 | 4hop3 | 80 | 2.0% |
 
----
+主要產物：
 
-## 7. 2WikiMultiHopQA gold 分解(`datasets/2wiki/gold/`)
+- `datasets/musique/gold/musique_gold_sft_4000.jsonl`：保留完整 gold 欄位的抽樣結果。
+- `datasets/musique/gold/musique_decomp_lf.json`：轉成 LLaMA-Factory 可讀格式。
 
-`evidences` 三元組 `(fact, relation, entity)` 直接轉 decomposer schema:
-- `sub_question` = `"<fact> >> <relation>"`(與 MuSiQue gold 同風格)
-- 依賴偵測(type-independent):某步 `fact` 等於前面某步 `entity` → chain hop,subject 改寫成 `#N`
-- `answer` = entity;`paragraph_support_idx` = None(2Wiki 無此標註)
+建構腳本為 `scripts/sample_gold_sft.py` 與 `scripts/build_lf_dataset.py`。
 
-167,454 筆全部可用(evidences 覆蓋率 100%),34.8% 步驟為 chain hop。
-4000 筆 SFT 依 `type` 自然分佈抽樣:
+### 2WikiMultiHopQA（4K）
 
-| type | 筆數 | 佔比 |
+2Wiki train split 有 167,454 題，dev split 有 12,576 題。每題的
+`evidences` 三元組 `(fact, relation, entity)` 會轉成一個原子步驟：
+
+```text
+fact >> relation
+```
+
+若目前步驟的 `fact` 等於前一步產生的 `entity`，會以 `#N` 表示依賴；其餘步驟
+保留為獨立的 comparison hop。4,000 題依原始 `type` 比例抽樣：
+
+| type | 筆數 | 比例 |
 |---|---:|---:|
 | compositional | 1,827 | 45.7% |
 | comparison | 1,241 | 31.0% |
 | bridge_comparison | 827 | 20.7% |
 | inference | 105 | 2.6% |
 
-檔案:`2wiki_gold_sft_4000.jsonl`、`2wiki_decomp_lf.json`(LLaMA-Factory,已註冊為 `twowiki_decomp`)。
+主要產物為
+`datasets/2wiki/gold/2wiki_gold_sft_4000.jsonl` 與
+`datasets/2wiki/gold/2wiki_decomp_lf.json`；建構腳本為
+`scripts/build_2wiki_gold.py` 與 `scripts/build_lf_dataset.py`。
 
----
+### PopQA（4K）
 
-## 8. 下一步
+PopQA 是單跳資料集。每個 `(subject, property, object)` 樣本轉成一個步驟：
 
-1. 訓練 decomposer:可選 MuSiQue 單獨、或 MuSiQue + 2Wiki 合併(共 8000 筆)
-2. 評估 decomposer + 接 SEEK 推論流程(Probe Entropy + Gate)
-3. HotpotQA 留作下游 QA 評估
+```text
+#1: subject >> property
+```
 
----
+這些樣本讓 decomposer 學會：當問題本身已經是原子問題時，輸出單一步驟即可，
+不必強制過度分解。`scripts/build_popqa_sft.py` 會先排除正式評估使用的 1,000 個
+question IDs，再以固定 seed 抽取 4,000 題，輸出
+`datasets/popqa/gold/popqa_decomp_lf.json`。
 
-## 相關腳本(`scripts/`)
+### HotpotQA（僅評估）
+
+HotpotQA train split 有 90,447 題，dev split 有 7,405 題。它沒有提供與 MuSiQue
+相同形式、可直接作為訓練目標的 gold 子問題序列，因此不加入 12K SFT；正式
+實驗只使用其準備後的 1,000 題評估集。
+
+## 3. SFT 樣本格式
+
+LLaMA-Factory 使用 Alpaca 格式，每個樣本包含 `instruction`、`input` 和 `output`：
+
+```json
+{
+  "instruction": "Decompose the following multi-hop question ...",
+  "input": "the original question",
+  "output": "#1: first atomic question\n#2: question using #1"
+}
+```
+
+decomposer 只預測有順序的子問題，不預測各步答案。子答案是在 SEEK 推論期間由
+基座模型產生。
+
+## 4. 四資料集評估 protocol
+
+正式結果在 HotpotQA、2WikiMultiHopQA、MuSiQue 與 PopQA 各 1,000 題上計算，
+共 4,000 題。檢索使用完整 Wikipedia `wiki` 索引（約 21M passages），四個資料集
+統一使用 `top_k=8`；這與只在資料集提供的 distractor paragraphs 中選取證據是
+不同 protocol，兩者結果不可混用。
+
+推論時，SEEK 先產生子問題及暫定答案，再從 next-token distribution 計算
+**Tail Leakage**。當 Tail Leakage 達到閾值時才為該步檢索，最後合成分解路徑答案，
+並在 direct 與 decomposition 路徑之間選擇輸出。
+
+論文採用的 accuracy-first 操作點為：
+
+```text
+Tail Leakage tau = 0.002305
+Macro EM / F1    = 41.88 / 48.90
+```
+
+可由 Git 內附的最小 trace bundle 離線重算；請參考 `results/README.md`。
+
+## 5. 本機資料目錄
+
+大型原始資料、轉換後 SFT 與含檢索段落的 dev files 不納入 Git。完整重跑時預期
+使用下列目錄：
+
+```text
+datasets/
+├── musique/{raw,gold,...}/
+├── 2wiki/{raw,gold,...}/
+├── popqa/{raw,gold,...}/
+└── hotpotqa/{raw,...}/
+```
+
+相關腳本：
 
 | 腳本 | 功能 |
 |---|---|
-| `run_decomposition.py` | 用 vLLM 跑 GPT-OSS-20B 分解 |
-| `eval_decomposition.py` | 評測分解品質(parse / count / EM / psi) |
-| `filter_count_match.py` | 步數吻合篩選(不含 EM) |
-| `sample_sft.py` | 從 OSS-20B 篩選結果抽自然分佈樣本(路線 A) |
-| `sample_gold_sft.py` | 從 raw 抽 gold 自然分佈樣本(路線 B,現役) |
-| `filter_decomposition.py` | EM 篩選(舊版,已棄用) |
+| `scripts/prepare_musique.py` | 將 MuSiQue 準備成 SEEK 使用格式 |
+| `scripts/prepare_2wiki.py` | 將 2Wiki 準備成 SEEK 使用格式 |
+| `scripts/prep_popqa.py` | 建立 PopQA 1,000 題評估檔及檢索段落 |
+| `scripts/sample_gold_sft.py` | 抽取 MuSiQue 4K gold decomposition |
+| `scripts/build_2wiki_gold.py` | 由 2Wiki evidences 建立 4K decomposition |
+| `scripts/build_popqa_sft.py` | 建立 PopQA 4K 單步 SFT 並排除評估題 |
+| `scripts/build_lf_dataset.py` | 轉換為 LLaMA-Factory Alpaca 格式 |
+
+早期的 GPT-OSS-20B 生成分解、count-match 與 EM 篩選檔案只保留作歷史分析，
+不屬於目前 12K decomposer 的訓練資料。

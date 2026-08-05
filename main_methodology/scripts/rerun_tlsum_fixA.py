@@ -23,7 +23,7 @@ For rate comparison the canonical max_ent tau=0.3 decision is recorded too.
 
 Usage:
     python scripts/rerun_tlsum_fixA.py --ds hotpotqa --shard 0 --num-shards 2 \
-        --out results/tlsum_fixA_hotpotqa_shard0.jsonl --resume
+        --out results/generated/tlsum_fixA_hotpotqa_shard0.jsonl --resume
 """
 from __future__ import annotations
 
@@ -91,10 +91,14 @@ def main() -> None:
     model.eval()
     retriever = OpenDomainBM25(corpus_name=args.corpus)
 
-    rows = [json.loads(l) for l in open(ROOT / TRACE.format(ds=args.ds),
-                                        encoding="utf-8")]
+    rows = [
+        json.loads(line)
+        for line in open(ROOT / TRACE.format(ds=args.ds), encoding="utf-8")
+        if line.strip()
+    ]
     golds_map = {}
-    for line in open(ROOT / f"results/conf_battery_{args.ds}.jsonl",
+    for line in open(
+        ROOT / f"results/traces/{args.ds}/conf_battery_{args.ds}.jsonl",
                      encoding="utf-8"):
         r = json.loads(line)
         golds_map[str(r["id"])] = [r["gold"]] + (r.get("aliases") or [])
@@ -109,7 +113,9 @@ def main() -> None:
                 done.add(str(json.loads(line)["id"]))
             except json.JSONDecodeError:
                 pass
-    out_f = open(args.out, "a" if args.resume else "w", encoding="utf-8")
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_f = out_path.open("a" if args.resume else "w", encoding="utf-8")
 
     t0 = time.time()
     n_done = 0

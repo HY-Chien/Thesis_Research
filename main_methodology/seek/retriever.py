@@ -52,14 +52,9 @@ def format_context(paragraphs: Iterable[dict]) -> str:
 
 
 # --- Open-domain retrieval (DeepRAG-equivalent setting) -------------------
-# Reuses Adaptive-RAG's existing ElasticsearchRetriever against the shared ES
-# `wiki` index (psgs_w100, 21M passages) — the exact corpus DeepRAG retrieves
-# from. Same .topk() interface as PerQuestionBM25 so the pipeline is unchanged.
-import sys as _sys
-
-_ADAPTIVE_RETRIEVER = "/home/S113065528/Adaptive-RAG/retriever_server"
-if _ADAPTIVE_RETRIEVER not in _sys.path:
-    _sys.path.insert(0, _ADAPTIVE_RETRIEVER)
+# Queries the shared Elasticsearch `wiki` index (psgs_w100, 21M passages) —
+# the exact corpus DeepRAG retrieves from. The small client is kept here so a
+# checkout of SEEK does not depend on Adaptive-RAG's Python source tree.
 
 
 class OpenDomainBM25:
@@ -69,8 +64,14 @@ class OpenDomainBM25:
     def __init__(self, corpus_name: str = "wiki",
                  host: str = "localhost", port: int = 9200,
                  query_title_field_too: bool = True):
-        from elasticsearch_retriever import ElasticsearchRetriever
-        self._r = ElasticsearchRetriever(host=host, port=port)
+        try:
+            from elasticsearch import Elasticsearch
+        except ImportError as exc:
+            raise ImportError(
+                "Open-domain retrieval requires the 'elasticsearch' package. "
+                "Install the project dependencies before using an ES corpus."
+            ) from exc
+        self._es = Elasticsearch([f"http://{host}:{port}"], request_timeout=30)
         self.corpus_name = corpus_name
         # Match the `title` field as well as `paragraph_text`. Titles are highly
         # informative for finding the right ARTICLE (DeepRAG's BM25 does this);
@@ -90,10 +91,38 @@ class OpenDomainBM25:
         last = None
         for attempt in range(4):
             try:
-                return self._r.retrieve_paragraphs(
-                    self.corpus_name, query_text=query,
-                    max_hits_count=k, max_buffer_count=max(100, k),
-                    query_title_field_too=tf)[:k]
+                should = [{"match": {"paragraph_text": query}}]
+                if tf:
+                    should.append({"match": {"title": query}})
+                body = {
+                    "size": max(100, k),
+                    "_source": [
+                        "id", "title", "paragraph_text", "url",
+                        "is_abstract", "paragraph_index",
+                    ],
+                    "query": {"bool": {"should": should}},
+                }
+                result = self._es.search(index=self.corpus_name, body=body)
+
+                # Match Adaptive-RAG's behavior: remove duplicate paragraph
+                # text, sort by ES score, and return plain source dictionaries.
+                by_text = {}
+                for hit in result.get("hits", {}).get("hits", []):
+                    source = hit.get("_source", {})
+                    text = (source.get("paragraph_text") or "").strip().lower()
+                    by_text[text] = hit
+                hits = sorted(
+                    by_text.values(),
+                    key=lambda hit: hit.get("_score") or 0.0,
+                    reverse=True,
+                )[:k]
+                paragraphs = []
+                for hit in hits:
+                    paragraph = dict(hit.get("_source", {}))
+                    paragraph["score"] = hit.get("_score")
+                    paragraph["corpus_name"] = self.corpus_name
+                    paragraphs.append(paragraph)
+                return paragraphs
             except Exception as e:  # noqa: BLE001 — ES 429/timeout under load
                 last = e
                 time.sleep(2 ** attempt)

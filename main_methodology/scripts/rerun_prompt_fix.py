@@ -23,7 +23,7 @@ choose_answer -> typeaware replay -> alias-aware EM / token F1.
 
 Usage:
     python scripts/rerun_prompt_fix.py --ds hotpotqa --shard 0 --num-shards 2 \
-        --out results/prompt_fix_hotpotqa_shard0.jsonl --resume
+        --out results/generated/prompt_fix_hotpotqa_shard0.jsonl --resume
 """
 from __future__ import annotations
 
@@ -50,7 +50,10 @@ from seek.verifier import choose_answer, exact_match, token_f1  # noqa: E402
 from replay_typeaware_verifier import choose_typeaware  # noqa: E402
 from probe_confidence_battery import BASE  # noqa: E402
 
-TRACE = "results/{ds}_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl"
+TRACE = (
+    "results/traces/{ds}/"
+    "{ds}_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl"
+)
 TAU = 0.3
 TOP_K = 8
 EV_CHARS = 400
@@ -146,10 +149,13 @@ def main() -> None:
     model.eval()
     retriever = OpenDomainBM25(corpus_name=args.corpus)
 
-    rows = [json.loads(l) for l in open(ROOT / TRACE.format(ds=args.ds),
-                                        encoding="utf-8")]
+    rows = [
+        json.loads(line)
+        for line in open(ROOT / TRACE.format(ds=args.ds), encoding="utf-8")
+        if line.strip()
+    ]
     golds_map = {}
-    for line in open(ROOT / f"results/conf_battery_{args.ds}.jsonl",
+    for line in open(ROOT / f"results/traces/{args.ds}/conf_battery_{args.ds}.jsonl",
                      encoding="utf-8"):
         r = json.loads(line)
         golds_map[str(r["id"])] = [r["gold"]] + (r.get("aliases") or [])
@@ -164,7 +170,9 @@ def main() -> None:
                 done.add(str(json.loads(line)["id"]))
             except json.JSONDecodeError:
                 pass
-    out_f = open(args.out, "a" if args.resume else "w", encoding="utf-8")
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_f = out_path.open("a" if args.resume else "w", encoding="utf-8")
 
     t0 = time.time()
     n_done = 0

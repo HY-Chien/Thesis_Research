@@ -3,8 +3,7 @@
 Source: xanhho/2WikiMultihopQA (parquet mirror of the original Alab-NII release).
 
 Run:
-    conda activate adaptive_rag
-    python /home/S113065528/Research/main_methodology/scripts/prepare_2wiki.py
+    python scripts/prepare_2wiki.py
 
 Output:
     main_methodology/datasets/2wiki/raw/{train,dev}.jsonl
@@ -17,7 +16,8 @@ from pathlib import Path
 from datasets import load_dataset
 
 REPO = "xanhho/2WikiMultihopQA"
-OUT_ROOT = Path("/home/S113065528/Research/main_methodology/datasets/2wiki")
+ROOT = Path(__file__).resolve().parent.parent
+OUT_ROOT = ROOT / "datasets" / "2wiki"
 SPLIT_MAP = {"train": "train", "dev": "dev"}  # 2Wiki HF split is named "dev"
 
 

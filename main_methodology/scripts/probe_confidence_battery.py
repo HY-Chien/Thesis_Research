@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -44,7 +45,9 @@ from seek.answerer import ANSWER_INSTRUCTION  # noqa: E402
 from seek.retriever import OpenDomainBM25, format_context  # noqa: E402
 from seek.verifier import exact_match, token_f1  # noqa: E402
 
-BASE = "/workspace/S113065528/RAG-DDR/models/Llama3-8B-Instruct"
+BASE = os.environ.get(
+    "SEEK_BASE_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct"
+)
 
 
 def _prompt(tok, question: str, context: str | None) -> str:
@@ -229,7 +232,11 @@ def main() -> None:
     model = PeftModel.from_pretrained(base, args.adapter)
     model.eval()
 
-    rows = [json.loads(l) for l in open(args.dev, encoding="utf-8") if l.strip()]
+    rows = [
+        json.loads(line)
+        for line in open(args.dev, encoding="utf-8")
+        if line.strip()
+    ]
     if args.limit:
         rows = rows[:args.limit]
     trace = {}

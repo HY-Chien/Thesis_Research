@@ -3,7 +3,7 @@
 ###       llamafactory-cli train .../configs/llama3_8b_decomposer_lora_combined.yaml
 
 ### model
-model_name_or_path: /workspace/S113065528/RAG-DDR/models/Llama3-8B-Instruct
+model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
 trust_remote_code: true
 
 ### method
@@ -24,7 +24,7 @@ preprocessing_num_workers: 8
 dataloader_num_workers: 4
 
 ### output
-output_dir: /home/S113065528/Research/main_methodology/checkpoints/llama3-8b-decomposer-musique-2wiki
+output_dir: saves/seek/llama3-8b-decomposer-musique-2wiki
 logging_steps: 10
 save_steps: 300
 save_total_limit: 3
