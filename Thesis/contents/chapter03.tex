@@ -1,7 +1,7 @@
 \chapter{Methodology}
 \label{ch:method}
 
-This chapter presents \textbf{SEEK} (\textbf{S}elf-certainty \textbf{E}valuated \textbf{E}vidence-gated \textbf{K}nowledge-retrieval), a lightweight adaptive RAG framework that treats question decomposition as a routing problem. SEEK runs both a direct path and a decomposition path, preserves original-question evidence inside decomposed steps, and chooses between the candidate answers using a training-free verifier. The design follows the view that adaptive RAG is more than a retrieve-or-skip problem: a question may need to be answered directly, decomposed into sharper retrieval queries, or repaired with original-question context after decomposition.
+This chapter presents SEEK (\textbf{S}elf-certainty \textbf{E}valuated \textbf{E}vidence-gated \textbf{K}nowledge-retrieval), a lightweight adaptive RAG framework that treats question decomposition as a routing problem. SEEK runs both a direct path and a decomposition path, preserves original-question evidence inside decomposed steps, and uses a deterministic, training-free rule set to select between the two candidate answers. We refer to this final selector as the \emph{verifier}. The design follows the view that adaptive RAG is more than a retrieve-or-skip problem: a question may need to be answered directly, decomposed into sharper retrieval queries, or repaired with original-question context after decomposition.
 
 \section{Overview}
 \label{sec:overview}
@@ -16,8 +16,8 @@ Given a question $q$ and an open-domain retrieval corpus $\mathcal{P}$, SEEK pro
 
 \begin{figure}[htbp]
     \centering
-    \makebox[\linewidth][c]{\includegraphics[width=1.3\linewidth]{Thesis_overflow.pdf}}
-    \caption[SEEK Pipeline]{Overview of SEEK. Stage 1 constructs 12K gold decomposition examples from MuSiQue, 2WikiMultihopQA, and PopQA; Stage 2 trains the LoRA decomposer on this corpus; Stage 3 runs dual-path inference, where the direct path answers the original question with retrieved evidence and the decomposition path answers sub-questions sequentially with confidence-gated retrieval and answer propagation, and a training-free verifier selects the final answer.}
+    \makebox[\linewidth][c]{\includegraphics[width=1.3\linewidth]{Thesis_Overview.pdf}}
+    \caption[SEEK Pipeline]{SEEK training and dual-path inference pipeline.}
     \label{fig:pipeline}
 \end{figure}
 
@@ -63,7 +63,8 @@ The decomposer emits one sub-question per line, prefixed with \texttt{\#}$\langl
 When a sub-question depends on an earlier answer, the placeholder \texttt{\#}$j$ refers to the answer of step $j$. For example:
 
 \begin{center}
-\begin{tabular}{ll}
+\small
+\begin{tabular}{@{}l@{\quad}l@{}}
     \texttt{\#1: Inception >> director} & $\rightarrow$ $a_1$ = \texttt{Christopher Nolan}\\
     \texttt{\#2: \#1 >> place of birth} & $\rightarrow$ \texttt{Christopher Nolan >> place of birth}
 \end{tabular}
@@ -90,7 +91,7 @@ The prompt standardises the output format without imposing a fixed decomposition
 
     \setlength{\tabcolsep}{6pt}
     \small
-    \begin{tabular}{ l p{4cm} p{6cm} }
+    \begin{tabular}{ l >{\raggedright\arraybackslash}p{4cm} >{\raggedright\arraybackslash}p{6cm} }
         \toprule
         Dataset & Question type & Decomposition \\
         \midrule
@@ -122,9 +123,7 @@ The fixed answer-only instruction used for both direct and sub-question answerin
     \label{fig:answer-prompt}
 \end{figure}
 
-During greedy decoding, SEEK records the softmax distribution $p_t=\mathrm{softmax}(\mathrm{logits}_t)$ for each generated token $t$. All confidence signals in SEEK are derived from these distributions: generation is a single greedy pass, so no resampling-based agreement is available, and no additional model is trained to judge confidence.
-
-\paragraph{Two kinds of uncertainty.} The signal design starts from an observation about how correct and incorrect answers differ at the token level. When the model knows the answer, the probability mass concentrates on a few candidates, and the remaining competition is typically between surface variants of the same answer, such as aliases, casing, or formatting differences. When the model lacks the required knowledge, the mass instead disperses over many unrelated continuations, well beyond any small set of plausible candidates. What separates the two cases is not how evenly the leading candidates split the mass, but whether the mass stays inside a small candidate set at all.
+\paragraph{Two kinds of uncertainty.} During greedy decoding, SEEK records the softmax distribution $p_t=\mathrm{softmax}(\mathrm{logits}_t)$ for each generated token $t$. The signal design starts from an observation about how correct and incorrect answers differ in these distributions. When the model knows the answer, the probability mass concentrates on a few candidates, and the remaining competition is typically between surface variants of the same answer, such as aliases, casing, or formatting differences. When the model lacks the required knowledge, the mass instead disperses over many unrelated continuations, well beyond any small set of plausible candidates. What separates the two cases is not how evenly the leading candidates split the mass, but whether the mass stays inside a small candidate set at all.
 
 \paragraph{Locating the signal with R\'enyi entropy.} Before committing to a particular functional form, SEEK first asks \emph{which region} of the next-token distribution carries the error-related information. R\'enyi entropy~\cite{renyi1961} offers a controlled instrument for this question, because it leaves the underlying probabilities untouched and changes only the relative emphasis given to high- and low-probability tokens:
 
@@ -134,44 +133,23 @@ During greedy decoding, SEEK records the softmax distribution $p_t=\mathrm{softm
     \label{eq:renyi}
 \end{equation}
 
-which recovers Shannon entropy in the limit $\alpha\rightarrow 1$. For $\alpha>1$ the sum is dominated by the largest probabilities, so the measure mainly describes the shape of the head; for $\alpha<1$ small probabilities are amplified, so the measure becomes increasingly sensitive to the tail. This distinction is consequential for LLM next-token distributions: over a vocabulary of more than 128K tokens, the tail consists of tens of thousands of individually negligible probabilities, and Shannon entropy, which weights each token by its own probability, folds their combined effect together with the competition among a handful of leading candidates into a single number. Substituting R\'enyi variants for Shannon entropy inside the same maximum-token-entropy error detector evaluated in Section~\ref{sec:tail-leakage-analysis} isolates the effect of this reweighting while holding everything else fixed; Figure~\ref{fig:renyi-reweight} visualises the reweighting and the resulting detection quality. On the 2WikiMultihopQA direct-path trace, the head-sensitive setting $\alpha=2$ reaches an error-detection AUROC of 0.651, Shannon entropy ($\alpha\rightarrow 1$) reaches 0.671, and the tail-sensitive setting $\alpha=0.5$ improves to 0.716. Detection quality rises monotonically as emphasis moves from the head towards the tail, which is the first piece of evidence that the error-related signal resides in the low-probability region rather than among the leading candidates. R\'enyi entropy nevertheless still compresses the entire distribution into one number: it indicates that the tail matters, but cannot distinguish whether what matters is \emph{how much} total mass leaks into the tail or \emph{how} that mass is arranged within it. The remainder of this section separates the two.
+which recovers Shannon entropy in the limit $\alpha\rightarrow 1$. For $\alpha>1$ the measure emphasises the largest probabilities, whereas $\alpha<1$ makes it more sensitive to the tail. This distinction matters for LLM next-token distributions because Shannon entropy combines uncertainty among the leading candidates with probability spread across the much larger tail. We therefore replace Shannon entropy with each R\'enyi variant in the same error detector while leaving the remaining evaluation settings unchanged. Figure~\ref{fig:renyi-reweight} shows that error detection improves as the weighting shifts from the head towards the tail, indicating that the low-probability region contains more useful error-related information. R\'enyi entropy still compresses the entire distribution into one number, however, and cannot determine whether the important factor is the total mass in the tail or its internal arrangement. The remainder of this section separates these possibilities.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{fig_renyi_reweight_auroc.pdf}
-    \caption[R\'enyi Reweighting and Error Detection]{R\'enyi reweighting of a next-token distribution and its effect on error detection. Left three panels: the escort distribution $p_t(v)^{\alpha}/\sum_{w} p_t(w)^{\alpha}$ of one fixed next-token distribution under three orders $\alpha$; $\alpha=2$ concentrates emphasis on the head (orange), $\alpha\rightarrow 1$ recovers the Shannon weighting, and $\alpha=0.5$ amplifies the tail (blue). Right: error-detection AUROC of the corresponding maximum-token-entropy detector on the 2WikiMultihopQA direct-path trace rises monotonically as emphasis moves towards the tail.}
+    \caption[R\'enyi Reweighting and Error Detection]{Effect of R\'enyi reweighting on error detection. Lower $\alpha$ emphasizes the probability tail and improves AUROC on 2WikiMultihopQA.}
     \label{fig:renyi-reweight}
 \end{figure}
 
-\paragraph{Same entropy, different risk.} A minimal example shows why a single entropy value cannot make this separation. Figure~\ref{fig:same-entropy-risk} and Table~\ref{tab:same-entropy-example} construct two next-token distributions for an answer position at which the model chooses between the casing variants \texttt{PO} and \texttt{po} of the same answer. The two distributions share identical leading candidates and, by construction, the same Shannon entropy of approximately $1.83$ nats. They differ only in where the remaining probability sits: distribution A retains $0.90$ of its mass inside the five most probable tokens and leaks $10\%$ into a dispersed tail of twelve tokens, whereas distribution B retains only $0.80$ and leaks twice as much mass into a more concentrated tail of five tokens. Entropy cannot separate the two cases because it responds simultaneously to the amount of leaked mass and to how dispersed that mass is: a smaller but more dispersed tail and a larger but more concentrated one sum to the same entropy. For the retrieval decision, however, the relevant event is that twice as much probability has escaped the model's main candidate set, while the competition between the two leading candidates—surface variants of one answer—is benign in both cases. The leakage score introduced below reacts to exactly this difference: $-\log 0.90 = 0.105$ versus $-\log 0.80 = 0.223$, more than doubling where entropy does not move at all.
+\paragraph{Same entropy, different risk.} Figure~\ref{fig:same-entropy-risk} shows two next-token distributions with the same Shannon entropy and the same leading candidates. Distribution B retains less probability within the top five and therefore places twice as much mass in the tail. Entropy assigns the same value to both distributions, whereas the Tail Leakage score introduced below clearly separates them.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{fig_same_entropy_risk.pdf}
-    \caption[Same Entropy, Different Risk]{The two constructed distributions of Table~\ref{tab:same-entropy-example}. The two leading candidates (orange) are identical and both distributions have a Shannon entropy of $1.83$ nats, yet distribution B leaks twice as much probability mass into the tail (blue). The leakage score $-\log m_t$ more than doubles while entropy does not move.}
+    \caption[Same Entropy, Different Risk]{Both distributions have the same Shannon entropy, but Distribution B places more probability mass in the tail.}
     \label{fig:same-entropy-risk}
 \end{figure}
-
-\begin{table}[htbp]
-    \centering
-    \caption[Same Entropy, Different Risk]{Two constructed next-token distributions with identical leading candidates and equal Shannon entropy (natural logarithm) but different tail mass. The per-token leakage score $-\log m_t$ defined in Section~\ref{sec:probe} separates them, whereas entropy does not.}
-    \label{tab:same-entropy-example}
-    \small
-    \begin{tabular}{lcc}
-        \toprule
-         & Distribution A & Distribution B \\
-        \midrule
-        rank 1: \texttt{PO} & 0.38 & 0.38 \\
-        rank 2: \texttt{po} & 0.26 & 0.26 \\
-        ranks 3--5 & 0.11 / 0.08 / 0.07 & 0.06 / 0.05 / 0.05 \\
-        \midrule
-        top-five retained mass & 0.90 & 0.80 \\
-        tail mass & 0.10 (12 tokens $\times$ 0.83\%) & 0.20 (5 tokens $\times$ 4.0\%) \\
-        Shannon entropy (nats) & 1.83 & 1.83 \\
-        leakage score $-\log m_t$ & 0.105 & 0.223 \\
-        \bottomrule
-    \end{tabular}
-\end{table}
 
 \paragraph{Decomposing token entropy.} Token entropy is the usual way to measure this kind of uncertainty, but it mixes the leakage of probability mass out of the candidate set with effects that are unrelated to correctness. Let $V_5(p_t)$ denote the set of the five most probable tokens under $p_t$, and let
 
@@ -183,13 +161,16 @@ which recovers Shannon entropy in the limit $\alpha\rightarrow 1$. For $\alpha>1
 be the probability mass retained within these candidates; the mass $1-m_t$ that leaks into the rest of the vocabulary is the tail. For token entropy $H(p_t)=-\sum_v p_t(v)\log p_t(v)$, the chain rule gives three components:
 
 \begin{equation}
-    H(p_t)=H_{\mathrm{B}}(m_t)+m_t\,H(\hat{p}_t^{\,\mathrm{in}})+(1-m_t)\,H(\hat{p}_t^{\,\mathrm{out}}),
+\begin{aligned}
+    H(p_t)={}&\bigl[-m_t\log m_t-(1-m_t)\log(1-m_t)\bigr] \\
+              &+m_t\,H(\hat{p}_t^{\,\mathrm{in}})+(1-m_t)\,H(\hat{p}_t^{\,\mathrm{out}}),
+\end{aligned}
     \label{eq:entropy-chain}
 \end{equation}
 
-where $H_{\mathrm{B}}$ is the binary entropy of whether the next token falls inside the top five or in the tail, and $\hat{p}_t^{\,\mathrm{in}}$, $\hat{p}_t^{\,\mathrm{out}}$ are the renormalised distributions inside and outside the top-five set. Only the first term reflects whether mass leaks into the tail. The second term measures competition inside the top five, which for correct answers frequently comes from surface variants of the same answer, and the third term describes the composition of the tail, which carries little information about correctness. Mixing the three therefore makes entropy a weaker error signal than the leakage term alone. This decomposition is an identity, not an approximation: it does not introduce a new uncertainty measure, but makes it possible to test each source of uncertainty separately. Section~\ref{sec:tail-leakage-analysis} performs exactly this test and confirms the reading: scored in isolation over the same traces, the leakage term reaches a macro error-detection AUROC of 0.742, competition inside the top five reaches 0.712, and the composition of the tail reaches 0.502, barely above chance. What predicts errors is how much mass leaves the candidate set, not how the leaked mass is arranged once it has left; this also resolves the ambiguity that the R\'enyi probe left open.
+where the bracketed term is the binary entropy of whether the next token falls inside the top five or in the tail, and $\hat{p}_t^{\,\mathrm{in}}$, $\hat{p}_t^{\,\mathrm{out}}$ are the renormalised distributions inside and outside the top-five set. The second term measures competition within the top five, while the third describes how probability is arranged within the tail. Mixing these effects makes entropy less specific as an error signal. This decomposition is an identity rather than a new uncertainty measure; it simply allows the three sources of uncertainty to be evaluated separately. The component analysis in Section~\ref{sec:tail-leakage-analysis} confirms that the amount of mass leaving the candidate set is more informative than either competition among leading candidates or the arrangement of mass within the tail.
 
-\paragraph{Tail-leakage surprisal.} The confidence signal of SEEK retains only the top-five mass $m_t$ from this decomposition and transforms it into a monotonic leakage score, while discarding the two within-group entropy terms. Surprisal is the standard information-theoretic measure of how unexpected an event is: an event of probability $p$ carries surprisal $-\log p$. Applying it to the event that generation stays within the candidate set, and accumulating over the answer, gives
+\paragraph{Tail Leakage.} The confidence signal of SEEK retains only the top-five mass $m_t$ from this decomposition and discards the two within-group entropy terms. To make the score increase as more probability leaves the candidate set, SEEK takes the negative logarithm of the retained top-five mass and sums the token-level values across the generated answer:
 
 \begin{align}
     \mathrm{TL}_t
@@ -199,30 +180,30 @@ where $H_{\mathrm{B}}$ is the binary entropy of whether the next token falls ins
          = -\log \prod_{t\in\mathcal{T}} m_t , \label{eq:tail-leakage}
 \end{align}
 
-where $\mathcal{T}$ indexes the generated answer tokens, excluding EOS. $\mathrm{TL}_t$ is the surprisal of staying inside the candidate set at position $t$: it is near zero when the top five candidates retain almost all of the mass, and it grows as mass leaks into the tail.
+where $\mathcal{T}$ indexes the generated answer tokens, excluding EOS. $\mathrm{TL}_t=-\log m_t$ is the token-level Tail Leakage score: it is near zero when the top five candidates retain almost all of the mass, and it grows as mass leaks into the tail.
 
-The transform is deliberately \emph{not} the binary-entropy term $H_{\mathrm{B}}(m_t)$ of Equation~\eqref{eq:entropy-chain}. A risk score should satisfy a basic monotonicity requirement: the more probability leaves the candidate set, the higher the score, with no reversal at severe leakage. As Figure~\ref{fig:leakage-monotonicity} shows, binary entropy violates this requirement, because as a function of the leaked mass $1-m_t$ it rises, peaks at $1-m_t=0.5$, and then falls again, so a token that leaks most of its mass would receive a score as low as one that leaks almost nothing. The role of the decomposition is therefore to identify $m_t$ as the informative variable, and the role of $-\log m_t$ is to convert that variable into a score that is strictly increasing in the leaked mass and, as a logarithm, additive across positions.
+The transform is deliberately \emph{not} the bracketed binary-entropy term of Equation~\eqref{eq:entropy-chain}. A risk score should satisfy a basic monotonicity requirement: the more probability leaves the candidate set, the higher the score, with no reversal at severe leakage. As Figure~\ref{fig:leakage-monotonicity} shows, binary entropy violates this requirement, because as a function of the leaked mass $1-m_t$ it rises, peaks at $1-m_t=0.5$, and then falls again, so a token that leaks most of its mass would receive a score as low as one that leaks almost nothing. The role of the decomposition is therefore to identify $m_t$ as the informative variable, and the role of $-\log m_t$ is to convert that variable into a score that is strictly increasing in the leaked mass and, as a logarithm, additive across positions.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{fig_leakage_monotonicity.pdf}
-    \caption[Monotonicity of the Leakage Score]{Binary entropy $H_{\mathrm{B}}(m_t)$ and leakage surprisal $-\log m_t$ as functions of the leaked mass $1-m_t$. Binary entropy peaks at $1-m_t=0.5$ and then falls, so severe leakage would be scored as low as near-certainty, whereas $-\log m_t$ increases strictly with the leaked mass.}
+    \caption[Monotonicity of the Leakage Score]{Binary Entropy and Tail Leakage versus leaked probability mass. Only Tail Leakage increases monotonically with leakage.}
     \label{fig:leakage-monotonicity}
 \end{figure}
 
-The answer-level score $\sigma^{\mathrm{tl}}$ accumulates this leakage over the generated span. The sum is preferred over a worst-token maximum because a wrong answer often leaks a small amount of mass at several positions rather than a large amount at one, and a maximum-based aggregate cannot accumulate this pattern. As a direct check that the score orders risk, pooling the 4{,}000 direct-path answers of the four evaluation datasets and splitting them into eight equal-frequency bins of $\sigma^{\mathrm{tl}}$ yields an error rate that rises monotonically from 33\% in the lowest bin to 97\% in the highest (Spearman $\rho=0.419$; Figure~\ref{fig:tl-error-bins}); the score is a ranking signal rather than a calibrated error probability, and Section~\ref{sec:tail-leakage-analysis} analyses its behaviour and failure modes in detail. SEEK uses tail-leakage surprisal throughout its confidence-based decisions, as the per-step retrieval signal and as both query-level confidence inputs to the verifier.
+The answer-level score $\sigma^{\mathrm{tl}}$ accumulates this leakage over the generated span. The sum is preferred over a worst-token maximum because a wrong answer may show small leakage at several positions, which a maximum-based aggregate cannot accumulate. Figure~\ref{fig:tl-error-bins} shows that answer errors become more frequent as Tail Leakage increases, supporting its use as a ranking signal rather than a calibrated error probability. Section~\ref{sec:tail-leakage-analysis} examines its behaviour and limitations in detail. SEEK uses Tail Leakage as the per-step retrieval signal and as both confidence inputs to the verifier.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.9\textwidth]{fig_tail_leakage_error_bins.pdf}
-    \caption[Error Rate by Tail-Leakage Bin]{Answer error rate across eight equal-frequency bins of tail-leakage surprisal, pooling the 4{,}000 direct-path answers of the four evaluation datasets; the value beneath each bar indicates the score level of that bin. The error rate rises monotonically from 33\% in the lowest bin to 97\% in the highest (Spearman $\rho=0.419$).}
+    \caption[Error Rate by Tail Leakage Quantile]{Answer error rate across Tail Leakage quantiles. Error rates increase with Tail Leakage.}
     \label{fig:tl-error-bins}
 \end{figure}
 
 \section{Decomposition-Path Inference}
 \label{sec:gate}
 
-Within the decomposition path, retrieval remains sub-question-level. For a resolved sub-question $s_i$, the answerer first produces a tentative parametric answer $\tilde{a}_i$ and its tail-leakage surprisal $\sigma_i$. The retriever is invoked when:
+Within the decomposition path, retrieval remains sub-question-level. For a resolved sub-question $s_i$, the answerer first produces a tentative parametric answer $\tilde{a}_i$ and its Tail Leakage $\sigma_i$. The retriever is invoked when:
 
 \begin{equation}
     \pi(s_i)=
@@ -234,6 +215,9 @@ Within the decomposition path, retrieval remains sub-question-level. For a resol
 \end{equation}
 
 where $\tau$ is the retrieval threshold. When retrieval is triggered, BM25 returns top-$k$ passages and the model re-answers $s_i$ using the retrieved context; otherwise $\tilde{a}_i$ is kept.
+
+\paragraph{Path-aware title handling.}
+Original questions and decomposed sub-questions have different query forms. Original questions are longer and contain multiple constraints, whereas sub-questions are usually short and centred on one entity. SEEK therefore disables BM25 title matching for the direct path and enables it for the decomposition path, where the entity name provides a useful title cue. We refer to this path-specific configuration as \emph{path-aware title retrieval}.
 
 \paragraph{Original-question evidence union.}
 A decomposed sub-question is often shorter and more entity-centric than the original question, which improves retrieval precision but can remove global clues such as comparison targets or disambiguating conditions. To preserve this context, the final system augments each retrieved sub-question context with evidence retrieved from the original question:
@@ -262,36 +246,9 @@ The verifier chooses between the direct candidate and the decomposed candidate. 
 \paragraph{Signals.} The verifier uses three query-level signals:
 
 \begin{itemize}
-    \item \textbf{Direct-answer surprisal} $\sigma^{\mathrm{dir}}$: low tail-leakage surprisal suggests the direct answer may be reliable.
-    \item \textbf{Decomposition post-surprisal} $\sigma^{\mathrm{dec}}$: high tail-leakage surprisal after decomposition and synthesis suggests the decomposed answer is unstable.
+    \item \textbf{Direct-answer Tail Leakage} $\sigma^{\mathrm{dir}}$: low Tail Leakage suggests the direct answer may be reliable.
+    \item \textbf{Post-decomposition Tail Leakage} $\sigma^{\mathrm{dec}}$: high Tail Leakage after decomposition and synthesis suggests the decomposed answer is unstable.
     \item \textbf{Structural validity}: unresolved placeholders, empty sub-answers, or malformed sub-questions indicate decomposition failure.
 \end{itemize}
 
-\paragraph{Rule.} The verifier chooses direct when the direct answer is confident and decomposition is unstable, and chooses decomposition in the remaining cases. Both conditions are measured with tail-leakage surprisal, using separate thresholds for the direct and decomposed candidates. The type-aware fallback is a deterministic refinement: it only changes the final route when answer type, direct surprisal, decomposition post-surprisal, and entity-fragment signals consistently indicate that the direct answer should be preferred.
-
-
-Algorithm~\ref{alg:seek} summarises the complete SEEK inference procedure.
-\begin{algorithm}[htbp]
-\caption{SEEK inference for one question $q$}
-\label{alg:seek}
-\begin{algorithmic}[1]
-\Require question $q$, corpus $\mathcal{P}$, surprisal threshold $\tau$, top-$k$
-\State $(a^{\mathrm{dir}}, \sigma^{\mathrm{dir}}) \gets \textsc{DirectAnswer}(q, r(q,\mathcal{P},k))$
-\State $\{s_1,\ldots,s_n\}\gets \mathcal{D}_\theta(q)$
-\State $A\gets\emptyset$
-\For{$i=1$ to $n$}
-    \State $s_i\gets\textsc{Resolve}(s_i,A)$
-    \State $(\tilde{a}_i,\sigma_i)\gets\mathcal{A}_\theta(s_i,\emptyset)$
-    \If{$\sigma_i\geq\tau$}
-        \State $c_i\gets r(s_i,\mathcal{P},k) \cup r(q,\mathcal{P},k)$
-        \State $a_i\gets\mathcal{A}_\theta(s_i,c_i)$
-    \Else
-        \State $a_i\gets\tilde{a}_i$
-    \EndIf
-    \State $A[i]\gets a_i$
-\EndFor
-\State $(a^{\mathrm{dec}},\sigma^{\mathrm{dec}},z^{\mathrm{dec}})\gets\textsc{Synthesize}(q,\{(s_i,a_i)\}_{i=1}^{n})$
-\State $\hat{a}\gets\textsc{Verifier}(a^{\mathrm{dir}},a^{\mathrm{dec}},\sigma^{\mathrm{dir}},\sigma^{\mathrm{dec}},z^{\mathrm{dec}})$
-\State \Return $\hat{a}$
-\end{algorithmic}
-\end{algorithm}
+\paragraph{Rule.} The verifier chooses direct when the direct answer is confident and decomposition is unstable, and chooses decomposition in the remaining cases. Both conditions are measured with Tail Leakage, using separate thresholds for the direct and decomposed candidates. The type-aware fallback is a deterministic refinement: it only changes the final route when answer type, direct Tail Leakage score, post-decomposition Tail Leakage score, and entity-fragment signals consistently indicate that the direct answer should be preferred.

@@ -12,15 +12,14 @@ The repository contains:
   `main_methodology/scripts/`;
 - a small canonical artifact bundle that reproduces the reported
   **41.88 EM / 48.90 F1** result without a GPU;
-- the thesis source in `Thesis/`.
+- the current thesis source, compiled PDF, and revision response in `Thesis/`.
 
 ## Quick start
 
-The current review snapshot is on `seek-code-review`:
+Clone the default `main` branch:
 
 ```bash
-git clone --branch seek-code-review --single-branch \
-  https://github.com/HY-Chien/Thesis_Research.git
+git clone https://github.com/HY-Chien/Thesis_Research.git
 cd Thesis_Research/main_methodology
 
 python3.11 -m venv .venv
@@ -54,6 +53,17 @@ Macro   41.88/48.90
 
 The command above is a fast CPU/offline result-integrity check. To execute the
 SEEK model itself, follow the GPU path below.
+
+Two additional CPU/offline analyses reproduce the skipped-retrieval comparison
+and the decomposition failure taxonomy used by the revised thesis:
+
+```bash
+python scripts/analyze_skipped_retrieval_questions.py
+python scripts/analyze_accuracy_first_failure_taxonomy.py
+```
+
+Their canonical trace inputs are bundled. Generated reports are written under
+`results/reproduced/`, which is intentionally ignored by Git.
 
 ## GPU live inference
 
@@ -122,9 +132,17 @@ currently being viewed.
 | `main_methodology/seek/` | Tail Leakage, decomposition, retrieval, synthesis, and verifier logic |
 | `main_methodology/scripts/run_seek_dual.py` | Main live dual-path CLI |
 | `main_methodology/scripts/analyze_tlsum_fixA_step_gate_final.py` | Offline headline reproduction |
+| `main_methodology/scripts/analyze_skipped_retrieval_questions.py` | Skipped-versus-always-retrieve analysis |
+| `main_methodology/scripts/analyze_accuracy_first_failure_taxonomy.py` | Thesis appendix failure taxonomy |
 | `main_methodology/results/` | Bundled canonical artifacts and result reports |
 | `main_methodology/configs/` | Portable LLaMA-Factory training configurations |
 | `Thesis/` | LaTeX thesis source and compiled PDF |
 
 The root `environment.yml` is an older environment and is not used by SEEK.
 Install from `main_methodology/requirements.txt` instead.
+
+The normal Git clone deliberately excludes the gated Llama base model, the
+SEEK LoRA adapter, raw evaluation/training datasets, and the full Wikipedia
+Elasticsearch index. Those external assets are required only for live
+inference or training; all inputs needed by the three offline commands above
+are included.

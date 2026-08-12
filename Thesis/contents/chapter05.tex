@@ -1,7 +1,7 @@
 \chapter{Results and Analysis}
 \label{ch:results}
 
-This chapter builds on the main comparison reported in Chapter~\ref{ch:exp} and analyses why SEEK works and where it fails. It examines retrieval quality, confidence-based ablations, the complementary direct and decomposition paths, final-trace failure modes, and the limits of tail-leakage surprisal as a confidence signal.
+This chapter builds on the main comparison reported in Chapter~\ref{ch:exp} and analyses why SEEK works and where it fails. It examines retrieval quality, confidence-based ablations, the complementary direct and decomposition paths, final-trace failure modes, and the limits of Tail Leakage as a confidence signal.
 
 \section{Retrieval Analysis}
 \label{sec:retrieval-analysis}
@@ -11,11 +11,11 @@ This section asks whether decomposition improves retrieval itself, and how much 
 \subsection{Answer-Containing Recall}
 \label{sec:retrieval-recall}
 
-Before evaluating final answers, we first ask whether decomposition actually improves retrieval quality. Table~\ref{tab:answer-recall} reports answer-containing hit@5: a query is counted as successful if at least one of the top five retrieved passages contains the gold answer or one of its aliases. Yes-or-no questions are excluded because the strings ``yes'' and ``no'' are not meaningful evidence strings.
+Before evaluating final answers, we first ask whether decomposition actually improves retrieval quality. Table~\ref{tab:answer-recall} reports answer-containing Hit@5: a query is counted as successful if at least one of the top five retrieved passages contains the gold answer or one of its aliases. Yes-or-no questions are excluded because the strings ``yes'' and ``no'' are not meaningful evidence strings.
 
 \begin{table}[h]
     \centering
-    \caption[Answer-Containing Retrieval Recall]{Answer-containing hit@5 under the final open-domain wiki retrieval condition. Original-query retrieval uses paragraph text only; decomposed sub-question retrieval uses title and paragraph text.}
+    \caption[Answer-Containing Retrieval Recall]{Answer-containing Hit@5 under open-domain Wikipedia retrieval. The direct path searches paragraph text, while decomposition also uses titles.}
     \label{tab:answer-recall}
     \setlength{\tabcolsep}{7pt}
     \small
@@ -31,27 +31,27 @@ Before evaluating final answers, we first ask whether decomposition actually imp
     \end{tabular}
 \end{table}
 
-Decomposition substantially improves answer-containing retrieval on the multi-hop datasets: +28.03 points on 2Wiki, +19.80 on MuSiQue, and +5.53 on HotpotQA. Figure~\ref{fig:answer-hit-retrieval} visualises this contrast across datasets: the gains are concentrated on the three multi-hop benchmarks, whereas PopQA is nearly unchanged because it is already single-hop.
+Decomposition improves answer-containing retrieval on all three multi-hop datasets, with the largest gain on 2Wiki. Figure~\ref{fig:answer-hit-retrieval} visualises this contrast: the single-hop PopQA result remains nearly unchanged.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.82\textwidth]{fig_answer_hit_retrieval.png}
-    \caption[Answer-Containing Retrieval Recall Figure]{Answer-containing retrieval recall under the full-corpus Wikipedia retrieval setting. Decomposition improves retrieval on the three multi-hop datasets and leaves the single-hop PopQA result nearly unchanged.}
+    \caption[Answer-Containing Retrieval Recall Figure]{Answer-containing recall under full-corpus retrieval. Decomposition improves multi-hop retrieval but has little effect on PopQA.}
     \label{fig:answer-hit-retrieval}
 \end{figure}
 
 \subsection{Gold and Base Decomposition on MuSiQue}
 \label{sec:gold-decomposition-recall}
 
-To separate the value of decomposition from the value of the trained decomposer, we run a focused MuSiQue retrieval-recall analysis using the first 1{,}000 development questions. This slice contains only 2-hop questions, which makes the official MuSiQue gold decomposition directly comparable with SEEK's predicted two-step chain. Table~\ref{tab:musique-gold-recall} reports answer-containing hit@5 under the same full-corpus Wikipedia and path-aware retrieval setting as Table~\ref{tab:answer-recall}.
+To separate the value of decomposition from the value of the trained decomposer, we run a focused MuSiQue retrieval-recall analysis using the first 1{,}000 development questions. This slice contains only 2-hop questions, which makes the official MuSiQue gold decomposition directly comparable with SEEK's predicted two-step chain. Table~\ref{tab:musique-gold-recall} reports answer-containing Hit@5 under the same full-corpus Wikipedia and path-aware retrieval setting as Table~\ref{tab:answer-recall}.
 
 \begin{table}[h]
     \centering
-    \caption[MuSiQue Gold and Base Decomposition Recall]{MuSiQue answer-containing hit@5 for original, SEEK, gold, and untuned-base decompositions.}
+    \caption[MuSiQue Gold and Base Decomposition Recall]{MuSiQue answer-containing Hit@5 for original, SEEK, gold, and untuned-base decompositions.}
     \label{tab:musique-gold-recall}
     \setlength{\tabcolsep}{6pt}
     \small
-    \begin{tabular}{ l p{6.5cm} c }
+    \begin{tabular}{ l >{\raggedright\arraybackslash}p{6.5cm} c }
         \toprule
         Arm & Interpretation & Hit@5 \\
         \midrule
@@ -65,23 +65,23 @@ To separate the value of decomposition from the value of the trained decomposer,
     \end{tabular}
 \end{table}
 
-The gap between original retrieval and SEEK retrieval is large: 19.0 to 38.8 hit@5. The oracle gold chain reaches 55.8, showing that decomposition has further retrieval headroom. However, the important diagnostic is that \emph{Gold raw} collapses back to the original-query level. A 2-hop decomposition is useful only when the first-hop bridge entity is correctly resolved and substituted into the second query. SEEK's first-hop intermediate-answer EM is 41.9\%. When the first hop is answered correctly, SEEK reaches 56.4 hit@5, essentially matching the gold chain on the same subset at 58.5. When the first hop is wrong, SEEK falls to 25.9 while gold stays at 53.8, so these questions are not intrinsically harder and their evidence remains reachable with the right bridge entity. The SEEK--gold gap is therefore almost entirely bridge-answer drift rather than poor decomposition wording.
+SEEK substantially improves over original-question retrieval but remains below the oracle gold chain. The Gold raw condition falls back near the original-query result, showing that decomposition helps only when the bridge entity is resolved and substituted into the later query. Conditional analysis gives the same conclusion: SEEK approaches gold retrieval when the first-hop answer is correct and falls behind when it is wrong. The remaining gap is therefore driven primarily by bridge-answer drift rather than poor decomposition wording.
 
-The untuned base model also clarifies why the decomposer is trained. With the same prompt and no LoRA adapter, the base model produces a valid two-step decomposition for only 149 of 1{,}000 MuSiQue examples and has a 15.3\% format-parsing failure rate. Its query text can retrieve well under oracle bridge substitution, but it is not structurally reliable enough to deploy. LoRA training therefore buys step-count control, valid placeholders, and compact BM25-friendly query style, not merely better wording.
+The untuned base model also clarifies why the decomposer is trained. Its query text can retrieve well under oracle bridge substitution, but it frequently violates the required step structure or output format. LoRA training therefore provides step-count control, valid placeholders, and compact BM25-friendly queries rather than merely improving wording.
 
 \section{Ablation Studies}
 \label{sec:ablations}
 
-This section varies three aspects of the final system: whether retrieval remains necessary after decomposition, whether retrieving with the original question can replace decomposition, and how the step-gate threshold trades retrieval cost against answer quality.
+This section tests whether retrieval remains necessary after decomposition, how the step-gate threshold affects retrieval and accuracy, and whether title handling should differ between the direct and decomposition paths.
 
 \subsection{Retrieval Is Necessary After Decomposition}
 \label{sec:retrieval-necessary}
 
-Decomposition alone does not supply missing factual knowledge. Table~\ref{tab:rag-necessity} compares never retrieving, the headline accuracy-first gate, and always retrieving. For each policy, the stored no-retrieval and retrieved step answers are selected using tail-leakage surprisal, and the resulting answer chain is resynthesised with the same adapter-disabled base-model prompt as the final system. Later resolved sub-questions are held fixed to the source trace, so this is a controlled fixed-chain comparison of retrieval policies rather than three independent end-to-end reruns.
+Decomposition alone does not supply missing factual knowledge. Table~\ref{tab:rag-necessity} compares never retrieving, the headline accuracy-first gate, and always retrieving. For each policy, the stored no-retrieval and retrieved step answers are selected using Tail Leakage, and the resulting answer chain is resynthesised with the same adapter-disabled base-model prompt as the final system. Later resolved sub-questions are held fixed to the source trace, so this is a controlled fixed-chain comparison of retrieval policies rather than three independent end-to-end reruns.
 
 \begin{table}[h]
     \centering
-    \caption[Retrieval Necessity After Decomposition]{Final-system step-level retrieval ablation under full-corpus Wikipedia retrieval. All three conditions use the final confidence verifier; alternative policies use fixed-chain resynthesis. Each score cell reports EM/F1. In the aggregate row, EM/F1 and gain are macro-averaged across datasets, whereas retrieval rate is pooled over all decomposed steps.}
+    \caption[Retrieval Necessity After Decomposition]{Step-level retrieval ablation after decomposition.}
     \label{tab:rag-necessity}
     \setlength{\tabcolsep}{5pt}
     \small
@@ -90,7 +90,7 @@ Decomposition alone does not supply missing factual knowledge. Table~\ref{tab:ra
         \toprule
         Dataset & Never retrieve & Confidence gate & Always retrieve & Gain (EM) & Gate retrieval rate \\
         \midrule
-        HotpotQA & 29.80/39.38 & 37.80/\textbf{49.03} & \textbf{37.90}/49.03 & +8.00 & 89.23\% \\
+        HotpotQA & 29.80/39.38 & 37.80/\textbf{49.03} & \textbf{37.90/49.03} & +8.00 & 89.23\% \\
         2Wiki & 33.90/39.86 & \textbf{49.30/56.22} & 49.30/56.15 & +15.40 & 95.75\% \\
         MuSiQue & 15.40/24.17 & \textbf{26.50/34.63} & 26.40/34.63 & +11.10 & 94.78\% \\
         PopQA & 24.80/25.93 & \textbf{53.90}/55.73 & \textbf{53.90/55.80} & +29.10 & 97.60\% \\
@@ -99,49 +99,48 @@ Decomposition alone does not supply missing factual knowledge. Table~\ref{tab:ra
     \end{tabular}}
 \end{table}
 
-Retrieval after decomposition is necessary: the accuracy-first gate improves over never retrieve by 8.00 to 29.10 EM. It remains within 0.10 EM of always retrieve on every dataset while avoiding retrieval on 2.40--10.77\% of decomposed steps. At the aggregate level, it matches always retrieve at the reported precision while omitting 6.16\% of pooled step-level retrieval calls. The gate therefore controls retrieval cost; the main accuracy gain comes from making retrieved evidence available after decomposition.
+Retrieval after decomposition is necessary: the accuracy-first gate clearly improves over never retrieving and remains effectively tied with always retrieving while skipping a small share of calls. The gate therefore controls retrieval cost, while the main accuracy gain comes from making evidence available after decomposition.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.78\textwidth]{fig_3way_ablation.png}
-    \caption[Retrieval After Decomposition]{Final-system EM under never retrieve, the accuracy-first gate ($\tau=0.002305$), and always retrieve. The gate reaches the same rounded macro result as always retrieve while avoiding 6.16\% of pooled step retrievals. All policies use fixed-chain resynthesis.}
+    \caption[Retrieval After Decomposition]{Final-system EM across step-level retrieval policies.}
     \label{fig:three-way-ablation}
 \end{figure}
 
-\subsection{Direct Retrieval Without Decomposition}
-\label{sec:direct-gate-baseline}
-
-The previous ablation establishes that decomposed steps need evidence. Here we ask a different question: can retrieval with the original question, without decomposition, match the decomposition path? Table~\ref{tab:direct-gate-baseline} compares three direct strategies that all answer the original question: no retrieval, retrieval selected by the confidence gate, and retrieval for every question. The always-retrieve column removes threshold selection from the comparison. The final column reports the decomposition-path candidate from the diagnostic $\tau=0.008461$ trace, which instead retrieves with the generated sub-questions.
+At the accuracy-first threshold, SEEK skips 478 of 7{,}761 step-level
+retrieval calls across all four datasets (6.16\%), affecting 418 of the
+4{,}000 questions (10.45\%). Table~\ref{tab:skip-safety} compares SEEK with
+Always Retrieve on these affected questions. An omission is considered safe
+when it does not reduce question-level EM relative to Always Retrieve.
 
 \begin{table}[h]
     \centering
-    \caption[Direct Retrieval Without Decomposition]{Original-question answering under three retrieval policies compared with the decomposition-path candidate in the diagnostic $\tau=0.008461$ trace. This auxiliary comparison is retained to isolate query structure and is not the headline operating point. Each score cell reports EM/F1.}
-    \label{tab:direct-gate-baseline}
-    \setlength{\tabcolsep}{4pt}
-    \scriptsize
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ l c c c c c }
+    \caption[Safety of Skipped Retrievals]{Question-level outcomes among the
+    418 questions affected by step-level retrieval omission.}
+    \label{tab:skip-safety}
+    \setlength{\tabcolsep}{12pt}
+    \small
+    \begin{tabular}{ c c }
         \toprule
-        Dataset & Direct: no retrieval & Direct: confidence gate & Direct: always retrieve & Decomposition path & Gain over direct always (EM) \\
+        Safe omission: no EM loss & Harmful omission: EM loss \\
         \midrule
-        HotpotQA & 18.20/26.90 & 30.30/41.18 & 30.30/41.51 & \textbf{35.70/46.16} & +5.40 \\
-        2Wiki & 12.60/31.90 & 17.80/28.66 & 18.00/27.61 & \textbf{49.00/55.84} & +31.00 \\
-        MuSiQue & 5.90/12.44 & 10.10/17.41 & 10.20/17.58 & \textbf{26.70/35.08} & +16.50 \\
-        PopQA & 22.40/24.13 & 38.60/49.43 & 37.80/49.13 & \textbf{53.80/55.68} & +16.00 \\
+        \textbf{402 / 418 (96.17\%)} & \textbf{16 / 418 (3.83\%)} \\
         \bottomrule
-    \end{tabular}}
+    \end{tabular}
 \end{table}
 
-The direct confidence gate and direct always-retrieve strategy differ by at most 0.80 EM, whereas the decomposition-path candidate exceeds direct always retrieve by 5.40 to 31.00 EM. On the three multi-hop datasets, these answer-level gains are consistent with the higher answer-containing recall of decomposed queries in Table~\ref{tab:answer-recall}. Together, the results support a narrower conclusion: retrieving the original question more often does not close the gap, while decomposition changes the query structure and improves evidence access on multi-hop questions. PopQA does not show a decomposition recall gain, so its answer improvement should not be attributed to retrieval recall alone.
+Only 16 affected questions (3.83\%) lose EM correctness, indicating that
+the retrieval reduction is largely accuracy-neutral.
 
 \subsection{Gate Threshold Sensitivity}
 \label{sec:threshold-sensitivity}
 
-Table~\ref{tab:threshold-sensitivity} replays the final system across step-level tail-leakage-surprisal thresholds. As in Table~\ref{tab:rag-necessity}, later resolved sub-questions remain fixed and each selected step-answer chain is resynthesised before applying the final confidence verifier. The headline accuracy-first threshold is $\tau=0.002305$. All rows are controlled fixed-chain sensitivity settings rather than independent end-to-end reruns.
+Table~\ref{tab:threshold-sensitivity} replays the final system across step-level Tail Leakage thresholds. As in Table~\ref{tab:rag-necessity}, later resolved sub-questions remain fixed and each selected step-answer chain is resynthesised before applying the final confidence verifier. The headline accuracy-first threshold is $\tau=0.002305$. All rows are controlled fixed-chain sensitivity settings rather than independent end-to-end reruns.
 
 \begin{table}[h]
     \centering
-    \caption[Threshold Sensitivity]{Final-system performance across step-level tail-leakage-surprisal thresholds under fixed-chain resynthesis. Dataset and average cells report EM/F1; retrieval rate is pooled over all decomposed steps.}
+    \caption[Threshold Sensitivity]{Final-system performance and retrieval rate across Tail Leakage thresholds.}
     \label{tab:threshold-sensitivity}
     \setlength{\tabcolsep}{3.5pt}
     \scriptsize
@@ -150,8 +149,8 @@ Table~\ref{tab:threshold-sensitivity} replays the final system across step-level
         \toprule
         $\tau$ & PopQA & HotpotQA & 2Wiki & MuSiQue & Average & Retrieval rate \\
         \midrule
-        0.002305 & \textbf{53.90/55.73} & \textbf{37.80/49.03} & \textbf{49.30/56.22} & \textbf{26.50/34.63} & \textbf{41.88/48.90} & 93.84\% \\
-        0.008461 & 53.70/55.53 & 37.50/48.72 & 48.70/55.63 & 26.60/34.74 & 41.62/48.66 & 87.82\% \\
+        0.002305 & \textbf{53.90/55.73} & \textbf{37.80/49.03} & \textbf{49.30/56.22} & 26.50/34.63 & \textbf{41.88/48.90} & 93.84\% \\
+        0.008461 & 53.70/55.53 & 37.50/48.72 & 48.70/55.63 & \textbf{26.60/34.74} & 41.62/48.66 & 87.82\% \\
         0.044170 & 53.70/55.53 & 36.40/47.33 & 47.50/54.57 & 24.80/33.45 & 40.60/47.72 & 75.51\% \\
         0.116500 & 51.90/53.74 & 36.30/47.22 & 45.80/52.83 & 23.70/32.69 & 39.42/46.62 & 64.40\% \\
         \bottomrule
@@ -163,11 +162,11 @@ Figure~\ref{fig:threshold-tradeoff} re-expresses the same sweep using the observ
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.88\textwidth]{fig_threshold_tradeoff.png}
-    \caption[Step-Gate Accuracy--Retrieval Trade-off]{Macro EM and F1 as pooled step retrieval is reduced by increasing the tail-leakage-surprisal threshold. The headline accuracy-first operating point is highlighted. Each point corresponds to a row of Table~\ref{tab:threshold-sensitivity}.}
+    \caption[Step-Gate Accuracy--Retrieval Trade-off]{Macro accuracy--retrieval trade-off of the step-level gate.}
     \label{fig:threshold-tradeoff}
 \end{figure}
 
-At the accuracy-first setting, $\tau=0.002305$, macro performance is 41.88/48.90 at a pooled step retrieval rate of 93.84\%. Raising the threshold to 0.008461 lowers retrieval to 87.82\% at a cost of only 0.26 EM and 0.24 F1. The trade-off becomes clearer beyond this plateau: $\tau=0.044170$ lowers retrieval to 75.51\% and macro EM to 40.60, while $\tau=0.116500$ retrieves for 64.40\% of steps and reaches 39.42 EM. Most decomposed steps therefore still benefit from retrieval under full-corpus Wikipedia search.
+The accuracy-first setting gives the strongest macro performance. A modest threshold increase reduces retrieval with little change in answer quality, whereas more aggressive thresholds lower both retrieval and accuracy. Most decomposed steps therefore still benefit from evidence under full-corpus Wikipedia search.
 
 \subsection{Path-Aware Title Handling}
 \label{sec:title-policy}
@@ -176,7 +175,7 @@ The original question and the decomposed sub-questions have different query form
 
 \begin{table}[h]
     \centering
-    \caption[Path-Aware Title Retrieval]{Live end-to-end title-policy reruns on the first 1{,}000 questions of each dev set. All runs use $\tau=0.002305$, original-question evidence union, and the type-aware verifier. Each cell reports EM/F1.}
+    \caption[Path-Aware Title Retrieval]{End-to-end performance across title-retrieval policies (EM/F1).}
     \label{tab:title-policy}
     \setlength{\tabcolsep}{7pt}
     \small
@@ -192,41 +191,41 @@ The original question and the decomposed sub-questions have different query form
     \end{tabular}
 \end{table}
 
-Unlike the fixed-chain threshold replay, each title-policy condition in Table~\ref{tab:title-policy} is rerun end to end, so retrieval results, later contexts, and final answers may all change. The path-aware policy gives the best EM on all four datasets and the best F1 on three. The sole exception is MuSiQue F1, where global title-on reaches 34.5 versus 34.4 for path-aware. The result shows that adaptive retrieval concerns not only whether to retrieve, but also how the retriever should be configured for the query form produced by each path.
+Unlike the fixed-chain threshold replay, each title-policy condition in Table~\ref{tab:title-policy} is rerun end to end, so retrieval results, later contexts, and final answers may all change. The path-aware policy gives the best EM on every dataset and the strongest or nearly strongest F1. Adaptive retrieval therefore concerns not only whether to retrieve, but also how retrieval should be configured for each query form.
 
 \section{The Two Answer Paths}
 \label{sec:path-analysis}
 
 The final system retains a direct answer candidate and a decomposition-path candidate. This section examines how the final confidence verifier divides work between them, where the candidates succeed separately, and how much routing headroom remains.
 
-\subsection{Plan Length and Routing Decisions}
+\subsection{Verifier Routing Decisions}
 \label{sec:path-selection-rate}
 
-Table~\ref{tab:path-selection-rate} reports two descriptive quantities: the average number of generated sub-questions and the final verifier choice across all 1{,}000 questions in each dataset. The selection percentages describe routing behaviour, not answer correctness.
+Table~\ref{tab:path-selection-rate} reports the final verifier choice across all 1{,}000 questions in each dataset. The selection percentages describe routing behaviour, not answer correctness.
 
 \begin{table}[h]
     \centering
-    \caption[Plan Length and Routing Decisions]{Average plan length and verifier choices at the accuracy-first operating point ($\tau=0.002305$). Selection counts and percentages use all 1{,}000 questions per dataset.}
+    \caption[Verifier Routing Decisions]{Verifier selections by dataset.}
     \label{tab:path-selection-rate}
     \setlength{\tabcolsep}{6pt}
     \small
-    \begin{tabular}{ l c c c c }
+    \begin{tabular}{ l c c c }
         \toprule
-        Dataset & \shortstack{Mean\\sub-questions} & $N$ & \shortstack{Direct chosen\\n (\%)} & \shortstack{Decomposition chosen\\n (\%)} \\
+        Dataset & $N$ & \shortstack{Direct chosen\\n (\%)} & \shortstack{Decomposition chosen\\n (\%)} \\
         \midrule
-        HotpotQA & 2.26 & 1{,}000 & 171 (17.1\%) & 829 (82.9\%) \\
-        2Wiki & 2.47 & 1{,}000 & 25 (2.5\%) & 975 (97.5\%) \\
-        MuSiQue & 2.03 & 1{,}000 & 121 (12.1\%) & 879 (87.9\%) \\
-        PopQA & 1.00 & 1{,}000 & 10 (1.0\%) & 990 (99.0\%) \\
+        HotpotQA & 1{,}000 & 171 (17.1\%) & 829 (82.9\%) \\
+        2Wiki & 1{,}000 & 25 (2.5\%) & 975 (97.5\%) \\
+        MuSiQue & 1{,}000 & 121 (12.1\%) & 879 (87.9\%) \\
+        PopQA & 1{,}000 & 10 (1.0\%) & 990 (99.0\%) \\
         \midrule
-        Pooled & 1.94 & 4{,}000 & 327 (8.2\%) & 3{,}673 (91.8\%) \\
+        Pooled & 4{,}000 & 327 (8.2\%) & 3{,}673 (91.8\%) \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-Across all 4{,}000 questions, the verifier selects the decomposition candidate for 91.8\% and the direct candidate for 8.2\%. Direct selection is most frequent on HotpotQA and MuSiQue. Candidate correctness is analysed next in Section~\ref{sec:path-distribution}.
+The verifier selects the decomposition candidate for most questions, while direct selection is most frequent on HotpotQA and MuSiQue. Candidate correctness is analysed next in Section~\ref{sec:path-distribution}.
 
-PopQA has a mean plan length of 1.00 because its generated plan is a single structured reformulation rather than a multi-hop chain. This value describes the form of the generated plan and is not, by itself, a retrieval- or answer-quality result.
+PopQA produces a single-step structured reformulation rather than a multi-hop chain. This describes the form of the generated plan and is not, by itself, a retrieval- or answer-quality result.
 
 \subsection{Correctness Overlap Between Answer Paths}
 \label{sec:path-distribution}
@@ -235,7 +234,7 @@ Table~\ref{tab:path-distribution} compares the correctness of the two answer can
 
 \begin{table}[h]
     \centering
-    \caption[Correctness Overlap Between the Two Answer Paths]{Correctness overlap between the direct and decomposition candidates before final routing at the accuracy-first operating point ($\tau=0.002305$). Counts are out of 1{,}000 questions per dataset, and the four columns are mutually exclusive.}
+    \caption[Correctness Overlap Between the Two Answer Paths]{Correctness overlap between direct and decomposition candidates before final routing.}
     \label{tab:path-distribution}
     \setlength{\tabcolsep}{7pt}
     \small
@@ -251,48 +250,25 @@ Table~\ref{tab:path-distribution} compares the correctness of the two answer can
     \end{tabular}
 \end{table}
 
-Decomposition contributes more unique correct answers on every dataset. Its path-specific advantage over the direct candidate is 57 questions on HotpotQA, 317 on 2Wiki, 165 on MuSiQue, and 162 on PopQA. Figure~\ref{fig:direct-decompose-2x2} highlights this asymmetry. The direct candidate is nevertheless complementary: it uniquely solves 78 HotpotQA questions and 27--36 questions on each remaining dataset. Neither path is correct for most HotpotQA, 2Wiki, and MuSiQue errors, so routing alone cannot remove most residual errors.
+Decomposition contributes more unique correct answers on every dataset, as highlighted in Figure~\ref{fig:direct-decompose-2x2}. The direct path remains complementary, especially on HotpotQA. A large share of the remaining multi-hop errors are wrong on both paths, so routing alone cannot remove them.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.78\textwidth]{fig_direct_decompose_2x2_counts.png}
-    \caption[Direct-vs-Decompose Correctness Counts]{Final direct-only and decompose-only correctness counts. Decomposition contributes more unique wins on every dataset, while the direct path remains complementary.}
+    \caption[Direct-vs-Decompose Correctness Counts]{Direct-only and decomposition-only correct answers by dataset.}
     \label{fig:direct-decompose-2x2}
 \end{figure}
 
-\subsection{Decomposition-Path Failure Taxonomy}
-\label{sec:failure-taxonomy}
+At the accuracy-first setting, missing supporting evidence remains the largest source of decomposition-path errors. The detailed taxonomy and supplementary diagnostic flags are reported in Appendix~\ref{app:decomp-failure-analysis}.
 
-Table~\ref{tab:failure-taxonomy} is an auxiliary error diagnosis on the live $\tau=0.008461$ trace, for which the stored evidence and token-level diagnostics are complete. It assigns one primary cause to every incorrect decomposition-path answer: 643 on HotpotQA, 510 on 2Wiki, and 733 on MuSiQue. Supporting-document coverage is measured at title coverage@10 using the resolved sub-questions. This diagnostic does not replace the accuracy-first fixed-chain headline comparison. Additional overlapping flags are reported in Appendix~\ref{app:decomp-failure-flags}.
-
-\begin{table}[h]
-    \centering
-    \caption[Why Decomposition-Path Answers Fail]{Primary cause assigned to each incorrect decomposition-path answer. Entries give the number and percentage of incorrect answers in each category; the four rows are mutually exclusive and sum to 100\%.}
-    \label{tab:failure-taxonomy}
-    \setlength{\tabcolsep}{3pt}
-    \small
-    \begin{tabular}{ p{0.48\textwidth} *{3}{>{\centering\arraybackslash}p{0.135\textwidth}} }
-        \toprule
-        Primary cause & \shortstack{HotpotQA\\($N=643$)} & \shortstack{2Wiki\\($N=510$)} & \shortstack{MuSiQue\\($N=733$)} \\
-        \midrule
-        Required supporting titles missing from both retrieval branches & 306 (47.6\%) & 315 (61.8\%) & 514 (70.1\%) \\
-        Incorrect step answer despite complete decomposed retrieval & 137 (21.3\%) & 101 (19.8\%) & 71 (9.7\%) \\
-        Correct intermediate answer but incorrect final synthesis & 162 (25.2\%) & 92 (18.0\%) & 139 (19.0\%) \\
-        Constraint lost during decomposition; original retrieval has complete coverage & 38 (5.9\%) & 2 (0.4\%) & 9 (1.2\%) \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-Retrieval gaps are the largest category, accounting for 47.6\% of HotpotQA, 61.8\% of 2Wiki, and 70.1\% of MuSiQue decomposition errors. Even when the final decomposed evidence has full supporting-title coverage, 9.7--21.3\% of errors still produce the wrong answer. A further 18.0--25.2\% contain a gold-matching step answer but fail during final synthesis. Constraint loss is smaller and dataset-dependent, reaching 5.9\% on HotpotQA but at most 1.2\% on the other two datasets. Appendix~\ref{app:decomp-failure-flags} reports additional structural and retrieval-state flags; these overlap and are not added to the percentages above.
-
-\subsection{Effect of Final Routing and Oracle Headroom}
+\subsection{Final Routing and Oracle Headroom}
 \label{sec:oracle-analysis}
 
 Because Table~\ref{tab:path-distribution} shows that decomposition supplies most path-specific correct answers, always choosing the decomposition candidate is a strong routing baseline. Table~\ref{tab:oracle} asks whether the final verifier improves on that baseline. Choosing the direct candidate recovers an answer when only the direct path is correct, but loses an answer when only the decomposition path is correct.
 
 \begin{table}[H]
     \centering
-    \caption[Effect of Final Routing]{Effect of the final verifier at the accuracy-first operating point ($\tau=0.002305$), relative to always choosing the decomposition candidate. A recovered case is correct only on the direct path and routed to direct; a lost case is correct only on the decomposition path but routed to direct. Fractions use all corresponding path-only cases as their denominators, and net change equals recovered minus lost.}
+    \caption[Effect of Final Routing]{Effect of the final verifier relative to always choosing decomposition.}
     \label{tab:oracle}
     \setlength{\tabcolsep}{8pt}
     \small
@@ -310,25 +286,25 @@ Because Table~\ref{tab:path-distribution} shows that decomposition supplies most
     \end{tabular}
 \end{table}
 
-Across all four datasets, the verifier recovers 52 of 173 direct-only cases but loses 41 of 874 decomposition-only cases, producing a net gain of 11 questions, or 0.28 macro EM, over always choosing decomposition. It preserves 95.3\% of decomposition-only wins, so its role is a conservative fallback rather than the main source of SEEK's accuracy. The gain is concentrated on HotpotQA; routing is slightly negative on the other three datasets. This is a limitation of the current confidence-only verifier, not evidence of a uniform routing improvement. The gold-label oracle in Figure~\ref{fig:routing-gap-oracle} shows that better path selection could add 2.9--6.0 EM, although such an oracle is not deployable.
+The verifier recovers some direct-only cases while preserving most decomposition-only wins, so it acts as a conservative fallback rather than the main source of SEEK's accuracy. Its small net benefit is concentrated on HotpotQA, while routing is slightly negative on the other datasets. The gold-label oracle in Figure~\ref{fig:routing-gap-oracle} shows meaningful remaining path-selection headroom, although such an oracle is not deployable.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.78\textwidth]{fig_routing_gap_oracle.png}
-    \caption[Oracle Routing Headroom]{Final confidence-based routing and oracle headroom at the accuracy-first operating point ($\tau=0.002305$). The oracle can recover disagreement cases but cannot solve questions for which both candidates are wrong.}
+    \caption[Oracle Routing Headroom]{Final routing performance and oracle headroom by dataset.}
     \label{fig:routing-gap-oracle}
 \end{figure}
 
-\section{Tail-Leakage Surprisal as a Confidence Signal}
+\section{Tail Leakage as a Confidence Signal}
 \label{sec:tail-leakage-analysis}
 
-To test whether tail-leakage surprisal adds information beyond established confidence baselines, we group the evaluated signals into six conceptually distinct families and report one representative from each family. Maximum token entropy measures the overall spread of the next-token distribution, while sequence negative log-likelihood measures the probability assigned to the generated answer. The TARG margin uses the separation between the two leading logits~\cite{targ}; sampled-answer disagreement measures response consistency, an established black-box confidence cue~\cite{maqa,semanticuncertainty}; and P(True) asks the model to assess its own proposed answer~\cite{kadavath2022}. Tail-leakage instead measures how much probability escapes a small candidate set, as defined in Section~\ref{sec:probe}. These families test different hypotheses about uncertainty rather than arbitrary transformations of one score.
+To test whether Tail Leakage adds information beyond established confidence baselines, we group the evaluated signals into six conceptually distinct families and report one representative from each family. Maximum token entropy measures the overall spread of the next-token distribution, while sequence negative log-likelihood measures the probability assigned to the generated answer. The TARG margin uses the separation between the two leading logits~\cite{targ}; sampled-answer disagreement measures response consistency, an established black-box confidence cue~\cite{maqa,semanticuncertainty}; and P(True) asks the model to assess its own proposed answer~\cite{kadavath2022}. Tail Leakage instead measures how much probability escapes a small candidate set, as defined in Section~\ref{sec:probe}. These families test different hypotheses about uncertainty rather than arbitrary transformations of one score.
 
-Table~\ref{tab:signal-battery} reports AUROC for predicting a wrong direct answer on the full 1{,}000-question trace of each dataset. All scores are oriented so that larger values mean greater uncertainty. Appendix~\ref{app:confidence-signals} gives the exact formulas, inference requirements, sources, and the aggregation and temperature variants tested within each family. Tail-leakage surprisal obtains the highest macro AUROC among the representatives at 0.749. The comparison is diagnostic: because the same four traces are used to compare the signals, the small differences should be read as evidence within these benchmarks rather than as a claim that the ranking will hold for every model or dataset.
+Table~\ref{tab:signal-battery} reports AUROC for predicting a wrong direct answer on the full trace of each dataset. All scores are oriented so that larger values mean greater uncertainty. Appendix~\ref{app:confidence-signals} gives concise definitions of the reported signals. Tail Leakage obtains the strongest macro result among the representatives. The comparison is diagnostic: small differences within these traces should not be interpreted as a universal ranking across models or datasets.
 
 \begin{table}[h]
     \centering
-    \caption[Representative Confidence Signals]{One representative from each direct-path confidence family. Each cell is the AUROC of predicting a wrong answer on a 1{,}000-question trace.}
+    \caption[Representative Confidence Signals]{AUROC of representative direct-path confidence signals.}
     \label{tab:signal-battery}
     \setlength{\tabcolsep}{6pt}
     \small
@@ -336,7 +312,7 @@ Table~\ref{tab:signal-battery} reports AUROC for predicting a wrong direct answe
         \toprule
         Signal & HotpotQA & 2Wiki & MuSiQue & PopQA & Macro \\
         \midrule
-        Tail-leakage surprisal & \textbf{0.757} & \textbf{0.717} & \textbf{0.726} & \textbf{0.798} & \textbf{0.749} \\
+        Tail Leakage & \textbf{0.757} & \textbf{0.717} & \textbf{0.726} & \textbf{0.798} & \textbf{0.749} \\
         Maximum token entropy & 0.743 & 0.671 & 0.711 & 0.780 & 0.726 \\
         Sequence negative log-likelihood & 0.733 & 0.667 & 0.707 & \textbf{0.798} & 0.726 \\
         Sampled-answer disagreement & 0.678 & 0.659 & 0.680 & 0.674 & 0.672 \\
@@ -346,16 +322,55 @@ Table~\ref{tab:signal-battery} reports AUROC for predicting a wrong direct answe
     \end{tabular}
 \end{table}
 
-The component analysis also checks the mechanism proposed in Chapter~\ref{ch:method}. Scoring each term of Equation~\eqref{eq:entropy-chain} separately, the in-versus-tail leakage term reaches a macro AUROC of 0.742, ambiguity within the top-five candidates reaches 0.712, and the composition of the tail reaches 0.502, barely above chance. Full entropy mixes the three and reaches 0.726, whereas summing per-token leakage surprisal over the answer reaches 0.749. This sum is not simply a relabelled weakest-token score: on single-token answers the two coincide, but on answers of seven or more tokens the summed score reaches 0.805 versus 0.788 for the weakest-token aggregate. The observed advantage is consistent with small leakage accumulating at several positions in a wrong answer. In a paired 1{,}000-resample bootstrap, the summed score exceeds the weakest-token top-five-mass variant on all four datasets ($P<0.001$ for the macro difference).
-
-At the same time, tail-leakage surprisal is not a correctness guarantee. Across the pooled direct-path traces, 491 wrong answers carry surprisal at or below the median of correct answers: 22\% of the wrong answers on 2Wiki, 17\% on HotpotQA, 16\% on MuSiQue, and 7\% on PopQA. More than half of these confidently wrong answers are clean parametric hallucinations produced with essentially zero leakage, and another 148 are alias or boundary near-misses whose answer is essentially right but fails exact match. No confidence threshold can identify the first group because nothing in the token distribution marks the answer as wrong. Appendix~\ref{app:confidence-diagnostics} reports the dataset-level counts and error categories.
-
-Table~\ref{tab:surprisal-selective} shows the same limitation from the selective-answering side: questions are ranked by surprisal, only the most confident fraction is kept, and accuracy is measured inside the kept set.
+Table~\ref{tab:entropy-vs-tail-emf1} reports the corresponding end-to-end comparison. Replacing maximum token entropy with Tail Leakage improves both macro EM and macro F1, although the gain is not uniform on every dataset.
 
 \begin{table}[h]
     \centering
-    \caption[Direct-Path Accuracy by Confidence Coverage]{Direct-path accuracy when only the most confident fraction of answers is kept, ranked by tail-leakage surprisal. The 100\% row is the unfiltered direct-path accuracy.}
-    \label{tab:surprisal-selective}
+    \caption[Maximum Entropy vs. Tail Leakage]{End-to-end EM/F1 using maximum token entropy and Tail Leakage as the confidence signal.}
+    \label{tab:entropy-vs-tail-emf1}
+    \setlength{\tabcolsep}{4pt}
+    \small
+    \begin{tabular}{ l c c c c c }
+        \toprule
+        Signal & HotpotQA & 2Wiki & MuSiQue & PopQA & Macro \\
+        \midrule
+        Maximum token entropy & 35.50/46.11 & \textbf{50.00/56.58} & 24.70/33.06 & 51.90/54.71 & 40.52/47.61 \\
+        Tail Leakage & \textbf{37.80/49.03} & 49.30/56.22 & \textbf{26.50/34.63} & \textbf{53.90/55.73} & \textbf{41.88/48.90} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Table~\ref{tab:entropy-components} tests the mechanism proposed in Chapter~\ref{ch:method}. The amount of mass crossing from the leading candidates into the tail is the most informative entropy component, while the arrangement of probability within the tail is close to chance. Full entropy mixes these effects, whereas answer-level Tail Leakage retains the useful component and accumulates it across positions.
+
+\begin{table}[h]
+    \centering
+    \caption[Entropy Components and Tail Leakage]{Macro AUROC for direct-answer error detection when each entropy component is scored separately.}
+    \label{tab:entropy-components}
+    \setlength{\tabcolsep}{7pt}
+    \small
+    \begin{tabular}{ l c }
+        \toprule
+        Signal & Macro AUROC \\
+        \midrule
+        Top-five vs. tail & 0.742 \\
+        Within top five & 0.712 \\
+        Within tail & 0.502 \\
+        Token entropy & 0.726 \\
+        Answer-level Tail Leakage & \textbf{0.749} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The summed score also outperforms a weakest-token aggregation on longer answers, consistent with small leakage accumulating at several positions. A paired bootstrap confirms this advantage across all four datasets ($P<0.001$ for the macro difference).
+
+At the same time, Tail Leakage is not a correctness guarantee. Many wrong direct answers score as confidently as typical correct answers. Most are clean parametric hallucinations with essentially no leakage, while others are alias or answer-boundary near-misses. A confidence threshold cannot identify a confidently produced hallucination when the token distribution itself shows no warning. Appendix~\ref{app:confidence-diagnostics} reports the detailed counts and error categories.
+
+Table~\ref{tab:tail-leakage-selective} shows the same limitation from the selective-answering side: questions are ranked by Tail Leakage, only the most confident fraction is kept, and accuracy is measured inside the kept set.
+
+\begin{table}[h]
+    \centering
+    \caption[Direct-Path Accuracy by Confidence Coverage]{Direct-path accuracy across confidence-coverage levels ranked by Tail Leakage.}
+    \label{tab:tail-leakage-selective}
     \setlength{\tabcolsep}{8pt}
     \small
     \begin{tabular}{ l c c c c c }
@@ -370,37 +385,6 @@ Table~\ref{tab:surprisal-selective} shows the same limitation from the selective
     \end{tabular}
 \end{table}
 
-Accuracy rises steadily as coverage shrinks, so the ranking is real. The absolute levels are more sobering: among the most confident quarter, direct-path accuracy is only 22.4\% on MuSiQue and 34.0\% on 2Wiki. Only single-hop PopQA reaches 79.2\%. The mirror group also matters: 164 correct answers, 17\% of all correct ones, carry surprisal at or above the median of wrong answers, so high surprisal alone is a poor reason to discard an answer.
+Accuracy rises steadily as coverage shrinks, showing that Tail Leakage provides a useful ranking. However, even the most confident subset remains unreliable on the harder multi-hop datasets, while single-hop PopQA is much stronger. The reverse failure also occurs: some correct answers receive high Tail Leakage. A high score alone is therefore a poor reason to discard an answer.
 
-The final verifier uses tail-leakage surprisal in both confidence checks: one for the direct answer and one after decomposition. Table~\ref{tab:quadrant-confidence} compares the direct-path score between questions where both candidates are correct and questions where both are wrong. Higher surprisal denotes greater uncertainty, and the last column measures both-wrong examples at or below the both-correct median.
-
-\begin{table}[h]
-    \centering
-    \caption[Confidence by Direct-vs-Decompose Quadrant]{Direct-path tail-leakage surprisal for both-correct and both-wrong candidate pairs at the accuracy-first fixed-chain operating point.}
-    \label{tab:quadrant-confidence}
-    \setlength{\tabcolsep}{6pt}
-    \small
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ l c c c c }
-        \toprule
-        Dataset & Mean tail-leakage surprisal, both correct & Mean tail-leakage surprisal, both wrong & AUROC & Confidently wrong rate \\
-        \midrule
-        HotpotQA & 0.01260 & 0.12927 & 0.777 & 15.5\% \\
-        2Wiki & 0.03414 & 0.20215 & 0.751 & 20.1\% \\
-        MuSiQue & 0.04945 & 0.25025 & 0.766 & 12.7\% \\
-        PopQA & 0.00974 & 0.10282 & 0.846 & 4.9\% \\
-        Pooled & 0.01877 & 0.17926 & 0.817 & 9.3\% \\
-        \bottomrule
-    \end{tabular}}
-\end{table}
-
-Figure~\ref{fig:quadrant-confidence} visualises the score distributions behind this comparison. Both-correct examples are generally more confident than both-wrong examples, but the overlap shows why the confidence signal cannot identify every error.
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.78\textwidth]{fig_quadrant_confidence.png}
-    \caption[Confidence by Correctness Quadrant]{Direct-answer tail-leakage surprisal across the four correctness quadrants, shown on a symmetric logarithmic scale. Both-correct examples are more confident on average, but confidently wrong cases remain.}
-    \label{fig:quadrant-confidence}
-\end{figure}
-
-The pooled AUROC of 0.817 is a population-level ranking statistic, not per-question detector accuracy. The pooled median rises from 0.001133 for both-correct examples to 0.042663 for both-wrong examples, yet 9.3\% of both-wrong examples still fall at or below the both-correct median. Tail-leakage surprisal is therefore useful as a retrieval gate and as one input to the dual-path verifier, but it cannot serve as a global correctness test.
+Both-wrong examples generally have higher Tail Leakage, but the overlapping distributions prevent reliable per-question error detection (Appendix~\ref{app:confidence-diagnostics}).

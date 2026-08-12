@@ -1,7 +1,7 @@
 \documentclass{nthu_thesis}
 %DIF LATEXDIFF DIFFERENCE FILE
-%DIF DEL /tmp/claude-1012/-home-S113065528/a8fe086e-70e3-42ef-84a7-129bcf41ec84/scratchpad/old_thesis/main.tex   Fri Jul 31 10:55:00 2026
-%DIF ADD main.tex                                                                                                Thu Jul 23 12:54:06 2026
+%DIF DEL pre-revision thesis snapshot used on 2026-07-31; exact baseline source is not bundled
+%DIF ADD main.tex (revised thesis source)
 
 \geometry{
   a4paper,
@@ -107,13 +107,15 @@
 
 %  \setlength\tabcolsep{3pt} % default: 6pt
 \renewcommand{\arraystretch}{1.3} % default value is 1.0
-      \begin{tabular}{ l }  %l: Left-aligned column.
+      {\large
+      \begin{tabular}{@{}l@{}}  %l: Left-aligned column.
         系所別：~\instituteZH\\
         Dept.~/~Grad. Inst.:\hspace{0.5em}\instituteEN\\
         學號~ Student ID:\hspace{0.5em}\studentID\\
         研究生~Author：\hspace{0.5em}\studentZH\hspace{0.5em}\studentEN\\
         指導教授~Advisor：\hspace{0.5em}\advisorZH\hspace{0.5em}\advisorEN
     \end{tabular}\\
+      }
 
    \vspace{2em} 
 
@@ -157,26 +159,27 @@
 \addcontentsline{toc}{chapter}{Abstract}
 This thesis proposes SEEK (Self-certainty Evaluated Evidence-gated Knowledge-retrieval), a lightweight adaptive Retrieval-Augmented Generation (RAG) framework for open-domain question answering. Fixed retrieval can distract simple questions and miss intermediate entities needed by multi-hop questions. Adaptive RAG must decide both whether to retrieve and whether decomposition can expose evidence without discarding global context. Existing approaches rely on coarse routing, imperfect uncertainty signals, or costly learned policies.
 
-SEEK couples step-level retrieval gating with late path selection. A compact decomposer receives one LoRA supervised fine-tuning pass on 12,000 examples from MuSiQue, 2WikiMultihopQA, and PopQA. At inference, SEEK retains direct and decomposed candidates, gates sub-question retrieval with tail-leakage surprisal, adds original-question evidence to decomposed contexts, and uses a training-free type-aware verifier. Decomposition thus remains reversible and routing inspectable.
+SEEK couples step-level retrieval gating with late path selection. A compact decomposer receives one LoRA supervised fine-tuning pass on 12,000 examples from MuSiQue, 2WikiMultihopQA, and PopQA. At inference, SEEK retains direct and decomposed candidates. It measures how much token probability falls outside the model's five leading candidates; this confidence score, called Tail Leakage, decides whether each sub-question retrieves evidence. Original-question evidence is then added to the decomposed contexts, and a deterministic, training-free selector---the verifier---chooses the final answer using confidence, decomposition stability, and answer type. Decomposition thus remains reversible and routing inspectable.
 
-Across four question-answering datasets under full-corpus Wikipedia retrieval, decomposition improves answer-containing retrieval on the three multi-hop datasets by 5.53--28.03 hit@5 points and leaves single-hop PopQA nearly unchanged at $-0.10$ points. The two answer paths solve different questions, leaving 2.9--6.0 EM of oracle routing headroom. At the accuracy-first threshold of 0.002305, the gate retrieves for 93.84\% of decomposed steps and matches the rounded macro EM of always retrieving while avoiding 6.16\% of retrieval calls. Tail-leakage surprisal is nevertheless not a correctness guarantee, and retrieval gaps account for 47.6--70.1 percent of decomposition-path errors on the multi-hop datasets. Overall, SEEK reaches 41.88 EM and 48.90 F1 on average, compared with 38.45 EM and 45.75 F1 for DeepRAG. The analysis identifies retrieval coverage, bridge-answer propagation, and path selection as the main remaining bottlenecks.
+SEEK coordinates question decomposition, step-level retrieval, and final path selection with lightweight training. Decomposition exposes intermediate evidence needed for multi-hop reasoning; Tail Leakage distinguishes unreliable answers more effectively than maximum token entropy and provides a controllable accuracy--retrieval trade-off; and the dual-path design preserves the complementary strengths of direct answering and decomposed reasoning. SEEK reaches 41.88 EM and 48.90 F1 on average across four datasets.
 
 \bigskip
-\noindent\textbf{Keywords:} Retrieval-Augmented Generation, Adaptive Retrieval, Multi-hop Question Answering, Tail-Leakage Surprisal, Verifier Routing, Large Language Models
+\noindent\textbf{Keywords:} Retrieval-Augmented Generation, Adaptive Retrieval, Multi-hop Question Answering, Tail Leakage, Verifier Routing, Large Language Models
      % Insert English Abstract
 \setcounter{page}{1}  %set page begins with i
 \clearpage
 
 \chapter*{摘要}
 \addcontentsline{toc}{chapter}{摘要}
-本論文提出 SEEK (Self-certainty Evaluated Evidence-gated Knowledge-retrieval)，一個用於開放領域問答的輕量化自適應檢索增強生成 (Retrieval-Augmented Generation, RAG) 框架。固定的檢索策略可能為簡單問題引入干擾證據，卻又無法替多跳問題找出後續檢索所需的中介實體。因此，自適應 RAG 不只需要判斷是否檢索，也需要判斷問題分解能否揭露缺失的證據，或反而遺失原始問題中的全域資訊。既有方法多採用粗略的問題層級決策、不完全可靠的詞元層級不確定性訊號，或透過軌跡建構與偏好最佳化學習成本較高的逐步決策策略。
+{\hfuzz=2pt\relax\setlength{\emergencystretch}{2pt}%
+本論文提出 SEEK (Self-certainty Evaluated Evidence-gated Knowledge-retrieval)，一個用於開放領域問答的輕量化自適應檢索增強生成 (Retrieval-Augmented Generation, RAG) 框架。固定的檢索策略可能為簡單問題引入干擾證據，卻又無法替多跳問題找出後續檢索所需的中介實體。因此，自適應 RAG 不只需要判斷是否檢索，也需要判斷問題分解能否揭露缺失的證據，或反而遺失原始問題中的全域資訊。既有方法多採用粗略的問題層級決策、不完全可靠的詞元層級不確定性訊號，或透過軌跡建構與偏好最佳化學習成本較高的逐步決策策略。\par}
 
-SEEK 將自適應決策分成兩個相互關聯的層次：每個分解子問題是否需要檢索，以及最終答案應取自原始問題路徑或分解路徑。系統以 MuSiQue、2Wiki\-MultihopQA 與 PopQA 的一萬兩千筆資料，透過單次 LoRA 監督式微調訓練一個輕量分解器。推論時，SEEK 同時保留兩條作答路徑，以尾端洩漏驚異度控制子問題檢索，將原始問題的檢索證據加入各分解步驟的上下文，最後再由無需額外訓練、包含答案類型規則的驗證器選出答案。此設計使問題分解成為可撤回的候選策略，並讓路由決策保持可檢視性。
+SEEK 將自適應決策分成兩個相互關聯的層次：每個分解子問題是否需要檢索，以及最終答案應取自原始問題路徑或分解路徑。系統以 MuSiQue、2Wiki\-MultihopQA 與 PopQA 的一萬兩千筆資料，透過單次 LoRA 監督式微調訓練一個輕量分解器。推論時，SEEK 同時保留兩條作答路徑，並觀察有多少詞元機率落在模型的前五名候選之外；這個稱為「尾端洩漏」的信心分數用來決定各子問題是否檢索。系統接著將原始問題的檢索證據加入各分解步驟的上下文，最後由一組無需額外訓練的規則，根據信心、分解穩定性與答案類型選出答案；本文將這個規則式選擇器稱為驗證器。此設計使問題分解成為可撤回的候選策略，並讓路由決策保持可檢視性。
 
-在 HotpotQA、2Wiki\-MultihopQA、MuSiQue 與 PopQA 的完整維基百科語料檢索實驗中，問題分解使三個多跳資料集的答案命中率提升 5.53 至 28.03 個 hit@5 百分點，而單跳 PopQA 僅降低 0.10 個百分點。直接路徑與分解路徑能解決不同問題，理想路由仍有 2.9 至 6.0 EM 的提升空間。在 accuracy-first 閾值 0.002305 下，信心閘門會在 93.84\% 的分解步驟觸發檢索；相較全部檢索，它在論文所報精度下維持相同的平均 EM，同時省下 6.16\% 的檢索呼叫。然而，尾端洩漏驚異度不能保證答案正確，且三個多跳資料集中，47.6\% 至 70.1\% 的分解路徑錯誤源自檢索缺口。整體而言，SEEK 平均達到 41.88 EM 與 48.90 F1，相較之下 DeepRAG 為 38.45 EM 與 45.75 F1；進一步分析則指出，檢索覆蓋、中介答案傳遞與路徑選擇仍是主要瓶頸。
+SEEK 能以輕量訓練協調問題分解、逐步檢索與最終路徑選擇。問題分解有助於找出多跳推理所需的中介證據；尾端洩漏比最大詞元熵更能辨識不可靠答案，並在準確率與檢索成本之間提供可控制的取捨；雙路徑設計則保留直接作答與分解推理的互補性。SEEK 在四個資料集平均達到 41.88 EM 與 48.90 F1。
 
 \bigskip
-\noindent\textbf{關鍵字：}檢索增強生成、自適應檢索、多跳問答、尾端洩漏驚異度、驗證器路由、大型語言模型
+\noindent\textbf{關鍵字：}檢索增強生成、自適應檢索、多跳問答、尾端洩漏、驗證器路由、大型語言模型
     % 插入中文摘要於此 Insert Chinese Abstract
 
 \clearpage
@@ -238,7 +241,7 @@ Our contributions are as follows:
 
     \item \textbf{A low-cost executable decomposer.} The decomposer is adapted in a single supervised LoRA~\cite{lora} pass on 12{,}000 examples and emits KG-style \texttt{entity >> relation} sub-questions with explicit \texttt{\#N} dependencies that resolve into directly executable retrieval queries. Keeping original-question evidence available at every decomposed step preserves global context that short sub-questions may omit, without changing the decomposer or training another retriever.
 
-    \item \textbf{A simple confidence gate with a measured accuracy--retrieval trade-off.} Tail-leakage surprisal, computed from the probability mass the model keeps within its own top-five token candidates during a single greedy pass, gates sub-question retrieval. \DIFaddbegin \DIFadd{The signal is motivated by a R\'enyi-entropy probe and an exact decomposition of token entropy, which together show that what predicts answer errors is the total probability mass leaking past the model's leading candidates, rather than competition among those candidates or the arrangement of the leaked mass within the tail. }\DIFaddend At the accuracy-first threshold, the gate retrieves for 93.84\% of decomposed steps and matches the rounded macro EM of always retrieving while avoiding 6.16\% of retrieval calls.
+    \item \textbf{A simple confidence gate with a measured accuracy--retrieval trade-off.} Tail Leakage, computed from the probability mass the model keeps within its own top-five token candidates during a single greedy pass, gates sub-question retrieval. \DIFaddbegin \DIFadd{It captures a simple pattern: answers are more likely to be wrong when more probability falls outside these leading candidates. The score therefore measures only the total leaked mass, regardless of how probability is divided within the top five or distributed across the tail. }\DIFaddend
 
     \item \textbf{Training-free late verification.} A deterministic verifier reads direct-answer confidence, decomposition stability, and answer-type compatibility, and selects the final path so that every routing decision remains inspectable. The oracle comparison quantifies the remaining selection headroom without attributing candidate-generation gains to the verifier itself.
 \end{enumerate}
@@ -254,7 +257,7 @@ Retrieval-Augmented Generation (RAG)~\cite{rag_survey} augments a parametric lan
 \begin{enumerate}
     \item \textbf{Indexing.} The source corpus is segmented into passages, and each passage is stored in a form that supports retrieval, such as sparse lexical indexes or dense vector representations.
     \item \textbf{Query manipulation.} The input question may be rewritten, expanded, normalised, or decomposed so that the retriever can better match it with relevant evidence.
-    \item \textbf{Retrieval.} The system selects candidate passages from the indexed corpus, \mbox{commonly} using sparse lexical matching, dense vector similarity, or a hybrid retrieval strategy.
+    \item \textbf{Retrieval.} The system selects candidate passages from the indexed corpus, commonly using sparse lexical matching, dense vector similarity, or a hybrid retrieval strategy.
     \item \textbf{Post-retrieval processing.} The initially retrieved passages may be filtered, reranked, compressed, or otherwise refined before they are passed to the generator.
     \item \textbf{Generation.} The language model conditions on the selected evidence and produces the final answer, ideally grounding its output in the retrieved passages.
 \end{enumerate}
@@ -293,7 +296,7 @@ A second line of work delays the retrieval decision until generation, using unce
 
 \textbf{TARG}~\cite{targ} studies adaptive retrieval as a training-free, single-shot decision. It generates a short no-context draft and computes uncertainty from the prefix logits to decide whether retrieval should be invoked. In addition to entropy, TARG considers a top-1/top-2 logit-margin signal and a small-sample variance signal. Its main strength is that it \mbox{provides} a lightweight retrieval gate without training an auxiliary classifier or modifying the language model. However, TARG makes one gating decision for the whole question, even on multi-hop benchmarks such as MuSiQue. Its behaviour in decomposition-based retrieval settings, where each sub-question may need its own decision, therefore remains less explored.
 
-Across this family, uncertainty provides a useful and interpretable signal for adaptive retrieval, but it remains an imperfect proxy. Low uncertainty does not guarantee a correct answer, and high uncertainty does not always indicate that retrieval will help. SEEK addresses this limitation by using tail-leakage surprisal both as a sub-question retrieval signal and as the confidence component of a late verifier, rather than treating a single uncertainty score as a hard router for the entire question.
+\DIFaddbegin \DIFadd{Across this family, uncertainty provides a useful and interpretable signal for adaptive retrieval, but it remains an imperfect proxy. Low uncertainty does not guarantee a correct answer, and high uncertainty does not always indicate that retrieval will help. SEEK addresses this limitation by using Tail Leakage both as a sub-question retrieval signal and as the confidence component of a late verifier, rather than treating a single uncertainty score as a hard router for the entire question.}\DIFaddend
 
 \paragraph{Learned retrieval policies.}
 
@@ -323,9 +326,9 @@ Every adaptive method above ultimately rests on a model's ability to recognise i
 
 \paragraph{Self-knowledge and its calibration.} A first strand asks whether a model can introspect on what it knows. Kadavath et al.~\cite{kadavath2022} show that LLMs are, to a useful degree, calibrated: a model can be prompted to predict the probability \texttt{P(True)} that its own answer is correct, and these self-judgements correlate with actual accuracy --- though calibration degrades on out-of-distribution questions. Yin et al.~\cite{yin2023} construct a ``SelfAware'' benchmark of answerable and unanswerable questions and find that LLMs only partially ``know what they don't know'': self-knowledge can be elicited but lags well behind human performance. From the supervised side, Kapoor et al.~\cite{kapoor2024} argue that models ``must be taught to know what they don't know'', demonstrating that lightweight calibration-tuning or probing substantially sharpens a model's estimate of its own uncertainty. Yin et al.~\cite{yin2024} formalise the notion of a knowledge boundary itself, proposing to benchmark a model by probing the frontier of its reliable knowledge rather than by aggregate accuracy alone.
 
-\paragraph{Uncertainty estimation as a boundary signal.} A second strand asks how to \emph{measure} the boundary at inference time. Beyond retrieval-specific methods, recent work on LLM uncertainty quantification compares several confidence estimators for answer correctness, including token entropy, maximum softmax probability, margin-based scores, verbalised confidence, and response consistency~\cite{maqa}. These comparisons show that the reliability of each signal varies across tasks and models. This motivates testing whether entropy is sufficient in SEEK's QA setting, or whether a signal focused on the probability mass escaping the top candidates provides a more discriminative retrieval gate.
+\paragraph{Uncertainty estimation as a boundary signal.} A second strand asks how to \emph{measure} the boundary at inference time. Beyond retrieval-specific methods, recent work on LLM uncertainty quantification compares several confidence estimators for answer correctness, including token entropy, maximum softmax probability, margin-based scores, verbalised confidence, and response consistency~\cite{maqa}. \DIFaddbegin \DIFadd{These comparisons show that the reliability of each signal varies across tasks and models. This motivates testing whether entropy is sufficient in SEEK's QA setting, or whether a signal focused on the probability mass escaping the top candidates provides a more discriminative retrieval gate.}\DIFaddend
 
-Semantic entropy further shows why token-level uncertainty can be limited for natural-language answers: different surface forms may express the same meaning, so uncertainty over token sequences does not always correspond to uncertainty over answers. Kuhn et al.~\cite{semanticuncertainty} introduce \emph{semantic entropy}, which clusters multiple sampled answers by meaning before computing entropy, so that paraphrases of one correct answer do not register as uncertainty; Farquhar et al.~\cite{semanticentropy} scale this idea and show that semantic entropy reliably detects confabulations across QA and biography generation. This observation is important for SEEK because exact QA answers often involve aliases, entity variants, and short spans. The same concern shapes SEEK's choice of signal: competition among the top candidates is often alias-level variation, so tail-leakage surprisal counts only the probability mass that leaks out of the candidate set. We nevertheless treat token-level confidence as a cheap diagnostic signal rather than as a correctness guarantee.
+Semantic entropy further shows why token-level uncertainty can be limited for natural-language answers: different surface forms may express the same meaning, so uncertainty over token sequences does not always correspond to uncertainty over answers. Kuhn et al.~\cite{semanticuncertainty} introduce \emph{semantic entropy}, which clusters multiple sampled answers by meaning before computing entropy, so that paraphrases of one correct answer do not register as uncertainty; Farquhar et al.~\cite{semanticentropy} scale this idea and show that semantic entropy reliably detects confabulations across QA and biography generation. \DIFaddbegin \DIFadd{This observation is important for SEEK because exact QA answers often involve aliases, entity variants, and short spans. The same concern shapes SEEK's choice of signal: competition among the top candidates is often alias-level variation, so Tail Leakage counts only the probability mass that leaks out of the candidate set. We nevertheless treat token-level confidence as a cheap diagnostic signal rather than as a correctness guarantee.}\DIFaddend
 
 \paragraph{The boundary under retrieval.} A third strand studies the boundary specifically in the RAG setting. Ren et al.~\cite{ren2023} show that retrieval augmentation not only injects evidence but also \emph{reshapes} the boundary: relevant passages let a model answer questions it could not before, while irrelevant or distracting passages can push a previously-correct answer over the boundary into error --- precisely the ``noise injection on easy queries'' failure mode of \S\ref{sec:adaptive-rag}. This makes a per-step boundary estimate, rather than a one-shot query-level one, essential when retrieval and reasoning are interleaved.
 
@@ -354,12 +357,12 @@ PopQA~\cite{popqa} is a \emph{single-hop} entity-centric QA dataset of 14K quest
 
 \paragraph{Single-hop open-domain QA.}
 
-For completeness, prior adaptive-RAG papers also evaluate on \textbf{Natural Questions (NQ)}~\cite{nq}, \textbf{TriviaQA}~\cite{triviaqa}, and \textbf{SQuAD}~\cite{squad}. These are single-hop datasets whose answers typically exist in a single evidence paragraph, and they primarily test whether an adaptive method can correctly \emph{skip} retrieval rather than orchestrate it. This thesis uses PopQA as the representative single-hop test set because it stresses factual recall and over-decomposition on entity-centric questions.
+For completeness, prior adaptive-RAG papers also evaluate on Natural Questions (NQ)~\cite{nq}, TriviaQA~\cite{triviaqa}, and SQuAD~\cite{squad}. These are single-hop datasets whose answers typically exist in a single evidence paragraph, and they primarily test whether an adaptive method can correctly \emph{skip} retrieval rather than orchestrate it. This thesis uses PopQA as the representative single-hop test set because it stresses factual recall and over-decomposition on entity-centric questions.
 
 \chapter{Methodology}
 \label{ch:method}
 
-This chapter presents \textbf{SEEK} (\textbf{S}elf-certainty \textbf{E}valuated \textbf{E}vidence-gated \textbf{K}nowledge-retrieval), a lightweight adaptive RAG framework that treats question decomposition as a routing problem. SEEK runs both a direct path and a decomposition path, preserves original-question evidence inside decomposed steps, and chooses between the candidate answers using a training-free verifier. The design follows the view that adaptive RAG is more than a retrieve-or-skip problem: a question may need to be answered directly, decomposed into sharper retrieval queries, or repaired with original-question context after decomposition.
+This chapter presents SEEK (\textbf{S}elf-certainty \textbf{E}valuated \textbf{E}vidence-gated \textbf{K}nowledge-retrieval), a lightweight adaptive RAG framework that treats question decomposition as a routing problem. SEEK runs both a direct path and a decomposition path, preserves original-question evidence inside decomposed steps, and \DIFdel{chooses between the candidate answers using a training-free verifier.}\DIFadd{uses a deterministic, training-free rule set to select between the two candidate answers. We refer to this final selector as the \emph{verifier}.} The design follows the view that adaptive RAG is more than a retrieve-or-skip problem: a question may need to be answered directly, decomposed into sharper retrieval queries, or repaired with original-question context after decomposition.
 
 \section{Overview}
 \label{sec:overview}
@@ -374,8 +377,8 @@ Given a question $q$ and an open-domain retrieval corpus $\mathcal{P}$, SEEK pro
 
 \begin{figure}[htbp]
     \centering
-    \makebox[\linewidth][c]{\includegraphics[width=1.3\linewidth]{Thesis_overflow.pdf}}
-    \caption[SEEK Pipeline]{Overview of SEEK. Stage 1 constructs 12K gold decomposition examples from MuSiQue, 2WikiMultihopQA, and PopQA; Stage 2 trains the LoRA decomposer on this corpus; Stage 3 runs dual-path inference, where the direct path answers the original question with retrieved evidence and the decomposition path answers sub-questions sequentially with confidence-gated retrieval and answer propagation, and a training-free verifier selects the final answer.}
+    \makebox[\linewidth][c]{\includegraphics[width=1.3\linewidth]{Thesis_Overview.pdf}}
+    \caption[SEEK Pipeline]{SEEK training and dual-path inference pipeline.}
     \label{fig:pipeline}
 \end{figure}
 
@@ -421,7 +424,8 @@ The decomposer emits one sub-question per line, prefixed with \texttt{\#}$\langl
 When a sub-question depends on an earlier answer, the placeholder \texttt{\#}$j$ refers to the answer of step $j$. For example:
 
 \begin{center}
-\begin{tabular}{ll}
+\small
+\begin{tabular}{@{}l@{\quad}l@{}}
     \texttt{\#1: Inception >> director} & $\rightarrow$ $a_1$ = \texttt{Christopher Nolan}\\
     \texttt{\#2: \#1 >> place of birth} & $\rightarrow$ \texttt{Christopher Nolan >> place of birth}
 \end{tabular}
@@ -448,7 +452,7 @@ The prompt standardises the output format without imposing a fixed decomposition
 
     \setlength{\tabcolsep}{6pt}
     \small
-    \begin{tabular}{ l p{4cm} p{6cm} }
+    \begin{tabular}{ l >{\raggedright\arraybackslash}p{4cm} >{\raggedright\arraybackslash}p{6cm} }
         \toprule
         Dataset & Question type & Decomposition \\
         \midrule
@@ -480,9 +484,7 @@ The fixed answer-only instruction used for both direct and sub-question answerin
     \label{fig:answer-prompt}
 \end{figure}
 
-During greedy decoding, SEEK records the softmax distribution $p_t=\mathrm{softmax}(\mathrm{logits}_t)$ for each generated token $t$. All confidence signals in SEEK are derived from these distributions: generation is a single greedy pass, so no resampling-based agreement is available, and no additional model is trained to judge confidence.
-
-\paragraph{Two kinds of uncertainty.} The signal design starts from an observation about how correct and incorrect answers differ at the token level. When the model knows the answer, the probability mass concentrates on a few candidates, and the remaining competition is typically between surface variants of the same answer, such as aliases, casing, or formatting differences. When the model lacks the required knowledge, the mass instead disperses over many unrelated continuations, well beyond any small set of plausible candidates. What separates the two cases is not how evenly the leading candidates split the mass, but whether the mass stays inside a small candidate set at all.
+\paragraph{Two kinds of uncertainty.} During greedy decoding, SEEK records the softmax distribution $p_t=\mathrm{softmax}(\mathrm{logits}_t)$ for each generated token $t$. The signal design starts from an observation about how correct and incorrect answers differ in these distributions. When the model knows the answer, the probability mass concentrates on a few candidates, and the remaining competition is typically between surface variants of the same answer, such as aliases, casing, or formatting differences. When the model lacks the required knowledge, the mass instead disperses over many unrelated continuations, well beyond any small set of plausible candidates. What separates the two cases is not how evenly the leading candidates split the mass, but whether the mass stays inside a small candidate set at all.
 
 \DIFaddbegin \paragraph{\DIFadd{Locating the signal with R\'enyi entropy.}} \DIFadd{Before committing to a particular functional form, SEEK first asks }\emph{\DIFadd{which region}} \DIFadd{of the next-token distribution carries the error-related information. R\'enyi entropy~\mbox{%DIFAUXCMD
 \cite{renyi1961} }\hskip0pt%DIFAUXCMD
@@ -495,46 +497,25 @@ offers a controlled instrument for this question, because it leaves the underlyi
     \label{eq:renyi}
 }\end{equation}
 
-\DIFadd{which recovers Shannon entropy in the limit $\alpha\rightarrow 1$. For $\alpha>1$ the sum is dominated by the largest probabilities, so the measure mainly describes the shape of the head; for $\alpha<1$ small probabilities are amplified, so the measure becomes increasingly sensitive to the tail. This distinction is consequential for LLM next-token distributions: over a vocabulary of more than 128K tokens, the tail consists of tens of thousands of individually negligible probabilities, and Shannon entropy, which weights each token by its own probability, folds their combined effect together with the competition among a handful of leading candidates into a single number. Substituting R\'enyi variants for Shannon entropy inside the same maximum-token-entropy error detector evaluated in Section~\ref{sec:tail-leakage-analysis} isolates the effect of this reweighting while holding everything else fixed; Figure~\ref{fig:renyi-reweight} visualises the reweighting and the resulting detection quality. On the 2WikiMultihopQA direct-path trace, the head-sensitive setting $\alpha=2$ reaches an error-detection AUROC of 0.651, Shannon entropy ($\alpha\rightarrow 1$) reaches 0.671, and the tail-sensitive setting $\alpha=0.5$ improves to 0.716. Detection quality rises monotonically as emphasis moves from the head towards the tail, which is the first piece of evidence that the error-related signal resides in the low-probability region rather than among the leading candidates. R\'enyi entropy nevertheless still compresses the entire distribution into one number: it indicates that the tail matters, but cannot distinguish whether what matters is }\emph{\DIFadd{how much}} \DIFadd{total mass leaks into the tail or }\emph{\DIFadd{how}} \DIFadd{that mass is arranged within it. The remainder of this section separates the two.
+\DIFadd{which recovers Shannon entropy in the limit $\alpha\rightarrow 1$. For $\alpha>1$ the measure emphasises the largest probabilities, whereas $\alpha<1$ makes it more sensitive to the tail. This distinction matters for LLM next-token distributions because Shannon entropy combines uncertainty among the leading candidates with probability spread across the much larger tail. We therefore replace Shannon entropy with each R\'enyi variant in the same error detector while leaving the remaining evaluation settings unchanged. Figure~\ref{fig:renyi-reweight} shows that error detection improves as the weighting shifts from the head towards the tail, indicating that the low-probability region contains more useful error-related information. R\'enyi entropy still compresses the entire distribution into one number, however, and cannot determine whether the important factor is the total mass in the tail or its internal arrangement. The remainder of this section separates these possibilities.
 }
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{fig_renyi_reweight_auroc.pdf}
-    \caption[R\'enyi Reweighting and Error Detection]{\DIFaddFL{R\'enyi reweighting of a next-token distribution and its effect on error detection. Left three panels: the escort distribution $p_t(v)^{\alpha}/\sum_{w} p_t(w)^{\alpha}$ of one fixed next-token distribution under three orders $\alpha$; $\alpha=2$ concentrates emphasis on the head (orange), $\alpha\rightarrow 1$ recovers the Shannon weighting, and $\alpha=0.5$ amplifies the tail (blue). Right: error-detection AUROC of the corresponding maximum-token-entropy detector on the 2WikiMultihopQA direct-path trace rises monotonically as emphasis moves towards the tail.}}
+    \caption[R\'enyi Reweighting and Error Detection]{\DIFaddFL{Effect of R\'enyi reweighting on error detection. Lower $\alpha$ emphasizes the probability tail and improves AUROC on 2WikiMultihopQA.}}
     \label{fig:renyi-reweight}
 \end{figure}
 
-\paragraph{\DIFadd{Same entropy, different risk.}} \DIFadd{A minimal example shows why a single entropy value cannot make this separation. Figure~\ref{fig:same-entropy-risk} and Table~\ref{tab:same-entropy-example} construct two next-token distributions for an answer position at which the model chooses between the casing variants }\texttt{\DIFadd{PO}} \DIFadd{and }\texttt{\DIFadd{po}} \DIFadd{of the same answer. The two distributions share identical leading candidates and, by construction, the same Shannon entropy of approximately $1.83$ nats. They differ only in where the remaining probability sits: distribution A retains $0.90$ of its mass inside the five most probable tokens and leaks $10\%$ into a dispersed tail of twelve tokens, whereas distribution B retains only $0.80$ and leaks twice as much mass into a more concentrated tail of five tokens. Entropy cannot separate the two cases because it responds simultaneously to the amount of leaked mass and to how dispersed that mass is: a smaller but more dispersed tail and a larger but more concentrated one sum to the same entropy. For the retrieval decision, however, the relevant event is that twice as much probability has escaped the model's main candidate set, while the competition between the two leading candidates—surface variants of one answer—is benign in both cases. The leakage score introduced below reacts to exactly this difference: $-\log 0.90 = 0.105$ versus $-\log 0.80 = 0.223$, more than doubling where entropy does not move at all.
+\paragraph{\DIFadd{Same entropy, different risk.}} \DIFadd{Figure~\ref{fig:same-entropy-risk} shows two next-token distributions with the same Shannon entropy and the same leading candidates. Distribution B retains less probability within the top five and therefore places twice as much mass in the tail. Entropy assigns the same value to both distributions, whereas the Tail Leakage score introduced below clearly separates them.
 }
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{fig_same_entropy_risk.pdf}
-    \caption[Same Entropy, Different Risk]{\DIFaddFL{The two constructed distributions of Table~\ref{tab:same-entropy-example}. The two leading candidates (orange) are identical and both distributions have a Shannon entropy of $1.83$ nats, yet distribution B leaks twice as much probability mass into the tail (blue). The leakage score $-\log m_t$ more than doubles while entropy does not move.}}
+    \caption[Same Entropy, Different Risk]{\DIFaddFL{Both distributions have the same Shannon entropy, but Distribution B places more probability mass in the tail.}}
     \label{fig:same-entropy-risk}
 \end{figure}
-
-\begin{table}[htbp]
-    \centering
-    \caption[Same Entropy, Different Risk]{\DIFaddFL{Two constructed next-token distributions with identical leading candidates and equal Shannon entropy (natural logarithm) but different tail mass. The per-token leakage score $-\log m_t$ defined in Section~\ref{sec:probe} separates them, whereas entropy does not.}}
-    \label{tab:same-entropy-example}
-    \small
-    \begin{tabular}{lcc}
-        \toprule
-         & \DIFaddFL{Distribution A }& \DIFaddFL{Distribution B }\\
-        \midrule
-        \DIFaddFL{rank 1: }\texttt{\DIFaddFL{PO}} & \DIFaddFL{0.38 }& \DIFaddFL{0.38 }\\
-        \DIFaddFL{rank 2: }\texttt{\DIFaddFL{po}} & \DIFaddFL{0.26 }& \DIFaddFL{0.26 }\\
-        \DIFaddFL{ranks 3--5 }& \DIFaddFL{0.11 / 0.08 / 0.07 }& \DIFaddFL{0.06 / 0.05 / 0.05 }\\
-        \midrule
-        \DIFaddFL{top-five retained mass }& \DIFaddFL{0.90 }& \DIFaddFL{0.80 }\\
-        \DIFaddFL{tail mass }& \DIFaddFL{0.10 (12 tokens $\times$ 0.83\%) }& \DIFaddFL{0.20 (5 tokens $\times$ 4.0\%) }\\
-        \DIFaddFL{Shannon entropy (nats) }& \DIFaddFL{1.83 }& \DIFaddFL{1.83 }\\
-        \DIFaddFL{leakage score $-\log m_t$ }& \DIFaddFL{0.105 }& \DIFaddFL{0.223 }\\
-        \bottomrule
-    \end{tabular}
-\end{table}
 
 \DIFaddend \paragraph{Decomposing token entropy.} Token entropy is the usual way to measure this kind of uncertainty, but it mixes the leakage of probability mass out of the candidate set with effects that are unrelated to correctness. Let $V_5(p_t)$ denote the set of the five most probable tokens under $p_t$, and let
 
@@ -546,14 +527,17 @@ offers a controlled instrument for this question, because it leaves the underlyi
 be the probability mass retained within these candidates; the mass $1-m_t$ that leaks into the rest of the vocabulary is the tail. For token entropy $H(p_t)=-\sum_v p_t(v)\log p_t(v)$, the chain rule gives three components:
 
 \begin{equation}
-    H(p_t)=H_{\mathrm{B}}(m_t)+m_t\,H(\hat{p}_t^{\,\mathrm{in}})+(1-m_t)\,H(\hat{p}_t^{\,\mathrm{out}}),
+\begin{aligned}
+    H(p_t)={}&\bigl[-m_t\log m_t-(1-m_t)\log(1-m_t)\bigr] \\
+              &+m_t\,H(\hat{p}_t^{\,\mathrm{in}})+(1-m_t)\,H(\hat{p}_t^{\,\mathrm{out}}),
+\end{aligned}
     \label{eq:entropy-chain}
 \end{equation}
 
-where $H_{\mathrm{B}}$ is the binary entropy of whether the next token falls inside the top five or in the tail, and $\hat{p}_t^{\,\mathrm{in}}$, $\hat{p}_t^{\,\mathrm{out}}$ are the renormalised distributions inside and outside the top-five set. Only the first term reflects whether mass leaks into the tail. The second term measures competition inside the top five, which for correct answers frequently comes from surface variants of the same answer, and the third term describes the composition of the tail, which carries little information about correctness. Mixing the three therefore makes entropy a weaker error signal than the leakage term alone. \DIFaddbegin \DIFadd{This decomposition is an identity, not an approximation: it does not introduce a new uncertainty measure, but makes it possible to test each source of uncertainty separately. Section~\ref{sec:tail-leakage-analysis} performs exactly this test and confirms the reading: scored in isolation over the same traces, the leakage term reaches a macro error-detection AUROC of 0.742, competition inside the top five reaches 0.712, and the composition of the tail reaches 0.502, barely above chance. What predicts errors is how much mass leaves the candidate set, not how the leaked mass is arranged once it has left; this also resolves the ambiguity that the R\'enyi probe left open.
+\DIFaddbegin \DIFadd{where the bracketed term is the binary entropy of whether the next token falls inside the top five or in the tail, and $\hat{p}_t^{\,\mathrm{in}}$, $\hat{p}_t^{\,\mathrm{out}}$ are the renormalised distributions inside and outside the top-five set. The second term measures competition within the top five, while the third describes how probability is arranged within the tail. Mixing these effects makes entropy less specific as an error signal. This decomposition is an identity rather than a new uncertainty measure; it simply allows the three sources of uncertainty to be evaluated separately. The component analysis in Section~\ref{sec:tail-leakage-analysis} confirms that the amount of mass leaving the candidate set is more informative than either competition among leading candidates or the arrangement of mass within the tail.
 }\DIFaddend 
 
-\paragraph{Tail-leakage surprisal.} The confidence signal of SEEK retains only the top-five mass $m_t$ from this decomposition and transforms it into a monotonic leakage score, while discarding the two within-group entropy terms. Surprisal is the standard information-theoretic measure of how unexpected an event is: an event of probability $p$ carries surprisal $-\log p$. Applying it to the event that generation stays within the candidate set, and accumulating over the answer, gives
+\paragraph{Tail Leakage.} The confidence signal of SEEK retains only the top-five mass $m_t$ from this decomposition and discards the two within-group entropy terms. To make the score increase as more probability leaves the candidate set, SEEK takes the negative logarithm of the retained top-five mass and sums the token-level values across the generated answer:
 
 \begin{align}
     \mathrm{TL}_t
@@ -563,26 +547,26 @@ where $H_{\mathrm{B}}$ is the binary entropy of whether the next token falls ins
          = -\log \prod_{t\in\mathcal{T}} m_t , \label{eq:tail-leakage}
 \end{align}
 
-where $\mathcal{T}$ indexes the generated answer tokens, excluding EOS. $\mathrm{TL}_t$ is the surprisal of staying inside the candidate set at position $t$: it is near zero when the top five candidates retain almost all of the mass, and it grows as mass leaks into the tail.
+where $\mathcal{T}$ indexes the generated answer tokens, excluding EOS. $\mathrm{TL}_t=-\log m_t$ is the token-level Tail Leakage score: it is near zero when the top five candidates retain almost all of the mass, and it grows as mass leaks into the tail.
 \DIFaddbegin 
 
-\DIFadd{The transform is deliberately }\emph{\DIFadd{not}} \DIFadd{the binary-entropy term $H_{\mathrm{B}}(m_t)$ of Equation~\eqref{eq:entropy-chain}. A risk score should satisfy a basic monotonicity requirement: the more probability leaves the candidate set, the higher the score, with no reversal at severe leakage. As Figure~\ref{fig:leakage-monotonicity} shows, binary entropy violates this requirement, because as a function of the leaked mass $1-m_t$ it rises, peaks at $1-m_t=0.5$, and then falls again, so a token that leaks most of its mass would receive a score as low as one that leaks almost nothing. The role of the decomposition is therefore to identify $m_t$ as the informative variable, and the role of $-\log m_t$ is to convert that variable into a score that is strictly increasing in the leaked mass and, as a logarithm, additive across positions.
+\DIFadd{The transform is deliberately }\emph{\DIFadd{not}} \DIFadd{the bracketed binary-entropy term of Equation~\eqref{eq:entropy-chain}. A risk score should satisfy a basic monotonicity requirement: the more probability leaves the candidate set, the higher the score, with no reversal at severe leakage. As Figure~\ref{fig:leakage-monotonicity} shows, binary entropy violates this requirement, because as a function of the leaked mass $1-m_t$ it rises, peaks at $1-m_t=0.5$, and then falls again, so a token that leaks most of its mass would receive a score as low as one that leaks almost nothing. The role of the decomposition is therefore to identify $m_t$ as the informative variable, and the role of $-\log m_t$ is to convert that variable into a score that is strictly increasing in the leaked mass and, as a logarithm, additive across positions.
 }
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.92\textwidth]{fig_leakage_monotonicity.pdf}
-    \caption[Monotonicity of the Leakage Score]{\DIFaddFL{Binary entropy $H_{\mathrm{B}}(m_t)$ and leakage surprisal $-\log m_t$ as functions of the leaked mass $1-m_t$. Binary entropy peaks at $1-m_t=0.5$ and then falls, so severe leakage would be scored as low as near-certainty, whereas $-\log m_t$ increases strictly with the leaked mass.}}
+    \caption[Monotonicity of the Leakage Score]{\DIFaddFL{Binary Entropy and Tail Leakage versus leaked probability mass. Only Tail Leakage increases monotonically with leakage.}}
     \label{fig:leakage-monotonicity}
 \end{figure}
 
-\DIFaddend The answer-level score $\sigma^{\mathrm{tl}}$ accumulates this leakage over the generated span. The sum is preferred over a worst-token maximum because a wrong answer often leaks a small amount of mass at several positions rather than a large amount at one, and a maximum-based aggregate cannot accumulate this pattern. \DIFaddbegin \DIFadd{As a direct check that the score orders risk, pooling the 4}{\DIFadd{,}}\DIFadd{000 direct-path answers of the four evaluation datasets and splitting them into eight equal-frequency bins of $\sigma^{\mathrm{tl}}$ yields an error rate that rises monotonically from 33\% in the lowest bin to 97\% in the highest (Spearman $\rho=0.419$; Figure~\ref{fig:tl-error-bins}); the score is a ranking signal rather than a calibrated error probability, and Section~\ref{sec:tail-leakage-analysis} analyses its behaviour and failure modes in detail. }\DIFaddend SEEK uses tail-leakage surprisal throughout its confidence-based decisions, as the per-step retrieval signal and as both query-level confidence inputs to the verifier.
+\DIFaddend \DIFaddbegin \DIFadd{The answer-level score $\sigma^{\mathrm{tl}}$ accumulates this leakage over the generated span. The sum is preferred over a worst-token maximum because a wrong answer may show small leakage at several positions, which a maximum-based aggregate cannot accumulate. Figure~\ref{fig:tl-error-bins} shows that answer errors become more frequent as Tail Leakage increases, supporting its use as a ranking signal rather than a calibrated error probability. Section~\ref{sec:tail-leakage-analysis} examines its behaviour and limitations in detail. SEEK uses Tail Leakage as the per-step retrieval signal and as both confidence inputs to the verifier.}\DIFaddend
 \DIFaddbegin 
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.9\textwidth]{fig_tail_leakage_error_bins.pdf}
-    \caption[Error Rate by Tail-Leakage Bin]{\DIFaddFL{Answer error rate across eight equal-frequency bins of tail-leakage surprisal, pooling the 4}{\DIFaddFL{,}}\DIFaddFL{000 direct-path answers of the four evaluation datasets; the value beneath each bar indicates the score level of that bin. The error rate rises monotonically from 33\% in the lowest bin to 97\% in the highest (Spearman $\rho=0.419$).}}
+    \caption[Error Rate by Tail Leakage Quantile]{\DIFaddFL{Answer error rate across Tail Leakage quantiles. Error rates increase with Tail Leakage.}}
     \label{fig:tl-error-bins}
 \end{figure}
 \DIFaddend 
@@ -590,7 +574,7 @@ where $\mathcal{T}$ indexes the generated answer tokens, excluding EOS. $\mathrm
 \section{Decomposition-Path Inference}
 \label{sec:gate}
 
-Within the decomposition path, retrieval remains sub-question-level. For a resolved sub-question $s_i$, the answerer first produces a tentative parametric answer $\tilde{a}_i$ and its tail-leakage surprisal $\sigma_i$. The retriever is invoked when:
+Within the decomposition path, retrieval remains sub-question-level. For a resolved sub-question $s_i$, the answerer first produces a tentative parametric answer $\tilde{a}_i$ and its Tail Leakage $\sigma_i$. The retriever is invoked when:
 
 \begin{equation}
     \pi(s_i)=
@@ -602,6 +586,11 @@ Within the decomposition path, retrieval remains sub-question-level. For a resol
 \end{equation}
 
 where $\tau$ is the retrieval threshold. When retrieval is triggered, BM25 returns top-$k$ passages and the model re-answers $s_i$ using the retrieved context; otherwise $\tilde{a}_i$ is kept.
+
+\DIFaddbegin
+\paragraph{Path-aware title handling.}
+Original questions and decomposed sub-questions have different query forms. Original questions are longer and contain multiple constraints, whereas sub-questions are usually short and centred on one entity. SEEK therefore disables BM25 title matching for the direct path and enables it for the decomposition path, where the entity name provides a useful title cue. We refer to this path-specific configuration as \emph{path-aware title retrieval}.
+\DIFaddend
 
 \paragraph{Original-question evidence union.}
 A decomposed sub-question is often shorter and more entity-centric than the original question, which improves retrieval precision but can remove global clues such as comparison targets or disambiguating conditions. To preserve this context, the final system augments each retrieved sub-question context with evidence retrieved from the original question:
@@ -630,39 +619,14 @@ The verifier chooses between the direct candidate and the decomposed candidate. 
 \paragraph{Signals.} The verifier uses three query-level signals:
 
 \begin{itemize}
-    \item \textbf{Direct-answer surprisal} $\sigma^{\mathrm{dir}}$: low tail-leakage surprisal suggests the direct answer may be reliable.
-    \item \textbf{Decomposition post-surprisal} $\sigma^{\mathrm{dec}}$: high tail-leakage surprisal after decomposition and synthesis suggests the decomposed answer is unstable.
+    \item \textbf{Direct-answer Tail Leakage} $\sigma^{\mathrm{dir}}$: low Tail Leakage suggests the direct answer may be reliable.
+    \item \textbf{Post-decomposition Tail Leakage} $\sigma^{\mathrm{dec}}$: high Tail Leakage after decomposition and synthesis suggests the decomposed answer is unstable.
     \item \textbf{Structural validity}: unresolved placeholders, empty sub-answers, or malformed sub-questions indicate decomposition failure.
 \end{itemize}
 
-\paragraph{Rule.} The verifier chooses direct when the direct answer is confident and decomposition is unstable, and chooses decomposition in the remaining cases. Both conditions are measured with tail-leakage surprisal, using separate thresholds for the direct and decomposed candidates. The type-aware fallback is a deterministic refinement: it only changes the final route when answer type, direct surprisal, decomposition post-surprisal, and entity-fragment signals consistently indicate that the direct answer should be preferred.
+\paragraph{Rule.} The verifier chooses direct when the direct answer is confident and decomposition is unstable, and chooses decomposition in the remaining cases. Both conditions are measured with Tail Leakage, using separate thresholds for the direct and decomposed candidates. The type-aware fallback is a deterministic refinement: it only changes the final route when answer type, direct Tail Leakage score, post-decomposition Tail Leakage score, and entity-fragment signals consistently indicate that the direct answer should be preferred.
 
 
-Algorithm~\ref{alg:seek} summarises the complete SEEK inference procedure.
-\begin{algorithm}[htbp]
-\caption{SEEK inference for one question $q$}
-\label{alg:seek}
-\begin{algorithmic}[1]
-\Require question $q$, corpus $\mathcal{P}$, surprisal threshold $\tau$, top-$k$
-\State $(a^{\mathrm{dir}}, \sigma^{\mathrm{dir}}) \gets \textsc{DirectAnswer}(q, r(q,\mathcal{P},k))$
-\State $\{s_1,\ldots,s_n\}\gets \mathcal{D}_\theta(q)$
-\State $A\gets\emptyset$
-\For{$i=1$ to $n$}
-    \State $s_i\gets\textsc{Resolve}(s_i,A)$
-    \State $(\tilde{a}_i,\sigma_i)\gets\mathcal{A}_\theta(s_i,\emptyset)$
-    \If{$\sigma_i\geq\tau$}
-        \State $c_i\gets r(s_i,\mathcal{P},k) \cup r(q,\mathcal{P},k)$
-        \State $a_i\gets\mathcal{A}_\theta(s_i,c_i)$
-    \Else
-        \State $a_i\gets\tilde{a}_i$
-    \EndIf
-    \State $A[i]\gets a_i$
-\EndFor
-\State $(a^{\mathrm{dec}},\sigma^{\mathrm{dec}},z^{\mathrm{dec}})\gets\textsc{Synthesize}(q,\{(s_i,a_i)\}_{i=1}^{n})$
-\State $\hat{a}\gets\textsc{Verifier}(a^{\mathrm{dir}},a^{\mathrm{dec}},\sigma^{\mathrm{dir}},\sigma^{\mathrm{dec}},z^{\mathrm{dec}})$
-\State \Return $\hat{a}$
-\end{algorithmic}
-\end{algorithm}
 
 
 \chapter{Experiments}
@@ -688,17 +652,39 @@ We report normalised exact match (EM) and token-level F1. Before scoring, predic
 
 \section{Implementation Details}
 
-All SEEK results use Llama-3-8B-Instruct with the 12K three-source LoRA decomposer trained on MuSiQue, 2WikiMultihopQA, and PopQA. The adapter uses rank 16, alpha 32, and dropout 0.05 on all linear modules, trained in bf16 with a 1024-token context for 3 epochs using LLaMA-Factory~\cite{llamafactory}, with effective batch size 16 and learning rate $1\times10^{-4}$ under cosine decay with 10\% warmup. At inference, the adapter is enabled for decomposition and sub-question answering and disabled for synthesis. The headline system uses the accuracy-first tail-leakage-surprisal gate at $\tau=0.002305$. The final verifier uses the rule set of Chapter~\ref{ch:method} with tail-leakage surprisal as its confidence signal, plus a conservative type-aware fallback. This fallback changes only the final choice between the direct and decomposed candidates; it does not rerun generation and does not train an additional model.
+All SEEK results use Llama-3-8B-Instruct and the three-source LoRA decomposer described in Chapter~\ref{ch:method}. Table~\ref{tab:implementation-details} summarises the training and inference configuration. At inference, the adapter is enabled for decomposition and sub-question answering and disabled for synthesis. The final verifier uses Tail Leakage together with the conservative type-aware fallback; it only selects between existing candidates and does not rerun generation or train another model.
+
+\begin{table}[h]
+    \centering
+    \caption[Implementation Details]{Training and inference configuration used in all SEEK experiments.}
+    \label{tab:implementation-details}
+    \setlength{\tabcolsep}{8pt}
+    \small
+    \begin{tabular}{ l l }
+        \toprule
+        Setting & Value \\
+        \midrule
+        Backbone & Llama-3-8B-Instruct \\
+        Decomposer training data & 12{,}000 examples from MuSiQue, 2Wiki, and PopQA \\
+        LoRA configuration & rank 16; alpha 32; dropout 0.05; all linear modules \\
+        Precision and context length & bf16; 1{,}024 tokens \\
+        Training schedule & 3 epochs; effective batch size 16 \\
+        Learning rate & $1\times10^{-4}$; cosine decay; 10\% warmup \\
+        Training framework & LLaMA-Factory~\cite{llamafactory} \\
+        Accuracy-first gate & $\tau=0.002305$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 
 \section{Main Results}
 \label{sec:main-results}
 
-Table~\ref{tab:main-results} reports the final results under full-corpus Wikipedia retrieval. To keep the comparison aligned with the SEEK evaluation protocol, the table shows the four overlapping datasets which were reported by DeepRAG. The final SEEK system combines path-aware title retrieval, original-question evidence union, surprisal-gated sub-question retrieval, and the type-aware training-free verifier.
+Table~\ref{tab:main-results} reports the final results on the four datasets also reported by DeepRAG. The final SEEK system combines path-aware title retrieval, original-question evidence union, Tail Leakage gating for sub-question retrieval, and the type-aware training-free verifier.
 
 \begin{table}[h]
     \centering
-    \caption[Main Results under Full-Corpus Wikipedia Retrieval]{Main results on the first 1{,}000 questions of each dev set using the full 21M-passage Wikipedia collection. Each cell reports EM/F1. The SEEK row uses the accuracy-first gate at $\tau=0.002305$; gate alternatives are evaluated by fixed-chain resynthesis as specified in Section~\ref{sec:threshold-sensitivity}.}
+    \caption[Main Results]{Main EM/F1 results on the first 1{,}000 development examples from each dataset.}
     \label{tab:main-results}
     \setlength{\tabcolsep}{4pt}
     \scriptsize
@@ -712,21 +698,21 @@ Table~\ref{tab:main-results} reports the final results under full-corpus Wikiped
         Adaptive & FLARE~\cite{flare} & 23.80/32.88 & 30.30/37.45 & 14.50/23.57 & 28.80/40.61 & 24.35/33.63 \\
         Adaptive & DRAGIN~\cite{dragin} & 27.60/38.05 & 29.10/35.68 & 11.80/19.97 & 22.60/28.53 & 22.78/30.56 \\
         Learned adaptive & DeepRAG~\cite{deeprag} & \textbf{40.70/51.54} & 48.10/53.25 & 22.50/30.40 & 42.50/47.80 & 38.45/45.75 \\
-        Ours & \textbf{SEEK final} & 37.80/49.03 & \textbf{49.30/56.22} & \textbf{26.50/34.63} & \textbf{53.90/55.73} & \textbf{41.88/48.90} \\
+        Ours & SEEK final & 37.80/49.03 & \textbf{49.30/56.22} & \textbf{26.50/34.63} & \textbf{53.90/55.73} & \textbf{41.88/48.90} \\
         \bottomrule
     \end{tabular}}
 \end{table}
 
-The final SEEK system reaches 41.88 EM and 48.90 F1 on the four-dataset average, compared with DeepRAG's 38.45 EM and 45.75 F1, a gain of +3.43 EM and +3.15 F1 over the strongest external baseline. The margin over the reasoning baselines and the training-free adaptive baselines is considerably wider.
+SEEK achieves the strongest average EM and F1 among the compared methods, outperforming the reasoning, training-free adaptive, and learned adaptive baselines in the aggregate.
 
-At the per-dataset level, SEEK wins on three of the four datasets. On 2Wiki it improves from DeepRAG's 48.10 EM to 49.30 EM, and on MuSiQue from 22.50 to 26.50 EM. The largest gain is on PopQA, where SEEK reaches 53.90 EM against DeepRAG's 42.50. As analysed in Section~\ref{sec:path-selection-rate}, the decomposition candidate for every PopQA example contains a one-step plan rather than a multi-hop decomposition. Because that path combines a structured reformulation, path-aware retrieval, original-question evidence, and synthesis, the present ablations do not attribute the gain to the final verifier or to any single component.
+At the dataset level, SEEK leads on 2Wiki, MuSiQue, and PopQA. As discussed in Section~\ref{sec:path-selection-rate}, the PopQA decomposition candidate is a one-step query reformulation rather than a multi-hop reasoning chain.
 
-HotpotQA is the exception. SEEK reaches 37.80 EM, below DeepRAG's 40.70 EM. It is therefore the main remaining limitation and motivates the path and routing analyses in Sections~\ref{sec:path-distribution}--\ref{sec:oracle-analysis}.
+HotpotQA is the exception, where SEEK remains below DeepRAG. It is therefore the main remaining limitation and motivates the path and routing analyses in Sections~\ref{sec:path-distribution}--\ref{sec:oracle-analysis}.
 
 \chapter{Results and Analysis}
 \label{ch:results}
 
-This chapter builds on the main comparison reported in Chapter~\ref{ch:exp} and analyses why SEEK works and where it fails. It examines retrieval quality, confidence-based ablations, the complementary direct and decomposition paths, final-trace failure modes, and the limits of tail-leakage surprisal as a confidence signal.
+This chapter builds on the main comparison reported in Chapter~\ref{ch:exp} and analyses why SEEK works and where it fails. It examines retrieval quality, confidence-based ablations, the complementary direct and decomposition paths, final-trace failure modes, and the limits of Tail Leakage as a confidence signal.
 
 \section{Retrieval Analysis}
 \label{sec:retrieval-analysis}
@@ -736,11 +722,11 @@ This section asks whether decomposition improves retrieval itself, and how much 
 \subsection{Answer-Containing Recall}
 \label{sec:retrieval-recall}
 
-Before evaluating final answers, we first ask whether decomposition actually improves retrieval quality. Table~\ref{tab:answer-recall} reports answer-containing hit@5: a query is counted as successful if at least one of the top five retrieved passages contains the gold answer or one of its aliases. Yes-or-no questions are excluded because the strings ``yes'' and ``no'' are not meaningful evidence strings.
+Before evaluating final answers, we first ask whether decomposition actually improves retrieval quality. Table~\ref{tab:answer-recall} reports answer-containing Hit@5: a query is counted as successful if at least one of the top five retrieved passages contains the gold answer or one of its aliases. Yes-or-no questions are excluded because the strings ``yes'' and ``no'' are not meaningful evidence strings.
 
 \begin{table}[h]
     \centering
-    \caption[Answer-Containing Retrieval Recall]{Answer-containing hit@5 under the final open-domain wiki retrieval condition. Original-query retrieval uses paragraph text only; decomposed sub-question retrieval uses title and paragraph text.}
+    \caption[Answer-Containing Retrieval Recall]{Answer-containing Hit@5 under open-domain Wikipedia retrieval. The direct path searches paragraph text, while decomposition also uses titles.}
     \label{tab:answer-recall}
     \setlength{\tabcolsep}{7pt}
     \small
@@ -756,27 +742,27 @@ Before evaluating final answers, we first ask whether decomposition actually imp
     \end{tabular}
 \end{table}
 
-Decomposition substantially improves answer-containing retrieval on the multi-hop datasets: +28.03 points on 2Wiki, +19.80 on MuSiQue, and +5.53 on HotpotQA. Figure~\ref{fig:answer-hit-retrieval} visualises this contrast across datasets: the gains are concentrated on the three multi-hop benchmarks, whereas PopQA is nearly unchanged because it is already single-hop.
+Decomposition improves answer-containing retrieval on all three multi-hop datasets, with the largest gain on 2Wiki. Figure~\ref{fig:answer-hit-retrieval} visualises this contrast: the single-hop PopQA result remains nearly unchanged.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.82\textwidth]{fig_answer_hit_retrieval.png}
-    \caption[Answer-Containing Retrieval Recall Figure]{Answer-containing retrieval recall under the full-corpus Wikipedia retrieval setting. Decomposition improves retrieval on the three multi-hop datasets and leaves the single-hop PopQA result nearly unchanged.}
+    \caption[Answer-Containing Retrieval Recall Figure]{Answer-containing recall under full-corpus retrieval. Decomposition improves multi-hop retrieval but has little effect on PopQA.}
     \label{fig:answer-hit-retrieval}
 \end{figure}
 
 \subsection{Gold and Base Decomposition on MuSiQue}
 \label{sec:gold-decomposition-recall}
 
-To separate the value of decomposition from the value of the trained decomposer, we run a focused MuSiQue retrieval-recall analysis using the first 1{,}000 development questions. This slice contains only 2-hop questions, which makes the official MuSiQue gold decomposition directly comparable with SEEK's predicted two-step chain. Table~\ref{tab:musique-gold-recall} reports answer-containing hit@5 under the same full-corpus Wikipedia and path-aware retrieval setting as Table~\ref{tab:answer-recall}.
+To separate the value of decomposition from the value of the trained decomposer, we run a focused MuSiQue retrieval-recall analysis using the first 1{,}000 development questions. This slice contains only 2-hop questions, which makes the official MuSiQue gold decomposition directly comparable with SEEK's predicted two-step chain. Table~\ref{tab:musique-gold-recall} reports answer-containing Hit@5 under the same full-corpus Wikipedia and path-aware retrieval setting as Table~\ref{tab:answer-recall}.
 
 \begin{table}[h]
     \centering
-    \caption[MuSiQue Gold and Base Decomposition Recall]{MuSiQue answer-containing hit@5 for original, SEEK, gold, and untuned-base decompositions.}
+    \caption[MuSiQue Gold and Base Decomposition Recall]{MuSiQue answer-containing Hit@5 for original, SEEK, gold, and untuned-base decompositions.}
     \label{tab:musique-gold-recall}
     \setlength{\tabcolsep}{6pt}
     \small
-    \begin{tabular}{ l p{6.5cm} c }
+    \begin{tabular}{ l >{\raggedright\arraybackslash}p{6.5cm} c }
         \toprule
         Arm & Interpretation & Hit@5 \\
         \midrule
@@ -790,23 +776,23 @@ To separate the value of decomposition from the value of the trained decomposer,
     \end{tabular}
 \end{table}
 
-The gap between original retrieval and SEEK retrieval is large: 19.0 to 38.8 hit@5. The oracle gold chain reaches 55.8, showing that decomposition has further retrieval headroom. However, the important diagnostic is that \emph{Gold raw} collapses back to the original-query level. A 2-hop decomposition is useful only when the first-hop bridge entity is correctly resolved and substituted into the second query. SEEK's first-hop intermediate-answer EM is 41.9\%. When the first hop is answered correctly, SEEK reaches 56.4 hit@5, essentially matching the gold chain on the same subset at 58.5. When the first hop is wrong, SEEK falls to 25.9 while gold stays at 53.8, so these questions are not intrinsically harder and their evidence remains reachable with the right bridge entity. The SEEK--gold gap is therefore almost entirely bridge-answer drift rather than poor decomposition wording.
+SEEK substantially improves over original-question retrieval but remains below the oracle gold chain. The Gold raw condition falls back near the original-query result, showing that decomposition helps only when the bridge entity is resolved and substituted into the later query. Conditional analysis gives the same conclusion: SEEK approaches gold retrieval when the first-hop answer is correct and falls behind when it is wrong. The remaining gap is therefore driven primarily by bridge-answer drift rather than poor decomposition wording.
 
-The untuned base model also clarifies why the decomposer is trained. With the same prompt and no LoRA adapter, the base model produces a valid two-step decomposition for only 149 of 1{,}000 MuSiQue examples and has a 15.3\% format-parsing failure rate. Its query text can retrieve well under oracle bridge substitution, but it is not structurally reliable enough to deploy. LoRA training therefore buys step-count control, valid placeholders, and compact BM25-friendly query style, not merely better wording.
+The untuned base model also clarifies why the decomposer is trained. Its query text can retrieve well under oracle bridge substitution, but it frequently violates the required step structure or output format. LoRA training therefore provides step-count control, valid placeholders, and compact BM25-friendly queries rather than merely improving wording.
 
 \section{Ablation Studies}
 \label{sec:ablations}
 
-This section varies three aspects of the final system: whether retrieval remains necessary after decomposition, whether retrieving with the original question can replace decomposition, and how the step-gate threshold trades retrieval cost against answer quality.
+This section tests whether retrieval remains necessary after decomposition, how the step-gate threshold affects retrieval and accuracy, and whether title handling should differ between the direct and decomposition paths.
 
 \subsection{Retrieval Is Necessary After Decomposition}
 \label{sec:retrieval-necessary}
 
-Decomposition alone does not supply missing factual knowledge. Table~\ref{tab:rag-necessity} compares never retrieving, the headline accuracy-first gate, and always retrieving. For each policy, the stored no-retrieval and retrieved step answers are selected using tail-leakage surprisal, and the resulting answer chain is resynthesised with the same adapter-disabled base-model prompt as the final system. Later resolved sub-questions are held fixed to the source trace, so this is a controlled fixed-chain comparison of retrieval policies rather than three independent end-to-end reruns.
+Decomposition alone does not supply missing factual knowledge. Table~\ref{tab:rag-necessity} compares never retrieving, the headline accuracy-first gate, and always retrieving. For each policy, the stored no-retrieval and retrieved step answers are selected using Tail Leakage, and the resulting answer chain is resynthesised with the same adapter-disabled base-model prompt as the final system. Later resolved sub-questions are held fixed to the source trace, so this is a controlled fixed-chain comparison of retrieval policies rather than three independent end-to-end reruns.
 
 \begin{table}[h]
     \centering
-    \caption[Retrieval Necessity After Decomposition]{Final-system step-level retrieval ablation under full-corpus Wikipedia retrieval. All three conditions use the final confidence verifier; alternative policies use fixed-chain resynthesis. Each score cell reports EM/F1. In the aggregate row, EM/F1 and gain are macro-averaged across datasets, whereas retrieval rate is pooled over all decomposed steps.}
+    \caption[Retrieval Necessity After Decomposition]{Step-level retrieval ablation after decomposition.}
     \label{tab:rag-necessity}
     \setlength{\tabcolsep}{5pt}
     \small
@@ -815,7 +801,7 @@ Decomposition alone does not supply missing factual knowledge. Table~\ref{tab:ra
         \toprule
         Dataset & Never retrieve & Confidence gate & Always retrieve & Gain (EM) & Gate retrieval rate \\
         \midrule
-        HotpotQA & 29.80/39.38 & 37.80/\textbf{49.03} & \textbf{37.90}/49.03 & +8.00 & 89.23\% \\
+        HotpotQA & 29.80/39.38 & 37.80/\textbf{49.03} & \textbf{37.90/49.03} & +8.00 & 89.23\% \\
         2Wiki & 33.90/39.86 & \textbf{49.30/56.22} & 49.30/56.15 & +15.40 & 95.75\% \\
         MuSiQue & 15.40/24.17 & \textbf{26.50/34.63} & 26.40/34.63 & +11.10 & 94.78\% \\
         PopQA & 24.80/25.93 & \textbf{53.90}/55.73 & \textbf{53.90/55.80} & +29.10 & 97.60\% \\
@@ -824,49 +810,45 @@ Decomposition alone does not supply missing factual knowledge. Table~\ref{tab:ra
     \end{tabular}}
 \end{table}
 
-Retrieval after decomposition is necessary: the accuracy-first gate improves over never retrieve by 8.00 to 29.10 EM. It remains within 0.10 EM of always retrieve on every dataset while avoiding retrieval on 2.40--10.77\% of decomposed steps. At the aggregate level, it matches always retrieve at the reported precision while omitting 6.16\% of pooled step-level retrieval calls. The gate therefore controls retrieval cost; the main accuracy gain comes from making retrieved evidence available after decomposition.
+Retrieval after decomposition is necessary: the accuracy-first gate clearly improves over never retrieving and remains effectively tied with always retrieving while skipping a small share of calls. The gate therefore controls retrieval cost, while the main accuracy gain comes from making evidence available after decomposition.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.78\textwidth]{fig_3way_ablation.png}
-    \caption[Retrieval After Decomposition]{Final-system EM under never retrieve, the accuracy-first gate ($\tau=0.002305$), and always retrieve. The gate reaches the same rounded macro result as always retrieve while avoiding 6.16\% of pooled step retrievals. All policies use fixed-chain resynthesis.}
+    \caption[Retrieval After Decomposition]{Final-system EM across step-level retrieval policies.}
     \label{fig:three-way-ablation}
 \end{figure}
 
-\subsection{Direct Retrieval Without Decomposition}
-\label{sec:direct-gate-baseline}
-
-The previous ablation establishes that decomposed steps need evidence. Here we ask a different question: can retrieval with the original question, without decomposition, match the decomposition path? Table~\ref{tab:direct-gate-baseline} compares three direct strategies that all answer the original question: no retrieval, retrieval selected by the confidence gate, and retrieval for every question. The always-retrieve column removes threshold selection from the comparison. The final column reports the decomposition-path candidate from the diagnostic $\tau=0.008461$ trace, which instead retrieves with the generated sub-questions.
+\DIFaddbegin
+\DIFadd{At the accuracy-first threshold, SEEK skips 478 of 7{,}761 step-level retrieval calls across all four datasets (6.16\%), affecting 418 of the 4{,}000 questions (10.45\%). Table~\ref{tab:skip-safety} compares SEEK with Always Retrieve on these affected questions. An omission is considered safe when it does not reduce question-level EM relative to Always Retrieve.
+}
 
 \begin{table}[h]
     \centering
-    \caption[Direct Retrieval Without Decomposition]{Original-question answering under three retrieval policies compared with the decomposition-path candidate in the diagnostic $\tau=0.008461$ trace. This auxiliary comparison is retained to isolate query structure and is not the headline operating point. Each score cell reports EM/F1.}
-    \label{tab:direct-gate-baseline}
-    \setlength{\tabcolsep}{4pt}
-    \scriptsize
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ l c c c c c }
+    \caption[Safety of Skipped Retrievals]{\DIFaddFL{Question-level outcomes among the 418 questions affected by step-level retrieval omission.}}
+    \label{tab:skip-safety}
+    \setlength{\tabcolsep}{12pt}
+    \small
+    \begin{tabular}{ c c }
         \toprule
-        Dataset & Direct: no retrieval & Direct: confidence gate & Direct: always retrieve & Decomposition path & Gain over direct always (EM) \\
+        \DIFaddFL{Safe omission: no EM loss }& \DIFaddFL{Harmful omission: EM loss }\\
         \midrule
-        HotpotQA & 18.20/26.90 & 30.30/41.18 & 30.30/41.51 & \textbf{35.70/46.16} & +5.40 \\
-        2Wiki & 12.60/31.90 & 17.80/28.66 & 18.00/27.61 & \textbf{49.00/55.84} & +31.00 \\
-        MuSiQue & 5.90/12.44 & 10.10/17.41 & 10.20/17.58 & \textbf{26.70/35.08} & +16.50 \\
-        PopQA & 22.40/24.13 & 38.60/49.43 & 37.80/49.13 & \textbf{53.80/55.68} & +16.00 \\
+        \DIFaddFL{\textbf{402 / 418 (96.17\%)} }& \DIFaddFL{\textbf{16 / 418 (3.83\%)} }\\
         \bottomrule
-    \end{tabular}}
+    \end{tabular}
 \end{table}
 
-The direct confidence gate and direct always-retrieve strategy differ by at most 0.80 EM, whereas the decomposition-path candidate exceeds direct always retrieve by 5.40 to 31.00 EM. On the three multi-hop datasets, these answer-level gains are consistent with the higher answer-containing recall of decomposed queries in Table~\ref{tab:answer-recall}. Together, the results support a narrower conclusion: retrieving the original question more often does not close the gap, while decomposition changes the query structure and improves evidence access on multi-hop questions. PopQA does not show a decomposition recall gain, so its answer improvement should not be attributed to retrieval recall alone.
-
+\DIFadd{Only 16 affected questions (3.83\%) lose EM correctness, indicating that the retrieval reduction is largely accuracy-neutral.
+}
+\DIFaddend
 \subsection{Gate Threshold Sensitivity}
 \label{sec:threshold-sensitivity}
 
-Table~\ref{tab:threshold-sensitivity} replays the final system across step-level tail-leakage-surprisal thresholds. As in Table~\ref{tab:rag-necessity}, later resolved sub-questions remain fixed and each selected step-answer chain is resynthesised before applying the final confidence verifier. The headline accuracy-first threshold is $\tau=0.002305$. All rows are controlled fixed-chain sensitivity settings rather than independent end-to-end reruns.
+Table~\ref{tab:threshold-sensitivity} replays the final system across step-level Tail Leakage thresholds. As in Table~\ref{tab:rag-necessity}, later resolved sub-questions remain fixed and each selected step-answer chain is resynthesised before applying the final confidence verifier. The headline accuracy-first threshold is $\tau=0.002305$. All rows are controlled fixed-chain sensitivity settings rather than independent end-to-end reruns.
 
 \begin{table}[h]
     \centering
-    \caption[Threshold Sensitivity]{Final-system performance across step-level tail-leakage-surprisal thresholds under fixed-chain resynthesis. Dataset and average cells report EM/F1; retrieval rate is pooled over all decomposed steps.}
+    \caption[Threshold Sensitivity]{Final-system performance and retrieval rate across Tail Leakage thresholds.}
     \label{tab:threshold-sensitivity}
     \setlength{\tabcolsep}{3.5pt}
     \scriptsize
@@ -875,8 +857,8 @@ Table~\ref{tab:threshold-sensitivity} replays the final system across step-level
         \toprule
         $\tau$ & PopQA & HotpotQA & 2Wiki & MuSiQue & Average & Retrieval rate \\
         \midrule
-        0.002305 & \textbf{53.90/55.73} & \textbf{37.80/49.03} & \textbf{49.30/56.22} & \textbf{26.50/34.63} & \textbf{41.88/48.90} & 93.84\% \\
-        0.008461 & 53.70/55.53 & 37.50/48.72 & 48.70/55.63 & 26.60/34.74 & 41.62/48.66 & 87.82\% \\
+        0.002305 & \textbf{53.90/55.73} & \textbf{37.80/49.03} & \textbf{49.30/56.22} & 26.50/34.63 & \textbf{41.88/48.90} & 93.84\% \\
+        0.008461 & 53.70/55.53 & 37.50/48.72 & 48.70/55.63 & \textbf{26.60/34.74} & 41.62/48.66 & 87.82\% \\
         0.044170 & 53.70/55.53 & 36.40/47.33 & 47.50/54.57 & 24.80/33.45 & 40.60/47.72 & 75.51\% \\
         0.116500 & 51.90/53.74 & 36.30/47.22 & 45.80/52.83 & 23.70/32.69 & 39.42/46.62 & 64.40\% \\
         \bottomrule
@@ -888,11 +870,11 @@ Figure~\ref{fig:threshold-tradeoff} re-expresses the same sweep using the observ
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.88\textwidth]{fig_threshold_tradeoff.png}
-    \caption[Step-Gate Accuracy--Retrieval Trade-off]{Macro EM and F1 as pooled step retrieval is reduced by increasing the tail-leakage-surprisal threshold. The headline accuracy-first operating point is highlighted. Each point corresponds to a row of Table~\ref{tab:threshold-sensitivity}.}
+    \caption[Step-Gate Accuracy--Retrieval Trade-off]{Macro accuracy--retrieval trade-off of the step-level gate.}
     \label{fig:threshold-tradeoff}
 \end{figure}
 
-At the accuracy-first setting, $\tau=0.002305$, macro performance is 41.88/48.90 at a pooled step retrieval rate of 93.84\%. Raising the threshold to 0.008461 lowers retrieval to 87.82\% at a cost of only 0.26 EM and 0.24 F1. The trade-off becomes clearer beyond this plateau: $\tau=0.044170$ lowers retrieval to 75.51\% and macro EM to 40.60, while $\tau=0.116500$ retrieves for 64.40\% of steps and reaches 39.42 EM. Most decomposed steps therefore still benefit from retrieval under full-corpus Wikipedia search.
+The accuracy-first setting gives the strongest macro performance. A modest threshold increase reduces retrieval with little change in answer quality, whereas more aggressive thresholds lower both retrieval and accuracy. Most decomposed steps therefore still benefit from evidence under full-corpus Wikipedia search.
 
 \subsection{Path-Aware Title Handling}
 \label{sec:title-policy}
@@ -901,7 +883,7 @@ The original question and the decomposed sub-questions have different query form
 
 \begin{table}[h]
     \centering
-    \caption[Path-Aware Title Retrieval]{Live end-to-end title-policy reruns on the first 1{,}000 questions of each dev set. All runs use $\tau=0.002305$, original-question evidence union, and the type-aware verifier. Each cell reports EM/F1.}
+    \caption[Path-Aware Title Retrieval]{End-to-end performance across title-retrieval policies (EM/F1).}
     \label{tab:title-policy}
     \setlength{\tabcolsep}{7pt}
     \small
@@ -917,41 +899,41 @@ The original question and the decomposed sub-questions have different query form
     \end{tabular}
 \end{table}
 
-Unlike the fixed-chain threshold replay, each title-policy condition in Table~\ref{tab:title-policy} is rerun end to end, so retrieval results, later contexts, and final answers may all change. The path-aware policy gives the best EM on all four datasets and the best F1 on three. The sole exception is MuSiQue F1, where global title-on reaches 34.5 versus 34.4 for path-aware. The result shows that adaptive retrieval concerns not only whether to retrieve, but also how the retriever should be configured for the query form produced by each path.
+Unlike the fixed-chain threshold replay, each title-policy condition in Table~\ref{tab:title-policy} is rerun end to end, so retrieval results, later contexts, and final answers may all change. The path-aware policy gives the best EM on every dataset and the strongest or nearly strongest F1. Adaptive retrieval therefore concerns not only whether to retrieve, but also how retrieval should be configured for each query form.
 
 \section{The Two Answer Paths}
 \label{sec:path-analysis}
 
 The final system retains a direct answer candidate and a decomposition-path candidate. This section examines how the final confidence verifier divides work between them, where the candidates succeed separately, and how much routing headroom remains.
 
-\subsection{Plan Length and Routing Decisions}
+\subsection{Verifier Routing Decisions}
 \label{sec:path-selection-rate}
 
-Table~\ref{tab:path-selection-rate} reports two descriptive quantities: the average number of generated sub-questions and the final verifier choice across all 1{,}000 questions in each dataset. The selection percentages describe routing behaviour, not answer correctness.
+Table~\ref{tab:path-selection-rate} reports the final verifier choice across all 1{,}000 questions in each dataset. The selection percentages describe routing behaviour, not answer correctness.
 
 \begin{table}[h]
     \centering
-    \caption[Plan Length and Routing Decisions]{Average plan length and verifier choices at the accuracy-first operating point ($\tau=0.002305$). Selection counts and percentages use all 1{,}000 questions per dataset.}
+    \caption[Verifier Routing Decisions]{Verifier selections by dataset.}
     \label{tab:path-selection-rate}
     \setlength{\tabcolsep}{6pt}
     \small
-    \begin{tabular}{ l c c c c }
+    \begin{tabular}{ l c c c }
         \toprule
-        Dataset & \shortstack{Mean\\sub-questions} & $N$ & \shortstack{Direct chosen\\n (\%)} & \shortstack{Decomposition chosen\\n (\%)} \\
+        Dataset & $N$ & \shortstack{Direct chosen\\n (\%)} & \shortstack{Decomposition chosen\\n (\%)} \\
         \midrule
-        HotpotQA & 2.26 & 1{,}000 & 171 (17.1\%) & 829 (82.9\%) \\
-        2Wiki & 2.47 & 1{,}000 & 25 (2.5\%) & 975 (97.5\%) \\
-        MuSiQue & 2.03 & 1{,}000 & 121 (12.1\%) & 879 (87.9\%) \\
-        PopQA & 1.00 & 1{,}000 & 10 (1.0\%) & 990 (99.0\%) \\
+        HotpotQA & 1{,}000 & 171 (17.1\%) & 829 (82.9\%) \\
+        2Wiki & 1{,}000 & 25 (2.5\%) & 975 (97.5\%) \\
+        MuSiQue & 1{,}000 & 121 (12.1\%) & 879 (87.9\%) \\
+        PopQA & 1{,}000 & 10 (1.0\%) & 990 (99.0\%) \\
         \midrule
-        Pooled & 1.94 & 4{,}000 & 327 (8.2\%) & 3{,}673 (91.8\%) \\
+        Pooled & 4{,}000 & 327 (8.2\%) & 3{,}673 (91.8\%) \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-Across all 4{,}000 questions, the verifier selects the decomposition candidate for 91.8\% and the direct candidate for 8.2\%. Direct selection is most frequent on HotpotQA and MuSiQue. Candidate correctness is analysed next in Section~\ref{sec:path-distribution}.
+The verifier selects the decomposition candidate for most questions, while direct selection is most frequent on HotpotQA and MuSiQue. Candidate correctness is analysed next in Section~\ref{sec:path-distribution}.
 
-PopQA has a mean plan length of 1.00 because its generated plan is a single structured reformulation rather than a multi-hop chain. This value describes the form of the generated plan and is not, by itself, a retrieval- or answer-quality result.
+PopQA produces a single-step structured reformulation rather than a multi-hop chain. This describes the form of the generated plan and is not, by itself, a retrieval- or answer-quality result.
 
 \subsection{Correctness Overlap Between Answer Paths}
 \label{sec:path-distribution}
@@ -960,7 +942,7 @@ Table~\ref{tab:path-distribution} compares the correctness of the two answer can
 
 \begin{table}[h]
     \centering
-    \caption[Correctness Overlap Between the Two Answer Paths]{Correctness overlap between the direct and decomposition candidates before final routing at the accuracy-first operating point ($\tau=0.002305$). Counts are out of 1{,}000 questions per dataset, and the four columns are mutually exclusive.}
+    \caption[Correctness Overlap Between the Two Answer Paths]{Correctness overlap between direct and decomposition candidates before final routing.}
     \label{tab:path-distribution}
     \setlength{\tabcolsep}{7pt}
     \small
@@ -976,48 +958,25 @@ Table~\ref{tab:path-distribution} compares the correctness of the two answer can
     \end{tabular}
 \end{table}
 
-Decomposition contributes more unique correct answers on every dataset. Its path-specific advantage over the direct candidate is 57 questions on HotpotQA, 317 on 2Wiki, 165 on MuSiQue, and 162 on PopQA. Figure~\ref{fig:direct-decompose-2x2} highlights this asymmetry. The direct candidate is nevertheless complementary: it uniquely solves 78 HotpotQA questions and 27--36 questions on each remaining dataset. Neither path is correct for most HotpotQA, 2Wiki, and MuSiQue errors, so routing alone cannot remove most residual errors.
+Decomposition contributes more unique correct answers on every dataset, as highlighted in Figure~\ref{fig:direct-decompose-2x2}. The direct path remains complementary, especially on HotpotQA. A large share of the remaining multi-hop errors are wrong on both paths, so routing alone cannot remove them.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.78\textwidth]{fig_direct_decompose_2x2_counts.png}
-    \caption[Direct-vs-Decompose Correctness Counts]{Final direct-only and decompose-only correctness counts. Decomposition contributes more unique wins on every dataset, while the direct path remains complementary.}
+    \caption[Direct-vs-Decompose Correctness Counts]{Direct-only and decomposition-only correct answers by dataset.}
     \label{fig:direct-decompose-2x2}
 \end{figure}
 
-\subsection{Decomposition-Path Failure Taxonomy}
-\label{sec:failure-taxonomy}
+At the accuracy-first setting, missing supporting evidence remains the largest source of decomposition-path errors. The detailed taxonomy and supplementary diagnostic flags are reported in Appendix~\ref{app:decomp-failure-analysis}.
 
-Table~\ref{tab:failure-taxonomy} is an auxiliary error diagnosis on the live $\tau=0.008461$ trace, for which the stored evidence and token-level diagnostics are complete. It assigns one primary cause to every incorrect decomposition-path answer: 643 on HotpotQA, 510 on 2Wiki, and 733 on MuSiQue. Supporting-document coverage is measured at title coverage@10 using the resolved sub-questions. This diagnostic does not replace the accuracy-first fixed-chain headline comparison. Additional overlapping flags are reported in Appendix~\ref{app:decomp-failure-flags}.
-
-\begin{table}[h]
-    \centering
-    \caption[Why Decomposition-Path Answers Fail]{Primary cause assigned to each incorrect decomposition-path answer. Entries give the number and percentage of incorrect answers in each category; the four rows are mutually exclusive and sum to 100\%.}
-    \label{tab:failure-taxonomy}
-    \setlength{\tabcolsep}{3pt}
-    \small
-    \begin{tabular}{ p{0.48\textwidth} *{3}{>{\centering\arraybackslash}p{0.135\textwidth}} }
-        \toprule
-        Primary cause & \shortstack{HotpotQA\\($N=643$)} & \shortstack{2Wiki\\($N=510$)} & \shortstack{MuSiQue\\($N=733$)} \\
-        \midrule
-        Required supporting titles missing from both retrieval branches & 306 (47.6\%) & 315 (61.8\%) & 514 (70.1\%) \\
-        Incorrect step answer despite complete decomposed retrieval & 137 (21.3\%) & 101 (19.8\%) & 71 (9.7\%) \\
-        Correct intermediate answer but incorrect final synthesis & 162 (25.2\%) & 92 (18.0\%) & 139 (19.0\%) \\
-        Constraint lost during decomposition; original retrieval has complete coverage & 38 (5.9\%) & 2 (0.4\%) & 9 (1.2\%) \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-Retrieval gaps are the largest category, accounting for 47.6\% of HotpotQA, 61.8\% of 2Wiki, and 70.1\% of MuSiQue decomposition errors. Even when the final decomposed evidence has full supporting-title coverage, 9.7--21.3\% of errors still produce the wrong answer. A further 18.0--25.2\% contain a gold-matching step answer but fail during final synthesis. Constraint loss is smaller and dataset-dependent, reaching 5.9\% on HotpotQA but at most 1.2\% on the other two datasets. Appendix~\ref{app:decomp-failure-flags} reports additional structural and retrieval-state flags; these overlap and are not added to the percentages above.
-
-\subsection{Effect of Final Routing and Oracle Headroom}
+\subsection{Final Routing and Oracle Headroom}
 \label{sec:oracle-analysis}
 
 Because Table~\ref{tab:path-distribution} shows that decomposition supplies most path-specific correct answers, always choosing the decomposition candidate is a strong routing baseline. Table~\ref{tab:oracle} asks whether the final verifier improves on that baseline. Choosing the direct candidate recovers an answer when only the direct path is correct, but loses an answer when only the decomposition path is correct.
 
 \begin{table}[H]
     \centering
-    \caption[Effect of Final Routing]{Effect of the final verifier at the accuracy-first operating point ($\tau=0.002305$), relative to always choosing the decomposition candidate. A recovered case is correct only on the direct path and routed to direct; a lost case is correct only on the decomposition path but routed to direct. Fractions use all corresponding path-only cases as their denominators, and net change equals recovered minus lost.}
+    \caption[Effect of Final Routing]{Effect of the final verifier relative to always choosing decomposition.}
     \label{tab:oracle}
     \setlength{\tabcolsep}{8pt}
     \small
@@ -1035,25 +994,25 @@ Because Table~\ref{tab:path-distribution} shows that decomposition supplies most
     \end{tabular}
 \end{table}
 
-Across all four datasets, the verifier recovers 52 of 173 direct-only cases but loses 41 of 874 decomposition-only cases, producing a net gain of 11 questions, or 0.28 macro EM, over always choosing decomposition. It preserves 95.3\% of decomposition-only wins, so its role is a conservative fallback rather than the main source of SEEK's accuracy. The gain is concentrated on HotpotQA; routing is slightly negative on the other three datasets. This is a limitation of the current confidence-only verifier, not evidence of a uniform routing improvement. The gold-label oracle in Figure~\ref{fig:routing-gap-oracle} shows that better path selection could add 2.9--6.0 EM, although such an oracle is not deployable.
+The verifier recovers some direct-only cases while preserving most decomposition-only wins, so it acts as a conservative fallback rather than the main source of SEEK's accuracy. Its small net benefit is concentrated on HotpotQA, while routing is slightly negative on the other datasets. The gold-label oracle in Figure~\ref{fig:routing-gap-oracle} shows meaningful remaining path-selection headroom, although such an oracle is not deployable.
 
 \begin{figure}[h]
     \centering
     \includegraphics[width=0.78\textwidth]{fig_routing_gap_oracle.png}
-    \caption[Oracle Routing Headroom]{Final confidence-based routing and oracle headroom at the accuracy-first operating point ($\tau=0.002305$). The oracle can recover disagreement cases but cannot solve questions for which both candidates are wrong.}
+    \caption[Oracle Routing Headroom]{Final routing performance and oracle headroom by dataset.}
     \label{fig:routing-gap-oracle}
 \end{figure}
 
-\section{Tail-Leakage Surprisal as a Confidence Signal}
+\section{Tail Leakage as a Confidence Signal}
 \label{sec:tail-leakage-analysis}
 
-To test whether tail-leakage surprisal adds information beyond established confidence baselines, we group the evaluated signals into six conceptually distinct families and report one representative from each family. Maximum token entropy measures the overall spread of the next-token distribution, while sequence negative log-likelihood measures the probability assigned to the generated answer. The TARG margin uses the separation between the two leading logits~\cite{targ}; sampled-answer disagreement measures response consistency, an established black-box confidence cue~\cite{maqa,semanticuncertainty}; and P(True) asks the model to assess its own proposed answer~\cite{kadavath2022}. Tail-leakage instead measures how much probability escapes a small candidate set, as defined in Section~\ref{sec:probe}. These families test different hypotheses about uncertainty rather than arbitrary transformations of one score.
+To test whether Tail Leakage adds information beyond established confidence baselines, we group the evaluated signals into six conceptually distinct families and report one representative from each family. Maximum token entropy measures the overall spread of the next-token distribution, while sequence negative log-likelihood measures the probability assigned to the generated answer. The TARG margin uses the separation between the two leading logits~\cite{targ}; sampled-answer disagreement measures response consistency, an established black-box confidence cue~\cite{maqa,semanticuncertainty}; and P(True) asks the model to assess its own proposed answer~\cite{kadavath2022}. Tail Leakage instead measures how much probability escapes a small candidate set, as defined in Section~\ref{sec:probe}. These families test different hypotheses about uncertainty rather than arbitrary transformations of one score.
 
-Table~\ref{tab:signal-battery} reports AUROC for predicting a wrong direct answer on the full 1{,}000-question trace of each dataset. All scores are oriented so that larger values mean greater uncertainty. Appendix~\ref{app:confidence-signals} gives the exact formulas, inference requirements, sources, and the aggregation and temperature variants tested within each family. Tail-leakage surprisal obtains the highest macro AUROC among the representatives at 0.749. The comparison is diagnostic: because the same four traces are used to compare the signals, the small differences should be read as evidence within these benchmarks rather than as a claim that the ranking will hold for every model or dataset.
+Table~\ref{tab:signal-battery} reports AUROC for predicting a wrong direct answer on the full trace of each dataset. All scores are oriented so that larger values mean greater uncertainty. Appendix~\ref{app:confidence-signals} gives concise definitions of the reported signals. Tail Leakage obtains the strongest macro result among the representatives. The comparison is diagnostic: small differences within these traces should not be interpreted as a universal ranking across models or datasets.
 
 \begin{table}[h]
     \centering
-    \caption[Representative Confidence Signals]{One representative from each direct-path confidence family. Each cell is the AUROC of predicting a wrong answer on a 1{,}000-question trace.}
+    \caption[Representative Confidence Signals]{AUROC of representative direct-path confidence signals.}
     \label{tab:signal-battery}
     \setlength{\tabcolsep}{6pt}
     \small
@@ -1061,7 +1020,7 @@ Table~\ref{tab:signal-battery} reports AUROC for predicting a wrong direct answe
         \toprule
         Signal & HotpotQA & 2Wiki & MuSiQue & PopQA & Macro \\
         \midrule
-        Tail-leakage surprisal & \textbf{0.757} & \textbf{0.717} & \textbf{0.726} & \textbf{0.798} & \textbf{0.749} \\
+        Tail Leakage & \textbf{0.757} & \textbf{0.717} & \textbf{0.726} & \textbf{0.798} & \textbf{0.749} \\
         Maximum token entropy & 0.743 & 0.671 & 0.711 & 0.780 & 0.726 \\
         Sequence negative log-likelihood & 0.733 & 0.667 & 0.707 & \textbf{0.798} & 0.726 \\
         Sampled-answer disagreement & 0.678 & 0.659 & 0.680 & 0.674 & 0.672 \\
@@ -1071,16 +1030,56 @@ Table~\ref{tab:signal-battery} reports AUROC for predicting a wrong direct answe
     \end{tabular}
 \end{table}
 
-The component analysis also checks the mechanism proposed in Chapter~\ref{ch:method}. Scoring each term of Equation~\eqref{eq:entropy-chain} separately, the in-versus-tail leakage term reaches a macro AUROC of 0.742, ambiguity within the top-five candidates reaches 0.712, and the composition of the tail reaches 0.502, barely above chance. Full entropy mixes the three and reaches 0.726, whereas summing per-token leakage surprisal over the answer reaches 0.749. This sum is not simply a relabelled weakest-token score: on single-token answers the two coincide, but on answers of seven or more tokens the summed score reaches 0.805 versus 0.788 for the weakest-token aggregate. The observed advantage is consistent with small leakage accumulating at several positions in a wrong answer. In a paired 1{,}000-resample bootstrap, the summed score exceeds the weakest-token top-five-mass variant on all four datasets ($P<0.001$ for the macro difference).
-
-At the same time, tail-leakage surprisal is not a correctness guarantee. Across the pooled direct-path traces, 491 wrong answers carry surprisal at or below the median of correct answers: 22\% of the wrong answers on 2Wiki, 17\% on HotpotQA, 16\% on MuSiQue, and 7\% on PopQA. More than half of these confidently wrong answers are clean parametric hallucinations produced with essentially zero leakage, and another 148 are alias or boundary near-misses whose answer is essentially right but fails exact match. No confidence threshold can identify the first group because nothing in the token distribution marks the answer as wrong. Appendix~\ref{app:confidence-diagnostics} reports the dataset-level counts and error categories.
-
-Table~\ref{tab:surprisal-selective} shows the same limitation from the selective-answering side: questions are ranked by surprisal, only the most confident fraction is kept, and accuracy is measured inside the kept set.
+\DIFadd{Table~\ref{tab:entropy-vs-tail-emf1} reports the corresponding end-to-end comparison. Replacing maximum token entropy with Tail Leakage improves both macro EM and macro F1, although the gain is not uniform on every dataset.
+}
 
 \begin{table}[h]
     \centering
-    \caption[Direct-Path Accuracy by Confidence Coverage]{Direct-path accuracy when only the most confident fraction of answers is kept, ranked by tail-leakage surprisal. The 100\% row is the unfiltered direct-path accuracy.}
-    \label{tab:surprisal-selective}
+    \caption[Maximum Entropy vs. Tail Leakage]{\DIFaddFL{End-to-end EM/F1 using maximum token entropy and Tail Leakage as the confidence signal.}}
+    \label{tab:entropy-vs-tail-emf1}
+    \setlength{\tabcolsep}{2.5pt}
+    \small
+    \begin{tabular}{ l c c c c c }
+        \toprule
+        \DIFaddFL{Signal }& \DIFaddFL{HotpotQA }& \DIFaddFL{2Wiki }& \DIFaddFL{MuSiQue }& \DIFaddFL{PopQA }& \DIFaddFL{Macro }\\
+        \midrule
+        \DIFaddFL{Maximum token entropy }& \DIFaddFL{35.50/46.11 }& \DIFaddFL{\textbf{50.00/56.58} }& \DIFaddFL{24.70/33.06 }& \DIFaddFL{51.90/54.71 }& \DIFaddFL{40.52/47.61 }\\
+        \DIFaddFL{Tail Leakage }& \DIFaddFL{\textbf{37.80/49.03} }& \DIFaddFL{49.30/56.22 }& \DIFaddFL{\textbf{26.50/34.63} }& \DIFaddFL{\textbf{53.90/55.73} }& \DIFaddFL{\textbf{41.88/48.90} }\\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Table~\ref{tab:entropy-components} tests the mechanism proposed in Chapter~\ref{ch:method}. The amount of mass crossing from the leading candidates into the tail is the most informative entropy component, while the arrangement of probability within the tail is close to chance. Full entropy mixes these effects, whereas answer-level Tail Leakage retains the useful component and accumulates it across positions.
+
+\begin{table}[h]
+    \centering
+    \caption[Entropy Components and Tail Leakage]{Macro AUROC for direct-answer error detection when each entropy component is scored separately.}
+    \label{tab:entropy-components}
+    \setlength{\tabcolsep}{7pt}
+    \small
+    \begin{tabular}{ l c }
+        \toprule
+        Signal & Macro AUROC \\
+        \midrule
+        Top-five vs. tail & 0.742 \\
+        Within top five & 0.712 \\
+        Within tail & 0.502 \\
+        Token entropy & 0.726 \\
+        Answer-level Tail Leakage & \textbf{0.749} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The summed score also outperforms a weakest-token aggregation on longer answers, consistent with small leakage accumulating at several positions. A paired bootstrap confirms this advantage across all four datasets ($P<0.001$ for the macro difference).
+
+At the same time, Tail Leakage is not a correctness guarantee. Many wrong direct answers score as confidently as typical correct answers. Most are clean parametric hallucinations with essentially no leakage, while others are alias or answer-boundary near-misses. A confidence threshold cannot identify a confidently produced hallucination when the token distribution itself shows no warning. Appendix~\ref{app:confidence-diagnostics} reports the detailed counts and error categories.
+
+Table~\ref{tab:tail-leakage-selective} shows the same limitation from the selective-answering side: questions are ranked by Tail Leakage, only the most confident fraction is kept, and accuracy is measured inside the kept set.
+
+\begin{table}[h]
+    \centering
+    \caption[Direct-Path Accuracy by Confidence Coverage]{Direct-path accuracy across confidence-coverage levels ranked by Tail Leakage.}
+    \label{tab:tail-leakage-selective}
     \setlength{\tabcolsep}{8pt}
     \small
     \begin{tabular}{ l c c c c c }
@@ -1095,40 +1094,9 @@ Table~\ref{tab:surprisal-selective} shows the same limitation from the selective
     \end{tabular}
 \end{table}
 
-Accuracy rises steadily as coverage shrinks, so the ranking is real. The absolute levels are more sobering: among the most confident quarter, direct-path accuracy is only 22.4\% on MuSiQue and 34.0\% on 2Wiki. Only single-hop PopQA reaches 79.2\%. The mirror group also matters: 164 correct answers, 17\% of all correct ones, carry surprisal at or above the median of wrong answers, so high surprisal alone is a poor reason to discard an answer.
+Accuracy rises steadily as coverage shrinks, showing that Tail Leakage provides a useful ranking. However, even the most confident subset remains unreliable on the harder multi-hop datasets, while single-hop PopQA is much stronger. The reverse failure also occurs: some correct answers receive high Tail Leakage. A high score alone is therefore a poor reason to discard an answer.
 
-The final verifier uses tail-leakage surprisal in both confidence checks: one for the direct answer and one after decomposition. Table~\ref{tab:quadrant-confidence} compares the direct-path score between questions where both candidates are correct and questions where both are wrong. Higher surprisal denotes greater uncertainty, and the last column measures both-wrong examples at or below the both-correct median.
-
-\begin{table}[h]
-    \centering
-    \caption[Confidence by Direct-vs-Decompose Quadrant]{Direct-path tail-leakage surprisal for both-correct and both-wrong candidate pairs at the accuracy-first fixed-chain operating point.}
-    \label{tab:quadrant-confidence}
-    \setlength{\tabcolsep}{6pt}
-    \small
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ l c c c c }
-        \toprule
-        Dataset & Mean tail-leakage surprisal, both correct & Mean tail-leakage surprisal, both wrong & AUROC & Confidently wrong rate \\
-        \midrule
-        HotpotQA & 0.01260 & 0.12927 & 0.777 & 15.5\% \\
-        2Wiki & 0.03414 & 0.20215 & 0.751 & 20.1\% \\
-        MuSiQue & 0.04945 & 0.25025 & 0.766 & 12.7\% \\
-        PopQA & 0.00974 & 0.10282 & 0.846 & 4.9\% \\
-        Pooled & 0.01877 & 0.17926 & 0.817 & 9.3\% \\
-        \bottomrule
-    \end{tabular}}
-\end{table}
-
-Figure~\ref{fig:quadrant-confidence} visualises the score distributions behind this comparison. Both-correct examples are generally more confident than both-wrong examples, but the overlap shows why the confidence signal cannot identify every error.
-
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.78\textwidth]{fig_quadrant_confidence.png}
-    \caption[Confidence by Correctness Quadrant]{Direct-answer tail-leakage surprisal across the four correctness quadrants, shown on a symmetric logarithmic scale. Both-correct examples are more confident on average, but confidently wrong cases remain.}
-    \label{fig:quadrant-confidence}
-\end{figure}
-
-The pooled AUROC of 0.817 is a population-level ranking statistic, not per-question detector accuracy. The pooled median rises from 0.001133 for both-correct examples to 0.042663 for both-wrong examples, yet 9.3\% of both-wrong examples still fall at or below the both-correct median. Tail-leakage surprisal is therefore useful as a retrieval gate and as one input to the dual-path verifier, but it cannot serve as a global correctness test.
+Both-wrong examples generally have higher Tail Leakage, but the overlapping distributions prevent reliable per-question error detection (Appendix~\ref{app:confidence-diagnostics}).
 
 
 \chapter{Discussion}
@@ -1136,63 +1104,61 @@ The pooled AUROC of 0.817 is a population-level ranking statistic, not per-quest
 
 This chapter interprets the final results from Chapter~\ref{ch:results}. Taken together, they argue against reducing adaptive RAG to a single retrieve-or-skip decision. In multi-hop QA, the system must also decide when to trust decomposition, when to preserve the original question, and when the remaining error is outside the reach of routing.
 
-\section{Cost--Accuracy Trade-off}
+\section{Efficiency Considerations}
 \label{sec:cost-benefit}
 
-SEEK operates at a finer granularity than standard retrieve-then-read RAG, and the final experiments require a careful cost claim. SEEK should not be described as uniformly cheaper at inference time: in the retrieval-count audit over the full-corpus Wikipedia retrieval traces, it retrieves more often than DeepRAG~\cite{deeprag} on HotpotQA and 2Wiki and less often on MuSiQue. The full audit is given in Appendix~\ref{app:cost-audit}.
-
-The efficiency claim that survives this audit concerns offline adaptation and routing training, not guaranteed lower inference retrieval. SEEK trains only a LoRA decomposer; its retrieval gate, direct-vs-decompose verifier, and type-aware fallback are training-free. Learned-policy systems instead acquire a retrieval policy through trajectory construction, supervised fine-tuning, and preference optimisation. Counting only forward- and backward-pass computation, the two systems require comparable training compute: SEEK uses $2.40\times10^{17}$ floating-point operations (FLOPs), whereas DeepRAG's published pipeline is estimated at about $3.3\times10^{17}$. FLOPs count arithmetic operations rather than elapsed time. The claim is therefore not that SEEK is an order of magnitude cheaper in raw backpropagation. What SEEK saves is the preference-optimisation stage, the tree-search trajectory construction pipeline, and any retrieval-policy retraining when the setting changes; Appendix~\ref{app:cost-audit} itemises this comparison. This is the practical meaning of the ``lightweight'' claim in this thesis.
+SEEK does not guarantee fewer retrieval calls than other systems. Its main efficiency feature is simpler offline adaptation: only the decomposer is trained, while the retrieval gate and final verifier require no additional training. We therefore treat efficiency as a design consideration rather than a main empirical claim.
 
 \section{Why Direct and Decomposition Paths Must Coexist}
 \label{sec:path-complementarity}
 
-The answer-level 2x2 analysis shows that decomposition is valuable on every dataset, although the two paths remain complementary. Decompose-only wins outnumber direct-only wins by 135 to 78 on HotpotQA, 353 to 36 on 2Wiki, 192 to 27 on MuSiQue, and 194 to 32 on PopQA. HotpotQA has the smallest net advantage for decomposition, so preserving the direct candidate still matters most there.
+The answer-level overlap analysis shows that decomposition contributes more unique correct answers on every dataset, while the direct path remains complementary. This complementarity is strongest on HotpotQA, where preserving the direct candidate matters most.
 
 This is why SEEK keeps both paths. The direct path preserves the full question context, while the decomposition path serves as a retrieval strategy that exposes intermediate entities. Each path fails on different examples, and that is what makes the verifier necessary.
 
-The contrast with chain-conditioned decomposition extends this point across systems. DeepRAG generates each follow-up question conditioned on the chain answered so far, which lets it adapt the plan during reasoning but also lets a wrong intermediate answer rewrite the rest of the plan; the case-level comparison in Appendix~\ref{app:deeprag-cases} documents traces whose later follow-up questions keep elaborating an earlier wrong entity instead of recovering. SEEK's decomposition is produced up front from the original question alone. A wrong bridge answer still degrades the second-hop retrieval query, as the MuSiQue analysis in Section~\ref{sec:decomposer-training-discussion} shows, but it cannot corrupt the structure of the remaining sub-questions, and the direct path remains available as a fallback.
+DeepRAG~\cite{deeprag} generates each follow-up question from earlier answers. This supports adaptive planning but can also carry an incorrect intermediate answer into later questions. SEEK generates the full decomposition from the original question first. A wrong bridge answer may still hurt retrieval, but it cannot rewrite the remaining sub-questions, and the direct path remains available as a fallback.
 
-The retrieval decision differs in the same way. A learned retrieve-or-answer policy can choose the parametric option at every step and hallucinate an entire chain; Appendix~\ref{app:deeprag-cases} quantifies how often this occurs on 2Wiki. At the accuracy-first threshold, SEEK retrieves for 2{,}014/2{,}257 (89.2\%) HotpotQA steps, 2{,}367/2{,}472 (95.8\%) 2Wiki steps, and 1{,}926/2{,}032 (94.8\%) MuSiQue steps. At the question level, only 23/1{,}000 (2.3\%), 19/1{,}000 (1.9\%), and 4/1{,}000 (0.4\%) traces, respectively, skip retrieval at every step. Other skipped steps occur in partially retrieved chains, so the step-level retrieval rate and the fully no-retrieval trace rate are not complements. PopQA is omitted from this multi-hop comparison because every planned path contains one step; its corresponding rates are 97.6\% and 2.4\%.
+The retrieval decision also works at the sub-question level. At the accuracy-first setting, SEEK retrieves for most multi-hop steps, although a chain may retrieve for only some of its steps. Step-level retrieval rates and fully no-retrieval chains therefore measure different behaviours.
 
 \paragraph{Original-question evidence preservation.} Original-question evidence is retained in the decomposition path to preserve global context without changing the decomposer or training another retriever. Table~\ref{tab:answer-recall} isolates query reformulation: it compares retrieval from the original question with retrieval from decomposed sub-questions and shows gains on the three multi-hop datasets. It does not test the evidence union, so this table cannot establish the union's independent contribution under the final configuration.
 
 \section{What Training the Decomposer Buys}
 \label{sec:decomposer-training-discussion}
 
-The MuSiQue gold-decomposition analysis clarifies the role of decomposer training. SEEK's predicted decomposition raises answer-containing hit@5 from 19.0 to 38.8, while a gold decomposition with a gold intermediate answer reaches 55.8. When the SEEK sub-question text is given the gold bridge entity, it reaches 54.1, nearly the same as gold. This means the decomposer's wording is not the main bottleneck; the main bottleneck is whether the first-hop bridge entity is answered correctly before the second query is formed.
+The MuSiQue gold-decomposition analysis clarifies the role of decomposer training. SEEK improves retrieval over the original question, and its sub-question wording approaches gold performance when supplied with the correct bridge entity. The main bottleneck is therefore whether the first-hop bridge entity is answered correctly before the next query is formed.
 
-The untuned base-model comparison gives the other half of the story. The base Llama-3-8B-Instruct model can produce useful query text under oracle substitution, but it produces a valid two-step decomposition for only 149 of 1{,}000 MuSiQue examples and has a 15.3\% parsing failure rate. LoRA training therefore buys structural reliability: valid step counts, valid placeholders, and compact query style. That reliability is what makes the decomposition path executable at inference time.
+The untuned base-model comparison gives the other half of the story. The base model can produce useful query text under oracle substitution but is not structurally reliable. LoRA training provides valid step counts, placeholders, and compact query style, making the decomposition path executable at inference time.
 
-\section{Tail-Leakage Surprisal: Useful Signal, Not Correctness Guarantee}
+\section{Tail Leakage: Useful Signal, Not Correctness Guarantee}
 \label{sec:gate-design}
 
-Tail-leakage surprisal remains useful for deciding whether a sub-question should retrieve. The final retrieval-gate ablation compares never retrieving, the headline accuracy-first tail-leakage-surprisal threshold, and always retrieving, while the direct-path confidence battery shows that tail-leakage surprisal has the strongest macro error-detection AUROC among the tested signals.
+Tail Leakage remains useful for deciding whether a sub-question should retrieve. The final retrieval-gate ablation compares never retrieving, the headline accuracy-first Tail Leakage threshold, and always retrieving, while the direct-path confidence battery shows that Tail Leakage has the strongest macro error-detection AUROC among the tested signals.
 
-However, it is not a correctness guarantee. The direct-path analysis shows a stable confident-wrong region: 7\% to 22\% of wrong direct answers carry surprisal at or below the median of correct answers, and the verifier-side quadrant analysis shows the same overlap for direct-answer tail-leakage surprisal. Appendix~\ref{app:confidence-diagnostics} reports the dataset-level counts and error categories.
+However, it is not a correctness guarantee. The direct-path and verifier-side analyses both contain a stable confidently wrong region in which incorrect answers receive scores typical of correct answers. Appendix~\ref{app:confidence-diagnostics} reports the dataset-level counts and error categories.
 
-A compact way to state these findings is that confidence signals measure properties of the answer distribution, not the correctness of the reasoning behind it. The most common confident error in our traces is an incomplete reasoning path: the model stops at the first-hop bridge entity, or returns an attribute where the question asks for a comparison winner, and it does so with the same near-zero leakage as a fully correct answer. In a separate diagnostic experiment, each question was answered fifteen times with a fixed top-five BM25 context. In 1{,}538 of 4{,}000 cases, all fifteen normalised answers were identical and the mean maximum token entropy was also zero, yet 620 (40.3\%) were wrong. Disagreement-based detection cannot flag such cases because there is no answer variation to detect; Appendix~\ref{app:confidence-diagnostics} gives the per-dataset breakdown. The confident-wrong analysis in Chapter~\ref{ch:results} shows the analogous limitation for tail-leakage surprisal: clean parametric hallucinations can be produced with essentially zero leakage. The mirror group of low-confidence correct answers also deserves care: nearly half of them pass only through token-F1 overlap rather than exact match, so they are officially correct but not always semantically correct, and high surprisal is an equally poor reason to discard an answer.
+A compact way to state these findings is that confidence signals measure properties of the answer distribution, not the correctness of the reasoning behind it. The most common confident error is an incomplete reasoning path: the model stops at a bridge entity or returns an attribute instead of the requested comparison result, yet does so with the same near-zero leakage as a correct answer. A separate repeated-generation diagnostic reaches the same conclusion: many wrong answers remain identical across samples and have zero measured entropy, leaving disagreement-based detection with no variation to flag. Appendix~\ref{app:confidence-diagnostics} gives the detailed breakdown. The reverse failure also deserves care because some correct answers appear uncertain, making a high Tail Leakage score an equally poor reason to discard them.
 
-The final quadrant analysis reinforces this point: direct-answer tail-leakage surprisal separates both-wrong from both-correct examples with a pooled AUROC of 0.816, yet 9.3\% of both-wrong examples still fall at or below the both-correct median.
+The final quadrant analysis reinforces this point: Tail Leakage separates both-wrong from both-correct examples on average, but the score distributions still overlap.
 
-This explains why the final system uses confidence inside a broader verifier rather than as a single hard router. Tail-leakage surprisal locates uncertainty at the step level, but the direct-vs-decompose choice also needs answer type and decomposition stability. Even then, the remaining confidently wrong cases point toward future evidence-checking or self-consistency methods rather than another global threshold.
+This explains why the final system uses confidence inside a broader verifier rather than as a single hard router. Tail Leakage locates uncertainty at the step level, but the direct-vs-decompose choice also needs answer type and decomposition stability. Even then, the remaining confidently wrong cases point toward future evidence-checking or self-consistency methods rather than another global threshold.
 
 \section{Remaining Headroom and Remaining Problems}
 \label{sec:remaining-headroom}
 
-The oracle analysis gives a measured upper bound for better routing. In the final traces, oracle direct-vs-decompose routing reaches 43.8 EM on HotpotQA, 53.3 on 2Wiki, 29.4 on MuSiQue, and 57.2 on PopQA. The final verifier leaves 2.9 to 6.0 EM of routing headroom.
+The oracle analysis gives an upper bound for better routing and shows meaningful headroom over the current verifier on every dataset.
 
-This headroom should be interpreted carefully. Oracle routing is not deployable because it uses the gold answer after the fact. It also cannot fix examples where both paths are wrong. The final traces contain 562 both-wrong HotpotQA examples, 467 2Wiki examples, 706 MuSiQue examples, and 428 PopQA examples. These examples require improvements below the router: better retrieval, reranking, bridge-answer propagation, or final synthesis.
+This headroom should be interpreted carefully. Oracle routing is not deployable because it uses the gold answer after the fact, and it cannot fix examples where both paths are wrong. Those cases require improvements below the router: better retrieval, reranking, bridge-answer propagation, or final synthesis.
 
-The auxiliary $\tau=0.008461$ failure taxonomy in Table~\ref{tab:failure-taxonomy} makes the bottleneck concrete. Among wrong decomposition candidates, missing full supporting-title coverage in both the original and decomposed retrieval arms accounts for 47.6\% on HotpotQA, 61.8\% on 2Wiki, and 70.1\% on MuSiQue. Synthesis failures account for another 18.0\% to 25.2\%, while constraint loss is concentrated on HotpotQA at 5.9\%. The remaining problem therefore splits into routing headroom, retrieval coverage, synthesis robustness, and confidently wrong answers.
+The failure taxonomy in Table~\ref{tab:failure-taxonomy} makes the bottleneck concrete: retrieval gaps dominate decomposition errors, followed by answering and synthesis failures, while constraint loss is concentrated on HotpotQA. The remaining problem therefore splits into routing headroom, retrieval coverage, synthesis robustness, and confidently wrong answers.
 
 \section{Threats to Validity}
 \label{sec:threats}
 
-\paragraph{External baseline numbers are paper numbers.} The external baseline results in Table~\ref{tab:main-results} are taken from the DeepRAG paper rather than reproduced in the exact same harness. Normalisation, prompting, and implementation details may differ slightly. To reduce protocol mismatch, SEEK uses the same approximately 21M-passage Wikipedia collection and BM25 retriever as DeepRAG, and the reported averages are recomputed only over the four overlapping datasets.
+\paragraph{External baseline numbers are paper numbers.} The external baseline results in Table~\ref{tab:main-results} are taken from the DeepRAG paper rather than reproduced in the exact same harness. Normalisation, prompting, and implementation details may differ slightly. To reduce protocol mismatch, SEEK follows DeepRAG's retrieval setup, and the reported averages are recomputed only over the four overlapping datasets.
 
 \paragraph{Dataset slicing.} All headline results use the first 1{,}000 dev questions. MuSiQue dev is sorted by hop depth, so this slice understates full-dev difficulty. Full-dev MuSiQue remains harder, especially for 4-hop questions.
 
-\paragraph{Single seed and greedy decoding.} All numbers use greedy decoding without seed averaging. Small differences of 1 to 2 EM should be interpreted cautiously; the larger PopQA and 2Wiki gains over DeepRAG are more robust.
+\paragraph{Single seed and greedy decoding.} All results use greedy decoding without seed averaging. Small differences should therefore be interpreted cautiously, while the larger PopQA and 2Wiki gains over DeepRAG are more robust.
 
 \paragraph{Routing cannot fix both-wrong cases.} The verifier can only choose between two existing candidates. If both direct and decomposed answers are wrong, routing cannot recover the example. This is the main reason oracle routing is an upper bound on routing quality rather than an upper bound on the whole QA system.
 
@@ -1205,11 +1171,11 @@ The auxiliary $\tau=0.008461$ failure taxonomy in Table~\ref{tab:failure-taxonom
 The principal limitations are:
 
 \begin{itemize}
-    \item \textbf{HotpotQA remains below DeepRAG.} SEEK improves HotpotQA to 37.80 EM, but still trails DeepRAG's 40.70 EM. HotpotQA is the clearest case where direct and decomposed paths are complementary but the current verifier does not fully exploit the headroom.
-    \item \textbf{Verifier headroom remains.} Oracle direct-vs-decompose routing still offers 2.9 to 6.0 EM over the current verifier, so routing is not solved.
-    \item \textbf{Confidence is not a correctness guarantee.} Tail-leakage surprisal is useful for sub-question retrieval gating, but 7\% to 22\% of wrong direct answers look as confident as typical correct answers. A battery of more than forty alternative confidence signals did not find a decisive per-question error detector either (Section~\ref{sec:tail-leakage-analysis}).
+    \item \textbf{HotpotQA remains below DeepRAG.} HotpotQA is the clearest case where direct and decomposed paths are complementary but the current verifier does not fully exploit their potential.
+    \item \textbf{Verifier headroom remains.} Oracle direct-vs-decompose routing remains stronger than the current verifier, so path selection is not solved.
+    \item \textbf{Confidence is not a correctness guarantee.} Tail Leakage is useful for sub-question retrieval gating, but some wrong answers look as confident as typical correct answers. The broader confidence-signal comparison likewise finds no decisive per-question error detector (Section~\ref{sec:tail-leakage-analysis}).
     \item \textbf{Bridge-answer drift limits decomposition.} On MuSiQue, SEEK nearly matches gold decomposition when the first-hop bridge entity is correct, but wrong intermediate answers drag the second query away from the target evidence.
-    \item \textbf{Both-wrong cases require better retrieval and synthesis.} Routing cannot fix examples where both direct and decomposed candidates are wrong; retrieval gaps explain 47.6\% to 70.1\% of decomposition-path errors on the multi-hop datasets.
+    \item \textbf{Both-wrong cases require better retrieval and synthesis.} Routing cannot fix examples where both direct and decomposed candidates are wrong, and retrieval gaps are the dominant decomposition-path failure on the multi-hop datasets.
     \item \textbf{Single-seed greedy decoding.} Variance estimates are not reported and would strengthen small-difference claims.
 \end{itemize}
 
@@ -1221,7 +1187,7 @@ The principal limitations are:
 
 \paragraph{Length-conditioned decomposer.} A target-depth control token such as \texttt{[K=1]}, \texttt{[K=2]}, or \texttt{[K=4]} could reduce negative transfer between single-hop and multi-hop data. The verifier or a small complexity predictor could choose the target depth at inference time.
 
-\paragraph{Multi-sample decomposition.} Sampling multiple decompositions and selecting by final-answer confidence or agreement could reduce wrong-first-hop propagation. This is especially relevant because the MuSiQue analysis shows that bridge-answer drift, rather than decomposition wording alone, explains much of the gap between SEEK and gold decomposition. This would trade inference cost for robustness without requiring DPO.
+\paragraph{Multiple decompositions.} Sampling multiple decompositions and selecting by final-answer confidence or agreement could reduce wrong-first-hop propagation. This is especially relevant because the MuSiQue analysis shows that bridge-answer drift, rather than decomposition wording alone, explains much of the gap between SEEK and gold decomposition. This would trade inference cost for robustness without requiring DPO.
 
 \paragraph{Evidence-aware verification.} Confidently wrong answers cannot be removed by another confidence threshold alone. Future verifiers should test whether the selected answer is externally supported by retrieved evidence, possibly with lightweight entailment checks, answer-type validation, or self-consistency over evidence snippets.
 
@@ -1247,196 +1213,134 @@ title={References}
 % !TeX root = ../main.tex
 \chapter{Supplementary Material}
 
-This appendix collects detailed material referenced in Chapters~\ref{ch:results} and~\ref{ch:discussion}: a case-level comparison with DeepRAG on shared questions, the inference and offline cost audit, supplementary decomposition-failure flags, confidence-signal definitions, and confidence-failure diagnostics.
+This appendix provides supporting analyses for Chapters~\ref{ch:results} and~\ref{ch:discussion}: decomposition failures, confidence-signal definitions, and confidence errors.
 
-\section{Case-Level Comparison with DeepRAG}
-\label{app:deeprag-cases}
+\section{Decomposition Failures}
+\label{app:decomp-failure-analysis}
 
-The auxiliary $\tau=0.008461$ failure taxonomy in Section~\ref{sec:failure-taxonomy} describes SEEK decomposition errors on the saved live trace. A natural follow-up is how those failures relate to DeepRAG~\cite{deeprag} on the same inputs. We pair the first 1{,}000 DeepRAG and diagnostic SEEK cases by normalised question text and occurrence order on each multi-hop dataset, then compare per-question EM. Table~\ref{tab:deeprag-quadrant} reports the resulting counts.
+We use the final accuracy-first step gate ($\tau=0.002305$) and assign one main cause to each incorrect decomposition answer. Step answers are reselected and resynthesised at this threshold, while the sub-question wording stays fixed. Evidence is covered when the required Wikipedia titles appear in the top 10 results from either the original question or the resolved sub-questions.
 
 \begin{table}[h]
     \centering
-    \caption[DeepRAG-vs-SEEK Correctness Quadrants]{Per-question correctness of DeepRAG and the diagnostic $\tau=0.008461$ SEEK configuration on the same first 1{,}000 dev questions. The SEEK-only column is analysed in Table~\ref{tab:deeprag-failure-signals}.}
-    \label{tab:deeprag-quadrant}
-    \setlength{\tabcolsep}{8pt}
+    \caption[Decomposition Failures]{Main causes of decomposition errors.}
+    \label{tab:failure-taxonomy}
+    \setlength{\tabcolsep}{3pt}
     \small
-    \begin{tabular}{ l r r r r }
+    \begin{tabular}{ p{0.48\textwidth} *{3}{>{\centering\arraybackslash}p{0.135\textwidth}} }
         \toprule
-        Dataset & Both correct & DeepRAG only & SEEK only & Both wrong \\
+        Primary cause & \shortstack{HotpotQA\\($N=640$)} & \shortstack{2Wiki\\($N=503$)} & \shortstack{MuSiQue\\($N=733$)} \\
         \midrule
-        HotpotQA & 269 & 127 & 106 & 498 \\
-        2Wiki & 333 & 169 & 154 & 344 \\
-        MuSiQue & 157 & 80 & 109 & 654 \\
+        Missing required evidence & 307 (48.0\%) & 311 (61.8\%) & 513 (70.0\%) \\
+        Incorrect step answer with complete evidence & 131 (20.5\%) & 98 (19.5\%) & 73 (10.0\%) \\
+        Correct steps but wrong final answer & 164 (25.6\%) & 92 (18.3\%) & 138 (18.8\%) \\
+        Lost constraint; original retrieval has complete evidence & 38 (5.9\%) & 2 (0.4\%) & 9 (1.2\%) \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-The first observation is that the two systems are complementary rather than ordered. The DeepRAG-only and SEEK-only columns are of similar size on every dataset, so the comparison does not show one method dominating the other per question. Its value lies in showing that the two systems fail in different ways.
+Missing evidence is the largest failure category on all three multi-hop datasets. Other errors mainly come from incorrect step answers or final synthesis. Lost constraints are less common and occur mostly on HotpotQA.
 
-To characterise those differences, we inspect the DeepRAG traces inside the SEEK-win set and count recurring failure signals. Table~\ref{tab:deeprag-failure-signals} reports the counts; a single case can match several signals.
-
-\begin{table}[h]
-    \centering
-    \caption[DeepRAG Failure Signals in the SEEK-Win Set]{Failure signals observed in DeepRAG traces on questions answered correctly by the diagnostic $\tau=0.008461$ SEEK configuration but not by DeepRAG. Counts are non-exclusive.}
-    \label{tab:deeprag-failure-signals}
-    \setlength{\tabcolsep}{6pt}
-    \small
-    \begin{tabular}{ l r r r }
-        \toprule
-        Signal & HotpotQA ($n$=106) & 2Wiki ($n$=154) & MuSiQue ($n$=109) \\
-        \midrule
-        Format near-miss, F1 $\geq$ 0.5 & 23 & 14 & 18 \\
-        Degenerate final answer & 24 & 27 & 30 \\
-        Over-decomposition, $\geq$5 steps & 6 & 40 & 7 \\
-        Decomposition spiral & 33 & 11 & 30 \\
-        No retrieval in the whole chain & 16 & 50 & 0 \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-Three patterns account for most of the substantive losses. The first is excessively long decomposition on 2Wiki comparison questions, where 40 of the 154 SEEK wins involve DeepRAG chains of five or more steps. A representative case asks which film has the earlier-born director, \emph{Buffet Froid} or \emph{Lost in Africa}. DeepRAG produces six steps but retrieves only once: it resolves the first director correctly, then answers the remaining steps from parametric memory, hallucinates the second director, and finally appends two redundant comparison steps that restate the original question. The wrong parametric comparison in those terminal steps flips an otherwise recoverable chain. SEEK's decomposer emits exactly the four factual lookups, retrieves for each, and leaves the comparison to the synthesis stage.
-
-The second pattern is a decomposition spiral. DeepRAG generates each follow-up question conditioned on the chain answered so far, so a wrong intermediate answer can rewrite the rest of the plan. In one HotpotQA case, the model resolves the stage name Aladin to the wrong person and then spends five further steps trying to make that person fit the question, with later follow-up fields visibly containing fragments of the earlier erroneous reasoning. This contamination appears in roughly a quarter to a third of the SEEK-win cases on HotpotQA and MuSiQue. SEEK's decomposition is produced up front from the original question alone, so a wrong bridge answer degrades one retrieval query but cannot corrupt the structure of the remaining sub-questions.
-
-The third pattern is structural mis-decomposition. Asked who sings \emph{Home Alone Tonight} with the singer of another song, DeepRAG splits the question into two independent singer lookups, drops the duet relation, and returns the same artist for both. SEEK's placeholder binding keeps the relation explicit in the second sub-question and recovers the duet partner. On 2Wiki, an additional dataset-specific weakness appears: in 50 of the 154 SEEK wins, DeepRAG's retrieve-or-answer policy chose the parametric option at every step and hallucinated the whole chain. For reference, under the headline accuracy-first threshold SEEK retrieves for 2{,}014/2{,}257 (89.2\%) HotpotQA steps, 2{,}367/2{,}472 (95.8\%) 2Wiki steps, and 1{,}926/2{,}032 (94.8\%) MuSiQue steps. At the question level, only 23/1{,}000 (2.3\%), 19/1{,}000 (1.9\%), and 4/1{,}000 (0.4\%) traces, respectively, skip retrieval at every step. Other skipped steps occur in partially retrieved chains, so these rates are not complements. PopQA is omitted because this comparison concerns the overlapping multi-hop datasets; its one-step plans yield 97.6\% retrieval and 2.4\% fully no-retrieval traces.
-
-These counts should be read with two caveats. About 9\% to 22\% of the SEEK-win set are format near-misses in which DeepRAG's answer is essentially correct but fails exact match, such as \emph{Murray Hill, New Jersey} against the gold \emph{Murray Hill}. The comparison is also symmetric: within its own win set, SEEK's decomposition is sometimes poor as well, and the question is rescued by the direct path or by original-question evidence union rather than by the decomposition itself. On HotpotQA, 21 of the 106 SEEK wins come from the direct candidate. The DeepRAG-only column contains failures of the mirrored kind, which is consistent with the dual-path design rather than evidence against it.
-
-\clearpage
-\section{Supplementary Decomposition-Failure Flags}
-\label{app:decomp-failure-flags}
-
-Table~\ref{tab:decomp-failure-flags} supplements the mutually exclusive taxonomy in Table~\ref{tab:failure-taxonomy} with structural symptoms and retrieval-state flags computed over the same diagnostic $\tau=0.008461$ decomposition errors. The structural flags may overlap with each other and with any primary failure category. The final three rows instead form a separate partition by whether retrieval was invoked during the decomposition path.
+Table~\ref{tab:decomp-failure-flags} shows additional patterns that may overlap. The last three rows separately show how often retrieval was used.
 
 \begin{table}[h]
     \centering
-    \caption[Supplementary Decomposition-Failure Flags]{Overlapping structural symptoms and retrieval-state flags for the decomposition errors analysed in Table~\ref{tab:failure-taxonomy}. Counts are followed by shares within decomposition-candidate errors.}
+    \caption[Additional Decomposition Patterns]{Additional patterns in decomposition errors.}
     \label{tab:decomp-failure-flags}
     \setlength{\tabcolsep}{6pt}
     \scriptsize
     \resizebox{\textwidth}{!}{%
     \begin{tabular}{ l c c c }
         \toprule
-        Diagnostic flag & HotpotQA ($N=643$) & 2Wiki ($N=510$) & MuSiQue ($N=733$) \\
+        Diagnostic flag & HotpotQA ($N=640$) & 2Wiki ($N=503$) & MuSiQue ($N=733$) \\
         \midrule
-        Intermediate-answer echo & 134 (20.8\%) & 24 (4.7\%) & 68 (9.3\%) \\
-        First sub-question restates the original question & 119 (18.5\%) & 157 (30.8\%) & 235 (32.1\%) \\
+        Repeats an intermediate answer & 142 (22.2\%) & 22 (4.4\%) & 68 (9.3\%) \\
+        First sub-question repeats the original question & 118 (18.4\%) & 154 (30.6\%) & 235 (32.1\%) \\
         \midrule
-        No decomposition steps retrieve evidence & 26 (4.0\%) & 10 (2.0\%) & 10 (1.4\%) \\
-        Mix of retrieved and non-retrieved steps & 165 (25.7\%) & 49 (9.6\%) & 120 (16.4\%) \\
-        All decomposition steps retrieve evidence & 452 (70.3\%) & 451 (88.4\%) & 603 (82.3\%) \\
+        No steps retrieve & 7 (1.1\%) & 4 (0.8\%) & 0 (0.0\%) \\
+        Some steps retrieve & 93 (14.5\%) & 21 (4.2\%) & 54 (7.4\%) \\
+        All steps retrieve & 540 (84.4\%) & 478 (95.0\%) & 679 (92.6\%) \\
         \bottomrule
     \end{tabular}}
 \end{table}
 
-The first two rows indicate plan or synthesis symptoms rather than mutually exclusive causes. The retrieval-state rows record gate behaviour only; they do not establish whether the retrieved passages contain sufficient supporting evidence.
+The first two rows describe plan or synthesis problems and may overlap. The last three rows show retrieval use, not whether the retrieved evidence was sufficient.
 
-\section{Inference and Offline Cost Audit}
-\label{app:cost-audit}
+\clearpage
+\section{Confidence Signals}
+\label{app:confidence-signals}
 
-Table~\ref{tab:retrieval-count-compare} reports the inference retrieval-count audit over the full-corpus Wikipedia retrieval traces on the overlapping multi-hop datasets, and Table~\ref{tab:cost-compare} itemises the offline adaptation cost of SEEK against DeepRAG's published training pipeline. These tables support the cost discussion in Section~\ref{sec:cost-benefit}. FLOPs denotes the number of floating-point arithmetic operations used by forward and backward training passes; it measures computation rather than wall-clock time.
+Table~\ref{tab:confidence-signal-definitions} defines the confidence signals used in Section~\ref{sec:tail-leakage-analysis}. Here, $p_t(v)$ is a next-token probability, $y_t$ is the generated token, and $T$ is the answer length. A higher score means greater uncertainty.
 
 \begin{table}[h]
     \centering
-    \caption[Inference Retrieval Count Comparison]{Inference retrieval count audit for the headline accuracy-first SEEK configuration and DeepRAG on the overlapping multi-hop datasets.}
-    \label{tab:retrieval-count-compare}
-    \setlength{\tabcolsep}{7pt}
-    \small
-    \begin{tabular}{ l c c c c }
+    \caption[Confidence Signal Definitions]{Confidence signal definitions.}
+    \label{tab:confidence-signal-definitions}
+    \setlength{\tabcolsep}{8pt}
+    \begin{tabular}{ >{\raggedright\arraybackslash}p{0.28\textwidth} >{\raggedright\arraybackslash}p{0.62\textwidth} }
         \toprule
-        Dataset & SEEK EM & SEEK retrievals/q & DeepRAG retrievals/q & Difference \\
+        Signal & Definition \\
         \midrule
-        HotpotQA & 37.8 & 2.014 & 1.716 & +17\% \\
-        2Wiki & 49.3 & 2.367 & 1.451 & +63\% \\
-        MuSiQue & 26.5 & 1.926 & 2.273 & -15\% \\
+        Maximum token entropy
+        & Largest token-level entropy in the answer: $\max_t[-\sum_v p_t(v)\log p_t(v)]$~\cite{maqa,targ}. \\
+        \addlinespace
+        Answer likelihood
+        & Total negative log-likelihood of the generated answer: $-\sum_{t=1}^{T}\log p_t(y_t)$~\cite{semanticuncertainty}. \\
+        \addlinespace
+        TARG margin
+        & Average transformed gap between the two largest logits over the first eight tokens~\cite{targ}. \\
+        \addlinespace
+        Sample disagreement
+        & Fraction of ten sampled answers that differ from the greedy answer~\cite{maqa,semanticuncertainty,semanticentropy}. \\
+        \addlinespace
+        P(True) self-check
+        & Model-estimated probability that its answer is false: $1-P(\mathrm{True}\mid q,C,\hat a)$~\cite{kadavath2022}. \\
+        \addlinespace
+        Tail Leakage
+        & Cumulative probability leakage outside the top-five token set: $-\sum_{t=1}^{T}\log\sum_{v\in V_5(p_t)}p_t(v)$. \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-\begin{table}[h]
-    \centering
-    \caption[Offline Adaptation Cost Comparison]{Offline adaptation cost comparison between SEEK and DeepRAG. DeepRAG training wall-clock was not reproduced locally; its FLOPs are an order estimate from the published training pipeline.}
-    \label{tab:cost-compare}
-    \setlength{\tabcolsep}{5pt}
-    \small
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ l p{5.2cm} p{6.0cm} }
-        \toprule
-        Component & SEEK & DeepRAG \\
-        \midrule
-        Trained component & KG-triple decomposer only & Retrieval policy model \\
-        Fine-tuning type & LoRA SFT, less than 1\% trainable parameters & Full-parameter SFT plus full-parameter DPO \\
-        Training stages & One SFT stage & Two stages: SFT and 8-epoch DPO \\
-        Measured wall-clock & 37.9 minutes on one L40S GPU & Not reproduced locally; expected multi-GPU hours \\
-        Forward/backward FLOPs & $2.40\times10^{17}$ measured & About $3.3\times10^{17}$ estimated \\
-        Data construction & Direct supervised decompositions & Binary-tree-search trajectories; 72B follow-up model plus up to 8 7B vLLM servers in the official construction pipeline \\
-        Dataset adaptation & Reuse the same training-free routing rules & Rebuild trajectories and retrain the retrieval policy for new settings \\
-        \bottomrule
-    \end{tabular}}
-\end{table}
-
+All signals use the same direct-path outputs and are ranked by AUROC for exact-match errors. Except for sample disagreement and P(True), they come from the same greedy decoding pass.
 
 \clearpage
-\section{Confidence Signal Definitions and Variants}
-\label{app:confidence-signals}
-
-The comparison in Section~\ref{sec:tail-leakage-analysis} is organised by the information source used by a confidence score. Let $p_t(v)$ be the next-token probability of vocabulary item $v$, $y_t$ the generated token, $\ell_{t,(1)}$ and $\ell_{t,(2)}$ the two largest logits, and $T$ the number of generated answer tokens excluding EOS. Table~\ref{tab:confidence-signal-definitions} defines the representative reported for each family. Except for sampled-answer disagreement and P(True), every representative is computed from the same greedy decoding pass as the answer.
-
-\begin{table}[h]
-    \centering
-    \caption[Definitions of Representative Confidence Signals]{Definitions, provenance, and additional variants for the representative confidence signals in Table~\ref{tab:signal-battery}. All definitions are oriented so that a larger score denotes greater uncertainty.}
-    \label{tab:confidence-signal-definitions}
-    \setlength{\tabcolsep}{4pt}
-    \scriptsize
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ p{2.9cm} p{4.5cm} p{5.0cm} p{3.7cm} }
-        \toprule
-        Family and representative & Definition & Additional variants evaluated & Source or motivation \\
-        \midrule
-        Predictive distribution: maximum token entropy
-        & $\max_t[-\sum_v p_t(v)\log p_t(v)]$
-        & Mean and first-token aggregation; content-token filtering; temperature 2; R\'enyi orders $0.5$ and $2$
-        & Standard white-box predictive uncertainty; entropy baselines follow prior LLM uncertainty comparisons~\cite{maqa,targ} \\
-        \addlinespace
-        Generated-sequence likelihood: negative log-likelihood
-        & $-\sum_{t=1}^{T}\log p_t(y_t)$
-        & Mean and worst-token log-probability; content-token filtering
-        & Probability assigned by the model to its realised answer sequence; a standard likelihood baseline~\cite{semanticuncertainty} \\
-        \addlinespace
-        Leading-candidate separation: TARG margin
-        & $T_8^{-1}\sum_{t=1}^{T_8}\exp[-(\ell_{t,(1)}-\ell_{t,(2)})/3]$, where $T_8=\min(T,8)$
-        & First-token, mean, and minimum top-1/top-2 probability margin; minimum raw logit gap
-        & Prefix-logit margin gate of TARG~\cite{targ} \\
-        \addlinespace
-        Repeated generation: sampled-answer disagreement
-        & $1-N^{-1}\sum_{i=1}^{N}\mathbf{1}[\operatorname{norm}(a_i)=\operatorname{norm}(\hat a)]$, with $N=10$
-        & Number of unique answers; exact- and token-F1 support; discrete and likelihood-weighted answer-cluster entropy
-        & Response consistency and semantic-uncertainty family~\cite{maqa,semanticuncertainty,semanticentropy} \\
-        \addlinespace
-        Verbal self-evaluation: P(True)
-        & $1-P(\mathrm{True}\mid q,C,\hat a)$, renormalised over \{True, False\}
-        & With and without retrieved context; combination with sampled-answer support; context likelihood gain
-        & Proposed-answer self-evaluation of Kadavath et al.~\cite{kadavath2022} \\
-        \addlinespace
-        Candidate-set leakage: tail-leakage surprisal
-        & $-\sum_{t=1}^{T}\log\sum_{v\in V_5(p_t)}p_t(v)$
-        & Weakest-token top-5 and top-10 mass; binary in-tail entropy; mean, maximum, and soft aggregation of per-token leakage
-        & SEEK; derived from the entropy decomposition in Equation~\eqref{eq:entropy-chain} \\
-        \bottomrule
-    \end{tabular}}
-\end{table}
-
-The variants in the third column test limited choices within a family---token aggregation, temperature, candidate-set size, or answer clustering---rather than unrelated confidence constructions. They were computed on the same direct-path traces and ranked by AUROC against alias-aware exact-match error. Paired bootstrap comparisons use 1{,}000 resamples with seed 13. The main text reports one representative per family so that the result does not reduce to a list of whichever variants happened to rank highest.
-
-\clearpage
-\section{Confidence-Failure Diagnostics}
+\section{Confidence Errors}
 \label{app:confidence-diagnostics}
 
-Tail-leakage surprisal is informative at the population level but does not guarantee correctness for an individual answer. We define a confidently wrong direct answer as an alias-aware exact-match error whose surprisal is at or below the dataset-specific median among correct direct answers. Table~\ref{tab:confident-wrong-breakdown} expands the aggregate result reported in Chapter~\ref{ch:results}.
+Tail Leakage is useful overall but cannot guarantee that one answer is correct. Table~\ref{tab:quadrant-confidence} compares cases where both paths are correct with cases where both are wrong. Figure~\ref{fig:quadrant-confidence} shows the score distributions.
 
 \begin{table}[h]
     \centering
-    \caption[Confident-Wrong Direct Answers]{Breakdown of confidently wrong direct-path answers in the final traces. Percentages in the final row are relative to all wrong direct answers in each dataset.}
+    \caption[Tail Leakage by Correctness]{Tail Leakage by correctness.}
+    \label{tab:quadrant-confidence}
+    \setlength{\tabcolsep}{6pt}
+    \small
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{ l c c c c }
+        \toprule
+        Dataset & Mean, both correct & Mean, both wrong & AUROC & Confidently wrong \\
+        \midrule
+        HotpotQA & 0.01260 & 0.12927 & 0.777 & 15.5\% \\
+        2Wiki & 0.03414 & 0.20215 & 0.751 & 20.1\% \\
+        MuSiQue & 0.04945 & 0.25025 & 0.766 & 12.7\% \\
+        PopQA & 0.00974 & 0.10282 & 0.846 & 4.9\% \\
+        Pooled & 0.01877 & 0.17926 & 0.817 & 9.3\% \\
+        \bottomrule
+    \end{tabular}}
+\end{table}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.78\textwidth]{fig_quadrant_confidence.png}
+    \caption[Tail Leakage Distributions]{Tail Leakage by correctness group.}
+    \label{fig:quadrant-confidence}
+\end{figure}
+
+Both-wrong cases usually have higher Tail Leakage, but the distributions overlap. We call a wrong answer confidently wrong when its score is no higher than the median score of correct answers in the same dataset. Table~\ref{tab:confident-wrong-breakdown} shows the error types.
+
+\begin{table}[h]
+    \centering
+    \caption[Confidently Wrong Answers]{Confidently wrong answers by error type.}
     \label{tab:confident-wrong-breakdown}
     \setlength{\tabcolsep}{5pt}
     \scriptsize
@@ -1446,9 +1350,9 @@ Tail-leakage surprisal is informative at the population level but does not guara
         Category & HotpotQA & 2Wiki & MuSiQue & PopQA & Pooled \\
         \midrule
         Wrong direct answers & 697 & 820 & 898 & 622 & 3{,}037 \\
-        Clean wrong entity & 55 & 116 & 89 & 21 & 281 \\
-        Boundary or alias near-miss & 52 & 43 & 31 & 22 & 148 \\
-        Partial entity overlap & 9 & 22 & 9 & 0 & 40 \\
+        Wrong entity & 55 & 116 & 89 & 21 & 281 \\
+        Boundary or alias mismatch & 52 & 43 & 31 & 22 & 148 \\
+        Partial name overlap & 9 & 22 & 9 & 0 & 40 \\
         Wrong date or number & 5 & 1 & 16 & 0 & 22 \\
         \midrule
         \textbf{All confidently wrong} & \textbf{121 (17\%)} & \textbf{182 (22\%)} & \textbf{145 (16\%)} & \textbf{43 (7\%)} & \textbf{491 (16.2\%)} \\
@@ -1456,18 +1360,18 @@ Tail-leakage surprisal is informative at the population level but does not guara
     \end{tabular}}
 \end{table}
 
-We also ran a separate repeated-sampling diagnostic on the original question. Each question was answered fifteen times at temperature 0.7 using a fixed top-five BM25 context drawn from its provided passage pool. This diagnostic was not part of the final routing policy and was not a no-retrieval experiment. Across the 4{,}000 questions, 1{,}869 produced one unique normalised answer across all fifteen samples; 1{,}538 of those cases also had zero mean maximum token entropy. Table~\ref{tab:multisample-zero-entropy} reports this stricter subset. Here an answer is counted as wrong when it satisfies neither normalised exact match nor token-F1 of at least 0.5.
+We also tested repeated sampling with a fixed BM25 context. This test is separate from the final routing policy and still uses retrieved evidence. Table~\ref{tab:multisample-zero-entropy} counts cases with 15 identical answers and zero mean maximum token entropy. An answer is wrong if it fails both normalised exact match and token F1.
 
 \begin{table}[h]
     \centering
-    \caption[Repeated-Sampling Zero-Entropy Diagnostic]{Results of the separate fifteen-sample diagnostic. The wrong rate is computed within cases having both fifteen identical normalised answers and zero mean maximum token entropy.}
+    \caption[Repeated-Sampling Errors]{Repeated-sampling agreement and errors.}
     \label{tab:multisample-zero-entropy}
     \setlength{\tabcolsep}{5pt}
     \small
     \resizebox{\textwidth}{!}{%
     \begin{tabular}{ l r r r r }
         \toprule
-        Dataset & Fifteen identical answers & Identical and zero entropy & Wrong in strict subset & Wrong rate \\
+        Dataset & Identical answers & Identical and zero entropy & Wrong cases & Wrong rate \\
         \midrule
         HotpotQA & 620 & 522 & 127 & 24.3\% \\
         2Wiki & 368 & 301 & 169 & 56.1\% \\
@@ -1479,7 +1383,7 @@ We also ran a separate repeated-sampling diagnostic on the original question. Ea
     \end{tabular}}
 \end{table}
 
-At this fifteen-sample budget, disagreement-based detection cannot identify the strict-subset errors because every sampled answer agrees.
+When all samples agree, disagreement cannot flag these errors.
 
 
 \end{thesiscjk}

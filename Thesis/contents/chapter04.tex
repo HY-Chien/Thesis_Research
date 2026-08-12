@@ -22,17 +22,39 @@ We report normalised exact match (EM) and token-level F1. Before scoring, predic
 
 \section{Implementation Details}
 
-All SEEK results use Llama-3-8B-Instruct with the 12K three-source LoRA decomposer trained on MuSiQue, 2WikiMultihopQA, and PopQA. The adapter uses rank 16, alpha 32, and dropout 0.05 on all linear modules, trained in bf16 with a 1024-token context for 3 epochs using LLaMA-Factory~\cite{llamafactory}, with effective batch size 16 and learning rate $1\times10^{-4}$ under cosine decay with 10\% warmup. At inference, the adapter is enabled for decomposition and sub-question answering and disabled for synthesis. The headline system uses the accuracy-first tail-leakage-surprisal gate at $\tau=0.002305$. The final verifier uses the rule set of Chapter~\ref{ch:method} with tail-leakage surprisal as its confidence signal, plus a conservative type-aware fallback. This fallback changes only the final choice between the direct and decomposed candidates; it does not rerun generation and does not train an additional model.
+All SEEK results use Llama-3-8B-Instruct and the three-source LoRA decomposer described in Chapter~\ref{ch:method}. Table~\ref{tab:implementation-details} summarises the training and inference configuration. At inference, the adapter is enabled for decomposition and sub-question answering and disabled for synthesis. The final verifier uses Tail Leakage together with the conservative type-aware fallback; it only selects between existing candidates and does not rerun generation or train another model.
+
+\begin{table}[h]
+    \centering
+    \caption[Implementation Details]{Training and inference configuration used in all SEEK experiments.}
+    \label{tab:implementation-details}
+    \setlength{\tabcolsep}{8pt}
+    \small
+    \begin{tabular}{ l l }
+        \toprule
+        Setting & Value \\
+        \midrule
+        Backbone & Llama-3-8B-Instruct \\
+        Decomposer training data & 12{,}000 examples from MuSiQue, 2Wiki, and PopQA \\
+        LoRA configuration & rank 16; alpha 32; dropout 0.05; all linear modules \\
+        Precision and context length & bf16; 1{,}024 tokens \\
+        Training schedule & 3 epochs; effective batch size 16 \\
+        Learning rate & $1\times10^{-4}$; cosine decay; 10\% warmup \\
+        Training framework & LLaMA-Factory~\cite{llamafactory} \\
+        Accuracy-first gate & $\tau=0.002305$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 
 \section{Main Results}
 \label{sec:main-results}
 
-Table~\ref{tab:main-results} reports the final results under full-corpus Wikipedia retrieval. To keep the comparison aligned with the SEEK evaluation protocol, the table shows the four overlapping datasets which were reported by DeepRAG. The final SEEK system combines path-aware title retrieval, original-question evidence union, surprisal-gated sub-question retrieval, and the type-aware training-free verifier.
+Table~\ref{tab:main-results} reports the final results on the four datasets also reported by DeepRAG. The final SEEK system combines path-aware title retrieval, original-question evidence union, Tail Leakage gating for sub-question retrieval, and the type-aware training-free verifier.
 
 \begin{table}[h]
     \centering
-    \caption[Main Results under Full-Corpus Wikipedia Retrieval]{Main results on the first 1{,}000 questions of each dev set using the full 21M-passage Wikipedia collection. Each cell reports EM/F1. The SEEK row uses the accuracy-first gate at $\tau=0.002305$; gate alternatives are evaluated by fixed-chain resynthesis as specified in Section~\ref{sec:threshold-sensitivity}.}
+    \caption[Main Results]{Main results across all datasets.}
     \label{tab:main-results}
     \setlength{\tabcolsep}{4pt}
     \scriptsize
@@ -46,13 +68,13 @@ Table~\ref{tab:main-results} reports the final results under full-corpus Wikiped
         Adaptive & FLARE~\cite{flare} & 23.80/32.88 & 30.30/37.45 & 14.50/23.57 & 28.80/40.61 & 24.35/33.63 \\
         Adaptive & DRAGIN~\cite{dragin} & 27.60/38.05 & 29.10/35.68 & 11.80/19.97 & 22.60/28.53 & 22.78/30.56 \\
         Learned adaptive & DeepRAG~\cite{deeprag} & \textbf{40.70/51.54} & 48.10/53.25 & 22.50/30.40 & 42.50/47.80 & 38.45/45.75 \\
-        Ours & \textbf{SEEK final} & 37.80/49.03 & \textbf{49.30/56.22} & \textbf{26.50/34.63} & \textbf{53.90/55.73} & \textbf{41.88/48.90} \\
+        Ours & SEEK final & 37.80/49.03 & \textbf{49.30/56.22} & \textbf{26.50/34.63} & \textbf{53.90/55.73} & \textbf{41.88/48.90} \\
         \bottomrule
     \end{tabular}}
 \end{table}
 
-The final SEEK system reaches 41.88 EM and 48.90 F1 on the four-dataset average, compared with DeepRAG's 38.45 EM and 45.75 F1, a gain of +3.43 EM and +3.15 F1 over the strongest external baseline. The margin over the reasoning baselines and the training-free adaptive baselines is considerably wider.
+SEEK achieves the strongest average EM and F1 among the compared methods, outperforming the reasoning, training-free adaptive, and learned adaptive baselines in the aggregate.
 
-At the per-dataset level, SEEK wins on three of the four datasets. On 2Wiki it improves from DeepRAG's 48.10 EM to 49.30 EM, and on MuSiQue from 22.50 to 26.50 EM. The largest gain is on PopQA, where SEEK reaches 53.90 EM against DeepRAG's 42.50. As analysed in Section~\ref{sec:path-selection-rate}, the decomposition candidate for every PopQA example contains a one-step plan rather than a multi-hop decomposition. Because that path combines a structured reformulation, path-aware retrieval, original-question evidence, and synthesis, the present ablations do not attribute the gain to the final verifier or to any single component.
+At the dataset level, SEEK leads on 2Wiki, MuSiQue, and PopQA. As discussed in Section~\ref{sec:path-selection-rate}, the PopQA decomposition candidate is a one-step query reformulation rather than a multi-hop reasoning chain.
 
-HotpotQA is the exception. SEEK reaches 37.80 EM, below DeepRAG's 40.70 EM. It is therefore the main remaining limitation and motivates the path and routing analyses in Sections~\ref{sec:path-distribution}--\ref{sec:oracle-analysis}.
+HotpotQA is the exception, where SEEK remains below DeepRAG. It is therefore the main remaining limitation and motivates the path and routing analyses in Sections~\ref{sec:path-distribution}--\ref{sec:oracle-analysis}.

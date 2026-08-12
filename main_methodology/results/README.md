@@ -27,7 +27,7 @@ Tail Leakage tau = 0.002305
 Macro EM / F1    = 41.88 / 48.90
 ```
 
-## Git 內附的四類檔案
+## Git 內附的正式結果檔案
 
 令 `{ds}` 為 `hotpotqa`、`2wiki`、`musique` 或 `popqa`。
 
@@ -40,6 +40,24 @@ Macro EM / F1    = 41.88 / 48.90
 
 共 18 個 JSONL。這是重算正式 accuracy-first 結果所需的最小集合，而不是所有研究
 期間產生的 traces。
+
+此外，修訂版論文的 failure taxonomy 需要下列 6 個 coverage traces（HotpotQA、
+2Wiki、MuSiQue 各兩個）：
+
+| 類別 | 路徑樣式 | 數量 | 用途 |
+|---|---|---:|---|
+| Original-query coverage | `traces/{ds}/{ds}_m3_wiki_detail.jsonl` | 3 | 原始問題 supporting-title coverage@10 |
+| Decomposed-query coverage | `traces/{ds}/{ds}_final_tlsum_bunion_coverage.jsonl` | 3 | 固定 resolved sub-questions 的 union coverage@10 |
+
+clone 後可再執行：
+
+```bash
+python scripts/analyze_skipped_retrieval_questions.py
+python scripts/analyze_accuracy_first_failure_taxonomy.py
+```
+
+前者只使用原本 18 個 canonical traces；後者使用同一組 traces 加上上述 6 個
+coverage traces。兩者輸出同樣寫入 `results/reproduced/`。
 
 ## `results/` 目錄
 

@@ -30,6 +30,13 @@ experiment/cache/
 !main_methodology/results/traces/popqa/tlsum_fixA_popqa_shard1.jsonl
 !main_methodology/results/traces/other/tlsum_fixA_step_gate_synth_shard0.jsonl
 !main_methodology/results/traces/other/tlsum_fixA_step_gate_synth_shard1.jsonl
+# Coverage traces required by the thesis failure-taxonomy appendix.
+!main_methodology/results/traces/hotpotqa/hotpotqa_m3_wiki_detail.jsonl
+!main_methodology/results/traces/hotpotqa/hotpotqa_final_tlsum_bunion_coverage.jsonl
+!main_methodology/results/traces/2wiki/2wiki_m3_wiki_detail.jsonl
+!main_methodology/results/traces/2wiki/2wiki_final_tlsum_bunion_coverage.jsonl
+!main_methodology/results/traces/musique/musique_m3_wiki_detail.jsonl
+!main_methodology/results/traces/musique/musique_final_tlsum_bunion_coverage.jsonl
 
 
 # 實驗輸出與快取資料夾
@@ -52,10 +59,20 @@ main_methodology/results/reproduced/
 # 論文 (LaTeX) 編譯暫存檔
 *.aux
 *.bbl
+*.bcf
 *.blg
 *.fls
 *.fdb_latexmk
+*.glo
+*.ist
+*.lof
+*.lot
+*.nlo
+*.nls
+*.out
+*.run.xml
 *.synctex.gz
+*.toc
 
 .env
 .vscode/

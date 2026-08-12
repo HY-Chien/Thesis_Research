@@ -29,11 +29,11 @@ plt.rcParams.update({
 
 FIGDIR = "figures"
 
-# Corrected example distributions (speaker-script numbers, entropy ~1.83 nats both)
+# Corrected example distributions (speaker-script numbers, entropy ~1.83 both)
 HEAD_A = [0.38, 0.26, 0.11, 0.08, 0.07]
 TAIL_A = [0.10 / 12] * 12
-HEAD_B = [0.38, 0.26, 0.06, 0.05, 0.05]
-TAIL_B = [0.20 / 5] * 5
+HEAD_B = [0.52, 0.13, 0.05, 0.05, 0.05]
+TAIL_B = [0.03] * 5 + [0.05 / 7] * 7
 HEAD_LABELS = ["PO", "po", "r3", "r4", "r5"]
 
 
@@ -116,7 +116,7 @@ def fig_same_entropy():
         )
         ax.text(
             0.97, 0.72,
-            f"$m={m:.2f}$\n$H(p)={h:.2f}$ nats\n$-\\log m={-np.log(m):.3f}$",
+            f"top-5 mass = {m:.2f}\nentropy = {h:.2f}\nleakage score = {-np.log(m):.3f}",
             transform=ax.transAxes, ha="right", va="top", fontsize=8.5,
             bbox=dict(boxstyle="round,pad=0.45", fc="#F5F5F5", ec="#CCCCCC", lw=0.7),
         )
@@ -124,7 +124,7 @@ def fig_same_entropy():
         ax.set_xticklabels(HEAD_LABELS + [f"tail (6–{5 + len(tail)})"],
                            fontsize=7.5)
         ax.set_xlim(-0.7, 16.7)
-        ax.set_ylim(0, 0.44)
+        ax.set_ylim(0, 0.56)
         style_axis(ax)
 
     axes[0].set_ylabel("next-token probability", fontsize=9)
@@ -149,21 +149,21 @@ def fig_monotonicity():
                 arrowprops=dict(arrowstyle="-", color="#999999", lw=0.8))
     ax.text(0.78, 0.22, "more leakage,\nlower score", fontsize=8.5,
             color=RED, ha="center")
-    ax.set_title(r"binary entropy $H_{\mathrm{B}}(m_t)$", fontsize=9.5, color=INK)
+    ax.set_title("binary entropy\n" + r"$-m_t\log m_t-(1-m_t)\log(1-m_t)$", fontsize=9.0, color=INK)
     ax.set_ylim(0, 0.85)
 
     ax = axes[1]
     keep = ell <= 0.96
     ax.plot(ell[keep], -np.log(m[keep]), color=GREEN, lw=1.8)
     ax.text(0.60, 2.35, "strictly increasing", fontsize=8.5, color=GREEN)
-    ax.set_title(r"leakage surprisal $-\log m_t$", fontsize=9.5, color=INK)
+    ax.set_title(r"Tail Leakage $-\log m_t$", fontsize=9.5, color=INK)
     ax.set_ylim(0, 3.4)
 
     for ax in axes:
         ax.set_xlabel(r"leaked mass $\ell = 1 - m_t$", fontsize=9)
         ax.set_xlim(0, 1)
         style_axis(ax)
-    axes[0].set_ylabel("score (nats)", fontsize=9)
+    axes[0].set_ylabel("score", fontsize=9)
 
     fig.tight_layout(w_pad=2.2)
     fig.savefig(f"{FIGDIR}/fig_leakage_monotonicity.pdf", bbox_inches="tight")
@@ -196,7 +196,7 @@ def fig_error_bins():
                 fontsize=8, color="white", fontweight="bold")
     ax.set_xticks(x)
     ax.set_xticklabels(bins, fontsize=8.5)
-    ax.set_xlabel(r"tail-leakage surprisal $\sigma^{\mathrm{tl}}$"
+    ax.set_xlabel(r"Tail Leakage $\sigma^{\mathrm{tl}}$"
                   " (equal-frequency bins, low → high)", fontsize=9)
     ax.set_ylabel("proportion (%)", fontsize=9)
     ax.set_ylim(0, 100)

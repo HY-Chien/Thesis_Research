@@ -1,196 +1,134 @@
 % !TeX root = ../main.tex
 \chapter{Supplementary Material}
 
-This appendix collects detailed material referenced in Chapters~\ref{ch:results} and~\ref{ch:discussion}: a case-level comparison with DeepRAG on shared questions, the inference and offline cost audit, supplementary decomposition-failure flags, confidence-signal definitions, and confidence-failure diagnostics.
+This appendix provides supporting analyses for Chapters~\ref{ch:results} and~\ref{ch:discussion}: decomposition failures, confidence-signal definitions, and confidence errors.
 
-\section{Case-Level Comparison with DeepRAG}
-\label{app:deeprag-cases}
+\section{Decomposition Failures}
+\label{app:decomp-failure-analysis}
 
-The auxiliary $\tau=0.008461$ failure taxonomy in Section~\ref{sec:failure-taxonomy} describes SEEK decomposition errors on the saved live trace. A natural follow-up is how those failures relate to DeepRAG~\cite{deeprag} on the same inputs. We pair the first 1{,}000 DeepRAG and diagnostic SEEK cases by normalised question text and occurrence order on each multi-hop dataset, then compare per-question EM. Table~\ref{tab:deeprag-quadrant} reports the resulting counts.
+We use the final accuracy-first step gate ($\tau=0.002305$) and assign one main cause to each incorrect decomposition answer. Step answers are reselected and resynthesised at this threshold, while the sub-question wording stays fixed. Evidence is covered when the required Wikipedia titles appear in the top 10 results from either the original question or the resolved sub-questions.
 
 \begin{table}[h]
     \centering
-    \caption[DeepRAG-vs-SEEK Correctness Quadrants]{Per-question correctness of DeepRAG and the diagnostic $\tau=0.008461$ SEEK configuration on the same first 1{,}000 dev questions. The SEEK-only column is analysed in Table~\ref{tab:deeprag-failure-signals}.}
-    \label{tab:deeprag-quadrant}
-    \setlength{\tabcolsep}{8pt}
+    \caption[Decomposition Failures]{Main causes of decomposition errors.}
+    \label{tab:failure-taxonomy}
+    \setlength{\tabcolsep}{3pt}
     \small
-    \begin{tabular}{ l r r r r }
+    \begin{tabular}{ p{0.48\textwidth} *{3}{>{\centering\arraybackslash}p{0.135\textwidth}} }
         \toprule
-        Dataset & Both correct & DeepRAG only & SEEK only & Both wrong \\
+        Primary cause & \shortstack{HotpotQA\\($N=640$)} & \shortstack{2Wiki\\($N=503$)} & \shortstack{MuSiQue\\($N=733$)} \\
         \midrule
-        HotpotQA & 269 & 127 & 106 & 498 \\
-        2Wiki & 333 & 169 & 154 & 344 \\
-        MuSiQue & 157 & 80 & 109 & 654 \\
+        Missing required evidence & 307 (48.0\%) & 311 (61.8\%) & 513 (70.0\%) \\
+        Incorrect step answer with complete evidence & 131 (20.5\%) & 98 (19.5\%) & 73 (10.0\%) \\
+        Correct steps but wrong final answer & 164 (25.6\%) & 92 (18.3\%) & 138 (18.8\%) \\
+        Lost constraint; original retrieval has complete evidence & 38 (5.9\%) & 2 (0.4\%) & 9 (1.2\%) \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-The first observation is that the two systems are complementary rather than ordered. The DeepRAG-only and SEEK-only columns are of similar size on every dataset, so the comparison does not show one method dominating the other per question. Its value lies in showing that the two systems fail in different ways.
+Missing evidence is the largest failure category on all three multi-hop datasets. Other errors mainly come from incorrect step answers or final synthesis. Lost constraints are less common and occur mostly on HotpotQA.
 
-To characterise those differences, we inspect the DeepRAG traces inside the SEEK-win set and count recurring failure signals. Table~\ref{tab:deeprag-failure-signals} reports the counts; a single case can match several signals.
-
-\begin{table}[h]
-    \centering
-    \caption[DeepRAG Failure Signals in the SEEK-Win Set]{Failure signals observed in DeepRAG traces on questions answered correctly by the diagnostic $\tau=0.008461$ SEEK configuration but not by DeepRAG. Counts are non-exclusive.}
-    \label{tab:deeprag-failure-signals}
-    \setlength{\tabcolsep}{6pt}
-    \small
-    \begin{tabular}{ l r r r }
-        \toprule
-        Signal & HotpotQA ($n$=106) & 2Wiki ($n$=154) & MuSiQue ($n$=109) \\
-        \midrule
-        Format near-miss, F1 $\geq$ 0.5 & 23 & 14 & 18 \\
-        Degenerate final answer & 24 & 27 & 30 \\
-        Over-decomposition, $\geq$5 steps & 6 & 40 & 7 \\
-        Decomposition spiral & 33 & 11 & 30 \\
-        No retrieval in the whole chain & 16 & 50 & 0 \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-Three patterns account for most of the substantive losses. The first is excessively long decomposition on 2Wiki comparison questions, where 40 of the 154 SEEK wins involve DeepRAG chains of five or more steps. A representative case asks which film has the earlier-born director, \emph{Buffet Froid} or \emph{Lost in Africa}. DeepRAG produces six steps but retrieves only once: it resolves the first director correctly, then answers the remaining steps from parametric memory, hallucinates the second director, and finally appends two redundant comparison steps that restate the original question. The wrong parametric comparison in those terminal steps flips an otherwise recoverable chain. SEEK's decomposer emits exactly the four factual lookups, retrieves for each, and leaves the comparison to the synthesis stage.
-
-The second pattern is a decomposition spiral. DeepRAG generates each follow-up question conditioned on the chain answered so far, so a wrong intermediate answer can rewrite the rest of the plan. In one HotpotQA case, the model resolves the stage name Aladin to the wrong person and then spends five further steps trying to make that person fit the question, with later follow-up fields visibly containing fragments of the earlier erroneous reasoning. This contamination appears in roughly a quarter to a third of the SEEK-win cases on HotpotQA and MuSiQue. SEEK's decomposition is produced up front from the original question alone, so a wrong bridge answer degrades one retrieval query but cannot corrupt the structure of the remaining sub-questions.
-
-The third pattern is structural mis-decomposition. Asked who sings \emph{Home Alone Tonight} with the singer of another song, DeepRAG splits the question into two independent singer lookups, drops the duet relation, and returns the same artist for both. SEEK's placeholder binding keeps the relation explicit in the second sub-question and recovers the duet partner. On 2Wiki, an additional dataset-specific weakness appears: in 50 of the 154 SEEK wins, DeepRAG's retrieve-or-answer policy chose the parametric option at every step and hallucinated the whole chain. For reference, under the headline accuracy-first threshold SEEK retrieves for 2{,}014/2{,}257 (89.2\%) HotpotQA steps, 2{,}367/2{,}472 (95.8\%) 2Wiki steps, and 1{,}926/2{,}032 (94.8\%) MuSiQue steps. At the question level, only 23/1{,}000 (2.3\%), 19/1{,}000 (1.9\%), and 4/1{,}000 (0.4\%) traces, respectively, skip retrieval at every step. Other skipped steps occur in partially retrieved chains, so these rates are not complements. PopQA is omitted because this comparison concerns the overlapping multi-hop datasets; its one-step plans yield 97.6\% retrieval and 2.4\% fully no-retrieval traces.
-
-These counts should be read with two caveats. About 9\% to 22\% of the SEEK-win set are format near-misses in which DeepRAG's answer is essentially correct but fails exact match, such as \emph{Murray Hill, New Jersey} against the gold \emph{Murray Hill}. The comparison is also symmetric: within its own win set, SEEK's decomposition is sometimes poor as well, and the question is rescued by the direct path or by original-question evidence union rather than by the decomposition itself. On HotpotQA, 21 of the 106 SEEK wins come from the direct candidate. The DeepRAG-only column contains failures of the mirrored kind, which is consistent with the dual-path design rather than evidence against it.
-
-\clearpage
-\section{Supplementary Decomposition-Failure Flags}
-\label{app:decomp-failure-flags}
-
-Table~\ref{tab:decomp-failure-flags} supplements the mutually exclusive taxonomy in Table~\ref{tab:failure-taxonomy} with structural symptoms and retrieval-state flags computed over the same diagnostic $\tau=0.008461$ decomposition errors. The structural flags may overlap with each other and with any primary failure category. The final three rows instead form a separate partition by whether retrieval was invoked during the decomposition path.
+Table~\ref{tab:decomp-failure-flags} shows additional patterns that may overlap. The last three rows separately show how often retrieval was used.
 
 \begin{table}[h]
     \centering
-    \caption[Supplementary Decomposition-Failure Flags]{Overlapping structural symptoms and retrieval-state flags for the decomposition errors analysed in Table~\ref{tab:failure-taxonomy}. Counts are followed by shares within decomposition-candidate errors.}
+    \caption[Additional Decomposition Patterns]{Additional patterns in decomposition errors.}
     \label{tab:decomp-failure-flags}
     \setlength{\tabcolsep}{6pt}
     \scriptsize
     \resizebox{\textwidth}{!}{%
     \begin{tabular}{ l c c c }
         \toprule
-        Diagnostic flag & HotpotQA ($N=643$) & 2Wiki ($N=510$) & MuSiQue ($N=733$) \\
+        Diagnostic flag & HotpotQA ($N=640$) & 2Wiki ($N=503$) & MuSiQue ($N=733$) \\
         \midrule
-        Intermediate-answer echo & 134 (20.8\%) & 24 (4.7\%) & 68 (9.3\%) \\
-        First sub-question restates the original question & 119 (18.5\%) & 157 (30.8\%) & 235 (32.1\%) \\
+        Repeats an intermediate answer & 142 (22.2\%) & 22 (4.4\%) & 68 (9.3\%) \\
+        First sub-question repeats the original question & 118 (18.4\%) & 154 (30.6\%) & 235 (32.1\%) \\
         \midrule
-        No decomposition steps retrieve evidence & 26 (4.0\%) & 10 (2.0\%) & 10 (1.4\%) \\
-        Mix of retrieved and non-retrieved steps & 165 (25.7\%) & 49 (9.6\%) & 120 (16.4\%) \\
-        All decomposition steps retrieve evidence & 452 (70.3\%) & 451 (88.4\%) & 603 (82.3\%) \\
+        No steps retrieve & 7 (1.1\%) & 4 (0.8\%) & 0 (0.0\%) \\
+        Some steps retrieve & 93 (14.5\%) & 21 (4.2\%) & 54 (7.4\%) \\
+        All steps retrieve & 540 (84.4\%) & 478 (95.0\%) & 679 (92.6\%) \\
         \bottomrule
     \end{tabular}}
 \end{table}
 
-The first two rows indicate plan or synthesis symptoms rather than mutually exclusive causes. The retrieval-state rows record gate behaviour only; they do not establish whether the retrieved passages contain sufficient supporting evidence.
+The first two rows describe plan or synthesis problems and may overlap. The last three rows show retrieval use, not whether the retrieved evidence was sufficient.
 
-\section{Inference and Offline Cost Audit}
-\label{app:cost-audit}
+\clearpage
+\section{Confidence Signals}
+\label{app:confidence-signals}
 
-Table~\ref{tab:retrieval-count-compare} reports the inference retrieval-count audit over the full-corpus Wikipedia retrieval traces on the overlapping multi-hop datasets, and Table~\ref{tab:cost-compare} itemises the offline adaptation cost of SEEK against DeepRAG's published training pipeline. These tables support the cost discussion in Section~\ref{sec:cost-benefit}. FLOPs denotes the number of floating-point arithmetic operations used by forward and backward training passes; it measures computation rather than wall-clock time.
+Table~\ref{tab:confidence-signal-definitions} defines the confidence signals used in Section~\ref{sec:tail-leakage-analysis}. Here, $p_t(v)$ is a next-token probability, $y_t$ is the generated token, and $T$ is the answer length. A higher score means greater uncertainty.
 
 \begin{table}[h]
     \centering
-    \caption[Inference Retrieval Count Comparison]{Inference retrieval count audit for the headline accuracy-first SEEK configuration and DeepRAG on the overlapping multi-hop datasets.}
-    \label{tab:retrieval-count-compare}
-    \setlength{\tabcolsep}{7pt}
-    \small
-    \begin{tabular}{ l c c c c }
+    \caption[Confidence Signal Definitions]{Confidence signal definitions.}
+    \label{tab:confidence-signal-definitions}
+    \setlength{\tabcolsep}{8pt}
+    \begin{tabular}{ >{\raggedright\arraybackslash}p{0.28\textwidth} >{\raggedright\arraybackslash}p{0.62\textwidth} }
         \toprule
-        Dataset & SEEK EM & SEEK retrievals/q & DeepRAG retrievals/q & Difference \\
+        Signal & Definition \\
         \midrule
-        HotpotQA & 37.8 & 2.014 & 1.716 & +17\% \\
-        2Wiki & 49.3 & 2.367 & 1.451 & +63\% \\
-        MuSiQue & 26.5 & 1.926 & 2.273 & -15\% \\
+        Maximum token entropy
+        & Largest token-level entropy in the answer: $\max_t[-\sum_v p_t(v)\log p_t(v)]$~\cite{maqa,targ}. \\
+        \addlinespace
+        Answer likelihood
+        & Total negative log-likelihood of the generated answer: $-\sum_{t=1}^{T}\log p_t(y_t)$~\cite{semanticuncertainty}. \\
+        \addlinespace
+        TARG margin
+        & Average transformed gap between the two largest logits over the first eight tokens~\cite{targ}. \\
+        \addlinespace
+        Sample disagreement
+        & Fraction of ten sampled answers that differ from the greedy answer~\cite{maqa,semanticuncertainty,semanticentropy}. \\
+        \addlinespace
+        P(True) self-check
+        & Model-estimated probability that its answer is false: $1-P(\mathrm{True}\mid q,C,\hat a)$~\cite{kadavath2022}. \\
+        \addlinespace
+        Tail Leakage
+        & Cumulative probability leakage outside the top-five token set: $-\sum_{t=1}^{T}\log\sum_{v\in V_5(p_t)}p_t(v)$. \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-\begin{table}[h]
-    \centering
-    \caption[Offline Adaptation Cost Comparison]{Offline adaptation cost comparison between SEEK and DeepRAG. DeepRAG training wall-clock was not reproduced locally; its FLOPs are an order estimate from the published training pipeline.}
-    \label{tab:cost-compare}
-    \setlength{\tabcolsep}{5pt}
-    \small
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ l p{5.2cm} p{6.0cm} }
-        \toprule
-        Component & SEEK & DeepRAG \\
-        \midrule
-        Trained component & KG-triple decomposer only & Retrieval policy model \\
-        Fine-tuning type & LoRA SFT, less than 1\% trainable parameters & Full-parameter SFT plus full-parameter DPO \\
-        Training stages & One SFT stage & Two stages: SFT and 8-epoch DPO \\
-        Measured wall-clock & 37.9 minutes on one L40S GPU & Not reproduced locally; expected multi-GPU hours \\
-        Forward/backward FLOPs & $2.40\times10^{17}$ measured & About $3.3\times10^{17}$ estimated \\
-        Data construction & Direct supervised decompositions & Binary-tree-search trajectories; 72B follow-up model plus up to 8 7B vLLM servers in the official construction pipeline \\
-        Dataset adaptation & Reuse the same training-free routing rules & Rebuild trajectories and retrain the retrieval policy for new settings \\
-        \bottomrule
-    \end{tabular}}
-\end{table}
-
+All signals use the same direct-path outputs and are ranked by AUROC for exact-match errors. Except for sample disagreement and P(True), they come from the same greedy decoding pass.
 
 \clearpage
-\section{Confidence Signal Definitions and Variants}
-\label{app:confidence-signals}
-
-The comparison in Section~\ref{sec:tail-leakage-analysis} is organised by the information source used by a confidence score. Let $p_t(v)$ be the next-token probability of vocabulary item $v$, $y_t$ the generated token, $\ell_{t,(1)}$ and $\ell_{t,(2)}$ the two largest logits, and $T$ the number of generated answer tokens excluding EOS. Table~\ref{tab:confidence-signal-definitions} defines the representative reported for each family. Except for sampled-answer disagreement and P(True), every representative is computed from the same greedy decoding pass as the answer.
-
-\begin{table}[h]
-    \centering
-    \caption[Definitions of Representative Confidence Signals]{Definitions, provenance, and additional variants for the representative confidence signals in Table~\ref{tab:signal-battery}. All definitions are oriented so that a larger score denotes greater uncertainty.}
-    \label{tab:confidence-signal-definitions}
-    \setlength{\tabcolsep}{4pt}
-    \scriptsize
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{ p{2.9cm} p{4.5cm} p{5.0cm} p{3.7cm} }
-        \toprule
-        Family and representative & Definition & Additional variants evaluated & Source or motivation \\
-        \midrule
-        Predictive distribution: maximum token entropy
-        & $\max_t[-\sum_v p_t(v)\log p_t(v)]$
-        & Mean and first-token aggregation; content-token filtering; temperature 2; R\'enyi orders $0.5$ and $2$
-        & Standard white-box predictive uncertainty; entropy baselines follow prior LLM uncertainty comparisons~\cite{maqa,targ} \\
-        \addlinespace
-        Generated-sequence likelihood: negative log-likelihood
-        & $-\sum_{t=1}^{T}\log p_t(y_t)$
-        & Mean and worst-token log-probability; content-token filtering
-        & Probability assigned by the model to its realised answer sequence; a standard likelihood baseline~\cite{semanticuncertainty} \\
-        \addlinespace
-        Leading-candidate separation: TARG margin
-        & $T_8^{-1}\sum_{t=1}^{T_8}\exp[-(\ell_{t,(1)}-\ell_{t,(2)})/3]$, where $T_8=\min(T,8)$
-        & First-token, mean, and minimum top-1/top-2 probability margin; minimum raw logit gap
-        & Prefix-logit margin gate of TARG~\cite{targ} \\
-        \addlinespace
-        Repeated generation: sampled-answer disagreement
-        & $1-N^{-1}\sum_{i=1}^{N}\mathbf{1}[\operatorname{norm}(a_i)=\operatorname{norm}(\hat a)]$, with $N=10$
-        & Number of unique answers; exact- and token-F1 support; discrete and likelihood-weighted answer-cluster entropy
-        & Response consistency and semantic-uncertainty family~\cite{maqa,semanticuncertainty,semanticentropy} \\
-        \addlinespace
-        Verbal self-evaluation: P(True)
-        & $1-P(\mathrm{True}\mid q,C,\hat a)$, renormalised over \{True, False\}
-        & With and without retrieved context; combination with sampled-answer support; context likelihood gain
-        & Proposed-answer self-evaluation of Kadavath et al.~\cite{kadavath2022} \\
-        \addlinespace
-        Candidate-set leakage: tail-leakage surprisal
-        & $-\sum_{t=1}^{T}\log\sum_{v\in V_5(p_t)}p_t(v)$
-        & Weakest-token top-5 and top-10 mass; binary in-tail entropy; mean, maximum, and soft aggregation of per-token leakage
-        & SEEK; derived from the entropy decomposition in Equation~\eqref{eq:entropy-chain} \\
-        \bottomrule
-    \end{tabular}}
-\end{table}
-
-The variants in the third column test limited choices within a family---token aggregation, temperature, candidate-set size, or answer clustering---rather than unrelated confidence constructions. They were computed on the same direct-path traces and ranked by AUROC against alias-aware exact-match error. Paired bootstrap comparisons use 1{,}000 resamples with seed 13. The main text reports one representative per family so that the result does not reduce to a list of whichever variants happened to rank highest.
-
-\clearpage
-\section{Confidence-Failure Diagnostics}
+\section{Confidence Errors}
 \label{app:confidence-diagnostics}
 
-Tail-leakage surprisal is informative at the population level but does not guarantee correctness for an individual answer. We define a confidently wrong direct answer as an alias-aware exact-match error whose surprisal is at or below the dataset-specific median among correct direct answers. Table~\ref{tab:confident-wrong-breakdown} expands the aggregate result reported in Chapter~\ref{ch:results}.
+Tail Leakage is useful overall but cannot guarantee that one answer is correct. Table~\ref{tab:quadrant-confidence} compares cases where both paths are correct with cases where both are wrong. Figure~\ref{fig:quadrant-confidence} shows the score distributions.
 
 \begin{table}[h]
     \centering
-    \caption[Confident-Wrong Direct Answers]{Breakdown of confidently wrong direct-path answers in the final traces. Percentages in the final row are relative to all wrong direct answers in each dataset.}
+    \caption[Tail Leakage by Correctness]{Tail Leakage by correctness.}
+    \label{tab:quadrant-confidence}
+    \setlength{\tabcolsep}{6pt}
+    \small
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{ l c c c c }
+        \toprule
+        Dataset & Mean, both correct & Mean, both wrong & AUROC & Confidently wrong \\
+        \midrule
+        HotpotQA & 0.01260 & 0.12927 & 0.777 & 15.5\% \\
+        2Wiki & 0.03414 & 0.20215 & 0.751 & 20.1\% \\
+        MuSiQue & 0.04945 & 0.25025 & 0.766 & 12.7\% \\
+        PopQA & 0.00974 & 0.10282 & 0.846 & 4.9\% \\
+        Pooled & 0.01877 & 0.17926 & 0.817 & 9.3\% \\
+        \bottomrule
+    \end{tabular}}
+\end{table}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.78\textwidth]{fig_quadrant_confidence.png}
+    \caption[Tail Leakage Distributions]{Tail Leakage by correctness group.}
+    \label{fig:quadrant-confidence}
+\end{figure}
+
+Both-wrong cases usually have higher Tail Leakage, but the distributions overlap. We call a wrong answer confidently wrong when its score is no higher than the median score of correct answers in the same dataset. Table~\ref{tab:confident-wrong-breakdown} shows the error types.
+
+\begin{table}[h]
+    \centering
+    \caption[Confidently Wrong Answers]{Confidently wrong answers by error type.}
     \label{tab:confident-wrong-breakdown}
     \setlength{\tabcolsep}{5pt}
     \scriptsize
@@ -200,9 +138,9 @@ Tail-leakage surprisal is informative at the population level but does not guara
         Category & HotpotQA & 2Wiki & MuSiQue & PopQA & Pooled \\
         \midrule
         Wrong direct answers & 697 & 820 & 898 & 622 & 3{,}037 \\
-        Clean wrong entity & 55 & 116 & 89 & 21 & 281 \\
-        Boundary or alias near-miss & 52 & 43 & 31 & 22 & 148 \\
-        Partial entity overlap & 9 & 22 & 9 & 0 & 40 \\
+        Wrong entity & 55 & 116 & 89 & 21 & 281 \\
+        Boundary or alias mismatch & 52 & 43 & 31 & 22 & 148 \\
+        Partial name overlap & 9 & 22 & 9 & 0 & 40 \\
         Wrong date or number & 5 & 1 & 16 & 0 & 22 \\
         \midrule
         \textbf{All confidently wrong} & \textbf{121 (17\%)} & \textbf{182 (22\%)} & \textbf{145 (16\%)} & \textbf{43 (7\%)} & \textbf{491 (16.2\%)} \\
@@ -210,18 +148,18 @@ Tail-leakage surprisal is informative at the population level but does not guara
     \end{tabular}}
 \end{table}
 
-We also ran a separate repeated-sampling diagnostic on the original question. Each question was answered fifteen times at temperature 0.7 using a fixed top-five BM25 context drawn from its provided passage pool. This diagnostic was not part of the final routing policy and was not a no-retrieval experiment. Across the 4{,}000 questions, 1{,}869 produced one unique normalised answer across all fifteen samples; 1{,}538 of those cases also had zero mean maximum token entropy. Table~\ref{tab:multisample-zero-entropy} reports this stricter subset. Here an answer is counted as wrong when it satisfies neither normalised exact match nor token-F1 of at least 0.5.
+We also tested repeated sampling with a fixed BM25 context. This test is separate from the final routing policy and still uses retrieved evidence. Table~\ref{tab:multisample-zero-entropy} counts cases with 15 identical answers and zero mean maximum token entropy. An answer is wrong if it fails both normalised exact match and token F1.
 
 \begin{table}[h]
     \centering
-    \caption[Repeated-Sampling Zero-Entropy Diagnostic]{Results of the separate fifteen-sample diagnostic. The wrong rate is computed within cases having both fifteen identical normalised answers and zero mean maximum token entropy.}
+    \caption[Repeated-Sampling Errors]{Repeated-sampling agreement and errors.}
     \label{tab:multisample-zero-entropy}
     \setlength{\tabcolsep}{5pt}
     \small
     \resizebox{\textwidth}{!}{%
     \begin{tabular}{ l r r r r }
         \toprule
-        Dataset & Fifteen identical answers & Identical and zero entropy & Wrong in strict subset & Wrong rate \\
+        Dataset & Identical answers & Identical and zero entropy & Wrong cases & Wrong rate \\
         \midrule
         HotpotQA & 620 & 522 & 127 & 24.3\% \\
         2Wiki & 368 & 301 & 169 & 56.1\% \\
@@ -233,4 +171,4 @@ We also ran a separate repeated-sampling diagnostic on the original question. Ea
     \end{tabular}}
 \end{table}
 
-At this fifteen-sample budget, disagreement-based detection cannot identify the strict-subset errors because every sampled answer agrees.
+When all samples agree, disagreement cannot flag these errors.

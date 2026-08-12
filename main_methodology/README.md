@@ -29,16 +29,15 @@ alias for old experiment scripts.
 
 Large raw datasets, the base model, the LoRA weights, and the 21M-passage
 Wikipedia index are deliberately not committed to Git. The approximately
-50 MB artifact bundle needed for the official offline evaluation **is**
-committed.
+52 MB artifact bundle needed for the official offline evaluation and revised
+thesis diagnostics **is** committed.
 
 ## 1. Clone and install
 
-The current code-review snapshot is the `seek-code-review` branch:
+Clone the default `main` branch:
 
 ```bash
-git clone --branch seek-code-review --single-branch \
-  https://github.com/HY-Chien/Thesis_Research.git
+git clone https://github.com/HY-Chien/Thesis_Research.git
 cd Thesis_Research/main_methodology
 
 python3.11 -m venv .venv
@@ -101,8 +100,33 @@ For each of `hotpotqa`, `2wiki`, `musique`, and `popqa`, Git contains:
 - two `tlsum_fixA` step-answer shards.
 
 Two deduplicated fixed-chain synthesis shards are stored in
-`results/traces/other/`. Other historical traces remain excluded because the
-complete local experiment directory is substantially larger.
+`results/traces/other/`. Six compact coverage traces for HotpotQA, 2Wiki, and
+MuSiQue support the revised failure-taxonomy appendix. Other historical traces
+remain excluded because the complete local experiment directory is
+substantially larger.
+
+### Revised-thesis diagnostic analyses
+
+The skipped-retrieval comparison uses the same fixed-chain replay and final
+verifier as the headline result:
+
+```bash
+python scripts/analyze_skipped_retrieval_questions.py
+```
+
+Its pooled check finds 478 skipped steps out of 7,761 (6.16%). Among the 418
+affected questions, the paired final-EM quadrants are 211 both correct, 16
+SEEK-only, 16 always-retrieve-only, and 175 both wrong.
+
+The decomposition-path failure taxonomy additionally joins the bundled
+coverage@10 traces:
+
+```bash
+python scripts/analyze_accuracy_first_failure_taxonomy.py
+```
+
+Both commands write regenerated Markdown/JSON artifacts under
+`results/reproduced/`.
 
 ## 3. Live end-to-end inference
 
@@ -305,6 +329,8 @@ If the base model is already downloaded locally, replace
 | `scripts/rerun_tlsum_fixA.py` | Generate stored no-retrieval/retrieved branches for Tail Leakage replay |
 | `scripts/replay_tlsum_fixA_step_gate_synthesis.py` | Regenerate fixed-chain synthesis outputs |
 | `scripts/analyze_tlsum_fixA_step_gate_final.py` | Reproduce final metrics and threshold sensitivity |
+| `scripts/analyze_skipped_retrieval_questions.py` | Compare SEEK with always retrieve on affected questions |
+| `scripts/analyze_accuracy_first_failure_taxonomy.py` | Recompute the appendix decomposition failure taxonomy |
 | `scripts/README.md` | Index of ablation, probe, replay, and plotting scripts |
 | `RESULTS_MASTER.md` | Chronological experiment record; older sections retain historical operating points |
 
