@@ -1,0 +1,55 @@
+\section{Experimental Setup}
+\label{sec:experiments}
+
+\paragraph{Datasets.}
+We evaluate on the first \(1{,}000\) development questions, without shuffling,
+from each of \hotpot{}~\citep{hotpotqa}, \twowiki{}~\citep{twowiki},
+\musique{}~\citep{musique}, and \popqa{}~\citep{popqa}. The first three
+benchmarks contain multi-hop questions; \popqa{} consists of single-hop,
+entity-centric factual questions. The chosen \musique{} slice contains only
+two-hop questions because the development set is ordered by hop count. We
+therefore report these results as a controlled development-set study, not as
+full-benchmark estimates.
+
+\paragraph{Retrieval and generation.}
+The corpus is an Elasticsearch BM25 index of approximately \(21\) million
+non-overlapping 100-word English Wikipedia passages following the DPR corpus
+construction~\citep{dpr}. Retrieval returns eight passages. Original questions
+match paragraph text; short decomposition queries match title and paragraph
+text. Each retrieved decomposition step also receives deduplicated evidence
+from the original question. This path-aware configuration is fixed across
+datasets. Because original and decomposed queries use different title fields,
+the retrieval comparison in Section~\ref{sec:retrieval-results} measures the
+complete decomposition-path query policy rather than decomposition wording in
+isolation.
+
+All components use Llama-3-8B-Instruct with greedy decoding. The decomposer is
+trained once on \(12{,}000\) examples: \(4{,}000\) each from \musique{} gold
+sub-questions, \twowiki{} evidence-triple conversions, and \popqa{} one-step
+triples. Evaluation IDs are excluded from the \popqa{} training portion.
+Training uses LoRA~\citep{lora} with rank \(16\), scale \(32\), dropout \(0.05\),
+and all linear modules for three epochs. We use bf16, a 1,024-token context,
+effective batch size \(16\), learning rate \(10^{-4}\), cosine decay, and
+\(10\%\) warmup in LLaMA-Factory~\citep{llamafactory}. The adapter is disabled
+during final synthesis.
+
+\paragraph{Operating point and metrics.}
+The main retrieval gate uses \(k=5\) and the accuracy-first threshold
+\(\tau=0.002305\), which retrieves \(93.84\%\) of decomposed steps. This point
+was selected from a pooled threshold sweep on the same development traces.
+Accordingly, the threshold sweep is descriptive and should not be interpreted
+as held-out hyperparameter selection; disjoint calibration is a required
+confirmatory experiment. We report normalized exact match (EM), token-level
+F1, pooled step retrieval rate, answer-containing Hit@5, and AUROC for
+predicting whether a direct answer is wrong. Generation is deterministic and
+we do not report seed variance.
+
+\paragraph{Comparisons.}
+For confidence analysis, we compare \tailleak{} with maximum token entropy,
+sequence negative log-likelihood, sampled-answer disagreement, the TARG
+top-logit margin~\citep{targ}, and P(True) self-evaluation~\citep{kadavath2022}.
+For QA, we include Llama-3-8B results reported by DeepRAG~\citep{deeprag} for
+CoT, CoT-Retrieve, FLARE, DRAGIN, and DeepRAG. Those values were not rerun in
+our harness, so implementation, prompting, and normalization differences
+prevent a strict controlled ranking. All \method{} ablations use saved traces
+from our own pipeline.

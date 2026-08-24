@@ -23,7 +23,7 @@
 |------|------|
 | `run_*` | 執行 pipeline / 實驗(`.py` 為主程式,`.sh` 為 GPU 啟動器) |
 | `probe_*` | 跑模型收集信心訊號(需 GPU) |
-| `analyze_*` | 讀既有 trace 產出分析報告(離線,輸出到 `results/reports/`) |
+| `analyze_*` | 讀既有 trace 產出分析報告（現役重現輸出到 `results/reproduced/`；歷史腳本可能仍指 `results/reports/`） |
 | `replay_*` / `rerun_*` | 離線重播 verifier / gate 決策,不重跑生成 |
 | `sweep_*` | 閾值掃描 |
 | `make_*` / `plot_*` | 畫圖(部分直接輸出到 `Thesis/figures/`) |
@@ -48,3 +48,8 @@
 | 3-way RAG ablation | `ablate_rag_usefulness.py`, `run_3way_ablation.sh`, `make_3way_fig*.py` |
 | verifier replay | `replay_*_verifier.py`, `replay_verifier_*.py`, `analyze_quadrant_confidence.py` |
 | 論文圖表 | `make_answer_hit_fig.py`, `make_direct_decompose_2x2_fig.py`, `make_routing_gap_fig.py`, `make_threshold_*_fig.py` |
+
+目前論文逐表／逐圖的精確命令、輸入、輸出與 external-asset 狀態統一列在
+上層 [`THESIS_REPRODUCTION.md`](../THESIS_REPRODUCTION.md)。其中 path overlap、
+routing 與 quadrant 圖共用 `accuracy_first_replay.py`，一律從 bundled row-level
+artifacts 重建 `tau=0.002305` 候選，不使用舊 threshold 的硬編碼數字。

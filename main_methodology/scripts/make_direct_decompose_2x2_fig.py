@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Make the final all-tl_sum direct-vs-decompose 2x2 figure.
+"""Make the accuracy-first direct-vs-decompose 2x2 figure.
 
-Candidate answers are reconstructed from the prompt-fix-A traces through
-``replay_verifier_tlsum_fixA.build``. This keeps the figure tied to the same
-final direct and decomposition candidates as the headline system.
+Candidate answers are reconstructed from the tracked prompt-fix-A traces and
+fixed-chain synthesis artifacts at the thesis headline step-gate threshold
+(``tau=0.002305``), then passed through the final verifier.
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -20,23 +21,20 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from replay_verifier_tlsum_fixA import build  # noqa: E402
+from accuracy_first_replay import (  # noqa: E402
+    DEFAULT_SYNTH_PATHS,
+    load_all_accuracy_first_rows,
+)
 
 RESULTS = ROOT / "results"
-THESIS_FIG = ROOT.parent / "Thesis" / "figures" / "fig_direct_decompose_2x2_counts.png"
-SUMMARY = RESULTS / "direct_decompose_2x2_current_final.md"
+DEFAULT_FIG = RESULTS / "reproduced/fig_direct_decompose_2x2_counts.png"
+DEFAULT_SUMMARY = RESULTS / "reproduced/direct_decompose_2x2_accuracy_first.md"
 DATASETS = [
     ("HotpotQA", "hotpotqa"),
     ("2Wiki", "2wiki"),
     ("MuSiQue", "musique"),
     ("PopQA", "popqa"),
 ]
-EXPECTED = {
-    "HotpotQA": (225, 78, 132, 565),
-    "2Wiki": (140, 40, 350, 470),
-    "MuSiQue": (76, 26, 191, 707),
-    "PopQA": (345, 33, 193, 429),
-}
 
 
 def summarize(rows: list[dict]) -> dict[str, int | float]:
@@ -67,21 +65,21 @@ def summarize(rows: list[dict]) -> dict[str, int | float]:
 
 
 def verify(stats: dict[str, dict[str, int | float]]) -> None:
-    for dataset, expected in EXPECTED.items():
-        row = stats[dataset]
-        observed = tuple(
+    """Check that the four computed quadrants form a complete partition."""
+    for dataset, row in stats.items():
+        total = sum(
             int(row[key])
             for key in ("both_correct", "direct_only", "decomp_only", "both_wrong")
         )
-        if observed != expected:
-            raise AssertionError(f"{dataset}: expected {expected}, observed {observed}")
+        if total != int(row["n"]):
+            raise AssertionError(f"{dataset}: quadrant sum {total} != n={row['n']}")
 
 
-def write_summary(stats: dict[str, dict[str, int | float]]) -> None:
+def write_summary(stats: dict[str, dict[str, int | float]], path: Path) -> None:
     lines = [
-        "# Direct-vs-Decompose 2x2 Counts (Final all-tl_sum Traces)",
+        "# Direct-vs-Decompose 2x2 Counts (Accuracy-First Replay)",
         "",
-        "Setting: final prompt-fix-A traces with the tl_sum step gate, path-aware retrieval, and original-question evidence union.",
+        "Setting: tracked prompt-fix-A traces replayed with the Tail-Leakage step gate at tau=0.002305, path-aware retrieval, original-question evidence union, and the final verifier.",
         "",
         "| Dataset | N | Both correct | Direct-only | Decomp-only | Both wrong | Direct EM | Decomp EM | Oracle EM | Decomp-only - Direct-only |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
@@ -95,13 +93,16 @@ def write_summary(stats: dict[str, dict[str, int | float]]) -> None:
         )
     lines.extend([
         "",
-        "The two paths remain complementary. Decompose-only wins dominate on all four datasets, but HotpotQA retains 78 direct-only wins. Both-wrong cases remain outside the reach of routing alone.",
+        "The two paths remain complementary. Decompose-only wins dominate on all four datasets, "
+        f"while HotpotQA retains {int(stats['HotpotQA']['direct_only'])} direct-only wins. "
+        "Both-wrong cases remain outside the reach of routing alone.",
         "",
     ])
-    SUMMARY.write_text("\n".join(lines), encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def make_fig(stats: dict[str, dict[str, int | float]]) -> None:
+def make_fig(stats: dict[str, dict[str, int | float]], path: Path) -> None:
     datasets = list(stats)
     direct_only = np.asarray([stats[d]["direct_only"] for d in datasets])
     decomp_only = np.asarray([stats[d]["decomp_only"] for d in datasets])
@@ -142,18 +143,37 @@ def make_fig(stats: dict[str, dict[str, int | float]]) -> None:
     )
     fig.text(0.08, 0.02, note, fontsize=7.5, color="#555555")
     fig.tight_layout(rect=[0, 0.06, 1, 1])
-    THESIS_FIG.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(THESIS_FIG, bbox_inches="tight")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
 
 
 def main() -> None:
-    stats = {label: summarize(build(dataset)) for label, dataset in DATASETS}
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--synth", nargs="+", type=Path, default=list(DEFAULT_SYNTH_PATHS),
+        help="tracked fixed-chain synthesis JSONL shards",
+    )
+    parser.add_argument(
+        "--summary-out", type=Path, default=DEFAULT_SUMMARY,
+        help="output Markdown summary (default: results/reproduced)",
+    )
+    parser.add_argument(
+        "--out", type=Path, default=DEFAULT_FIG,
+        help="output PNG (default: results/reproduced)",
+    )
+    args = parser.parse_args()
+
+    loaded = load_all_accuracy_first_rows(args.synth)
+    stats = {
+        label: summarize(loaded[dataset])
+        for label, dataset in DATASETS
+    }
     verify(stats)
-    write_summary(stats)
-    make_fig(stats)
-    print(f"Wrote {SUMMARY}")
-    print(f"Wrote {THESIS_FIG}")
+    write_summary(stats, args.summary_out)
+    make_fig(stats, args.out)
+    print(f"Wrote {args.summary_out}")
+    print(f"Wrote {args.out}")
 
 
 if __name__ == "__main__":

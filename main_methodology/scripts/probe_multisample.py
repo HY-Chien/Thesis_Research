@@ -13,7 +13,7 @@ we only dump richer ROUTING SIGNALS that point-1 showed are strong:
   mean_min_lp       mean over samples of min token log-prob
 
 Usage:
-    python probe_multisample.py --adapter <ckpt> --dev <dev.jsonl> \
+    python probe_multisample.py --base <base-model> --adapter <ckpt> --dev <dev.jsonl> \
         --top-k 5 --n-sample 15 --temperature 0.7 --out <jsonl> [--limit N]
 """
 from __future__ import annotations
@@ -36,7 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from seek.answerer import ANSWER_INSTRUCTION  # noqa: E402
 from seek.retriever import PerQuestionBM25, format_context  # noqa: E402
 
-BASE = "/workspace/S113065528/RAG-DDR/models/Llama3-8B-Instruct"
+BASE = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 
 def _norm(s: str) -> str:
@@ -111,6 +111,7 @@ def multisample(model, tok, question, context, n_sample, temperature, max_new_to
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--base", default=BASE)
     ap.add_argument("--adapter", required=True)
     ap.add_argument("--dev", required=True)
     ap.add_argument("--top-k", type=int, default=5)
@@ -120,11 +121,11 @@ def main():
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    tok = AutoTokenizer.from_pretrained(BASE)
+    tok = AutoTokenizer.from_pretrained(args.base)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
     base = AutoModelForCausalLM.from_pretrained(
-        BASE, torch_dtype=torch.bfloat16, device_map="cuda")
+        args.base, torch_dtype=torch.bfloat16, device_map="cuda")
     model = PeftModel.from_pretrained(base, args.adapter)
     model.eval()
 

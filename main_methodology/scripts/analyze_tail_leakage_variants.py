@@ -21,11 +21,12 @@ per-token dumps (no GPU):
   k-mass sweep             same min-mass statistic at k = 1, 2, 10, and the
                            rank-6..10 band mass / deep tail (1 - top10m).
 
-Labels: direct-path em (alias-aware) from conf_battery_{ds}.jsonl, n=1000 x 4.
+Labels: direct-path em (alias-aware) from the bundled
+results/traces/{ds}/conf_battery_{ds}.jsonl files, n=1000 x 4.
 Direct-path answers never see the orig-question prompt line, so these numbers
 are identical pre/post the SS4.15 prompt fix.
 
-Output: results/tail_leakage_variants.md
+Output: results/reproduced/tail_leakage_variants.md
 """
 from __future__ import annotations
 
@@ -123,7 +124,8 @@ def main() -> None:
     names: list[str] = []
     for ds in DATASETS:
         rows = [json.loads(l) for l in
-                open(ROOT / f"results/conf_battery_{ds}.jsonl", encoding="utf-8")]
+                open(ROOT / f"results/traces/{ds}/conf_battery_{ds}.jsonl",
+                     encoding="utf-8")]
         sigs, y = [], []
         for r in rows:
             if not r.get("tokens"):
@@ -180,7 +182,8 @@ def main() -> None:
                      " | ".join(f"{a:.3f}" for a in aus) +
                      f" | {np.mean(cws):.3f} |")
 
-    out = ROOT / "results" / "tail_leakage_variants.md"
+    out = ROOT / "results" / "reproduced" / "tail_leakage_variants.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
     print(f"\nwrote {out}")

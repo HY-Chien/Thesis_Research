@@ -54,10 +54,14 @@ clone 後可再執行：
 ```bash
 python scripts/analyze_skipped_retrieval_questions.py
 python scripts/analyze_accuracy_first_failure_taxonomy.py
+python scripts/analyze_confidence_battery.py
+python scripts/analyze_tail_leakage_variants.py
+python scripts/analyze_tlsum_confidence_story.py
 ```
 
 前者只使用原本 18 個 canonical traces；後者使用同一組 traces 加上上述 6 個
-coverage traces。兩者輸出同樣寫入 `results/reproduced/`。
+coverage traces。後三者使用四份 bundled direct-confidence traces。這些現役
+重現命令的輸出都寫入 `results/reproduced/`。
 
 ## `results/` 目錄
 

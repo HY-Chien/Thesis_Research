@@ -14,7 +14,7 @@ Q2 (residuals): at the tl_sum operating point, classify the two failure tails
   (accuracy of the most-confident X% bucket) for the "use as confidence
   metric" reading.
 
-Output: results/tlsum_confidence_story.md
+Output: results/reproduced/tlsum_confidence_story.md
 """
 from __future__ import annotations
 
@@ -121,7 +121,8 @@ def main() -> None:
     rows_all: dict[str, list[dict]] = {}
     for ds in DATASETS:
         rows = []
-        for l in open(ROOT / f"results/conf_battery_{ds}.jsonl", encoding="utf-8"):
+        for l in open(ROOT / f"results/traces/{ds}/conf_battery_{ds}.jsonl",
+                      encoding="utf-8"):
             r = json.loads(l)
             if not r.get("tokens"):
                 continue
@@ -312,7 +313,8 @@ def main() -> None:
         L.append(f"- [{ds}] tl={r['tl_sum']:.3f} len={r['n_tok']} "
                  f"q={r['q'][:70]!r} pred={r['pred'][:40]!r}")
 
-    out = ROOT / "results/tlsum_confidence_story.md"
+    out = ROOT / "results/reproduced/tlsum_confidence_story.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(L) + "\n", encoding="utf-8")
     print("\n".join(L))
     print(f"\nwrote {out}")

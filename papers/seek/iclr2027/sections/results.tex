@@ -1,0 +1,151 @@
+\section{Results}
+\label{sec:results}
+
+\subsection{End-to-end question answering}
+\label{sec:qa-results}
+
+Table~\ref{tab:main-results} compares \method{} with published
+Llama-3-8B results. \method{} has the highest reported average in this set and
+the strongest values on \twowiki{}, \musique{}, and \popqa{}, while remaining
+below DeepRAG on \hotpot{}. The comparison is encouraging but not controlled:
+the baseline rows come from the DeepRAG paper and may differ in prompts,
+implementation, and scoring. We therefore do not claim a new state of the art.
+On \popqa{}, the decomposition candidate is a one-step query reformulation,
+not a multi-hop reasoning chain.
+
+\begin{table}[t]
+\caption{EM/F1 compared with reported Llama-3-8B results.}
+\label{tab:main-results}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.6pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lccccc}
+\toprule
+Method & \hotpot{} & \twowiki{} & \musique{} & \popqa{} & Macro \\
+\midrule
+CoT\(^\dagger\) & 27.20/37.75 & 28.20/34.85 & 13.70/22.97 & 21.20/25.33 & 22.58/30.23 \\
+CoT-Retrieve\(^\dagger\) & 34.90/46.85 & 35.80/43.41 & 19.10/28.18 & 32.80/45.87 & 30.65/41.08 \\
+FLARE\(^\dagger\) & 23.80/32.88 & 30.30/37.45 & 14.50/23.57 & 28.80/40.61 & 24.35/33.63 \\
+DRAGIN\(^\dagger\) & 27.60/38.05 & 29.10/35.68 & 11.80/19.97 & 22.60/28.53 & 22.78/30.56 \\
+DeepRAG\(^\dagger\) & \textbf{40.70}/\textbf{51.54} & 48.10/53.25 & 22.50/30.40 & 42.50/47.80 & 38.45/45.75 \\
+\method{} & 37.80/49.03 & \textbf{49.30}/\textbf{56.22} & \textbf{26.50}/\textbf{34.63} & \textbf{53.90}/\textbf{55.73} & \textbf{41.88}/\textbf{48.90} \\
+\bottomrule
+\end{tabular}}
+\vspace{2pt}
+\parbox{\linewidth}{\scriptsize \(\dagger\) Values reported by
+\citet{deeprag}; not rerun in our harness.}
+\end{table}
+
+\subsection{Does Tail Leakage identify answer risk?}
+\label{sec:confidence-results}
+
+Table~\ref{tab:confidence} reports AUROC for predicting a wrong direct answer;
+larger values indicate better ranking. \tailleak{} has the strongest macro
+AUROC among the tested representatives (\(0.749\)), improving over maximum
+token entropy and sequence NLL (both \(0.726\)). Its advantage is not uniform
+across every dataset: sequence NLL ties it on \popqa{}, and P(True) ties it on
+\musique{}. The correct conclusion is therefore limited to these traces and
+the tested signal families.
+
+\begin{table}[t]
+\caption{AUROC for detecting wrong direct answers.}
+\label{tab:confidence}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3.6pt}
+\begin{tabular}{lccccc}
+\toprule
+Signal & \hotpot{} & \twowiki{} & \musique{} & \popqa{} & Macro \\
+\midrule
+\tailleak{} & \textbf{.757} & \textbf{.717} & \textbf{.726} & \textbf{.798} & \textbf{.749} \\
+Max token entropy & .743 & .671 & .711 & .780 & .726 \\
+Sequence NLL & .733 & .667 & .707 & \textbf{.798} & .726 \\
+Sample disagreement & .678 & .659 & .680 & .674 & .672 \\
+TARG margin & .669 & .589 & .618 & .682 & .639 \\
+P(True) & .655 & .567 & \textbf{.726} & .579 & .632 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The end-to-end comparison points in the same direction. Using maximum token
+entropy gives \(40.52/47.61\) macro EM/F1, while the \tailleak{}
+configuration gives \(41.88/48.90\). The gain is again non-uniform:
+maximum entropy is \(0.70\) EM higher on \twowiki{}, while \tailleak{} is
+higher on the other three datasets. An entropy-component analysis in
+Appendix~\ref{app:confidence} provides mechanism-level evidence: the
+head-versus-tail mass component reaches \(0.742\) macro AUROC, whereas the
+arrangement within the tail is near chance at \(0.502\).
+
+\subsection{Retrieval behavior}
+\label{sec:retrieval-results}
+
+Table~\ref{tab:retrieval-recall} measures whether any top-five passage contains
+a gold answer or alias. The decomposition-path query policy substantially
+improves recall on the three multi-hop datasets and leaves \popqa{} almost
+unchanged. The largest gains occur on \twowiki{} and \musique{}, where bridge
+entities make the later query more specific. As noted in
+Section~\ref{sec:experiments}, the two paths also differ in title matching, so
+these values should not be attributed to decomposition wording alone.
+
+\begin{table}[t]
+\caption{Answer-containing Hit@5 for original and decomposition-path queries.}
+\label{tab:retrieval-recall}
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lrccc}
+\toprule
+Dataset & \(N\) & Original & Decomposition path & Difference \\
+\midrule
+\twowiki{} & 917 & 32.61 & \textbf{60.63} & +28.03 \\
+\hotpot{} & 941 & 47.40 & \textbf{52.92} & +5.53 \\
+\musique{} & 1,000 & 19.00 & \textbf{38.80} & +19.80 \\
+\popqa{} & 1,000 & \textbf{71.20} & 71.10 & -0.10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The gate controls an accuracy--retrieval trade-off rather than eliminating
+most retrieval calls. At the accuracy-first point, it is tied with always
+retrieve to two decimal places while retrieving \(93.84\%\) of steps. Raising
+the threshold to \(0.008461\) lowers retrieval to \(87.82\%\) at a cost of
+\(0.26\) macro EM and \(0.24\) macro F1. More aggressive skipping causes
+larger degradation (Table~\ref{tab:gate-sweep}). These are fixed-chain
+replays: stored step branches are reselected and the chain is resynthesized,
+while later resolved sub-questions remain fixed.
+
+\begin{table}[t]
+\caption{Accuracy--retrieval trade-off in the fixed-chain gate replay.}
+\label{tab:gate-sweep}
+\centering
+\small
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{lcc}
+\toprule
+Policy / threshold & Macro EM/F1 & Step retrieval \\
+\midrule
+Never retrieve & 25.98/32.34 & 0.00\% \\
+\(\tau=0.002305\) & \textbf{41.88}/\textbf{48.90} & 93.84\% \\
+\(\tau=0.008461\) & 41.62/48.66 & 87.82\% \\
+\(\tau=0.044170\) & 40.60/47.72 & 75.51\% \\
+\(\tau=0.116500\) & 39.42/46.62 & 64.40\% \\
+Always retrieve & \textbf{41.88}/\textbf{48.90} & 100.00\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{What does late routing add?}
+\label{sec:routing-results}
+
+The two candidates are complementary, but decomposition supplies more unique
+correct answers on every dataset. Across the four \(1{,}000\)-question traces,
+the direct path alone is correct in \(173\) cases, whereas only the
+decomposition path is correct in \(874\) cases. Relative to always choosing
+decomposition, the verifier recovers \(52\) direct-only cases but loses \(41\)
+decomposition-only cases, for a net \(+11\) correct answers
+(\(+0.28\) macro EM). The gain is concentrated on \hotpot{}; routing changes
+EM by \(-0.4\), \(-0.2\), and \(-0.1\) on \twowiki{}, \musique{}, and
+\popqa{}, respectively. We therefore view the verifier as a conservative
+fallback, not the source of the main performance difference. Full overlap and
+oracle counts appear in Appendix~\ref{app:routing}.

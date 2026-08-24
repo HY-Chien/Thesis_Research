@@ -37,19 +37,19 @@ OpenDomainBM25 = retriever_mod.OpenDomainBM25
 DATASETS: dict[str, dict[str, str]] = {
     "2Wiki": {
         "dev": "datasets/2wiki/raw/dev_first1000.jsonl",
-        "trace": "results/2wiki_1000_verify_v2_pathaware.jsonl",
+        "trace": "results/traces/2wiki/2wiki_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl",
     },
     "HotpotQA": {
         "dev": "datasets/hotpotqa/raw/dev_first1000.jsonl",
-        "trace": "results/hotpotqa_1000_verify_v2_pathaware.jsonl",
+        "trace": "results/traces/hotpotqa/hotpotqa_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl",
     },
     "MuSiQue": {
         "dev": "datasets/musique/raw/dev_first1000.jsonl",
-        "trace": "results/musique_1000_verify_v2_pathaware.jsonl",
+        "trace": "results/traces/musique/musique_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl",
     },
     "PopQA": {
         "dev": "datasets/popqa/raw/dev.jsonl",
-        "trace": "results/popqa_1000_verify_v2_pathaware.jsonl",
+        "trace": "results/traces/popqa/popqa_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl",
     },
 }
 
@@ -246,7 +246,7 @@ def main() -> None:
     parser.add_argument("--corpus", default="wiki")
     parser.add_argument(
         "--out",
-        default="results/answer_containing_recall_4ds_open_domain.md",
+        default="results/reproduced/answer_containing_recall_4ds_open_domain.md",
         help="Markdown output path relative to Research/main_methodology.",
     )
     parser.add_argument("--progress-every", type=int, default=100)
@@ -274,6 +274,7 @@ def main() -> None:
         )
 
     out_path = ROOT / args.out
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(render_markdown(results, ks), encoding="utf-8")
     print(f"Wrote {out_path}")
 

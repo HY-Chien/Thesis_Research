@@ -1,0 +1,21 @@
+\begin{abstract}
+Adaptive retrieval requires a model to decide when its internal knowledge is
+insufficient. Token entropy is a natural training-free signal, but it mixes
+competition among plausible leading tokens with probability mass dispersed
+across the rest of the vocabulary. We introduce \tailleak{}, a confidence score
+that retains only the latter effect. At each generated position, it measures
+the negative log probability mass retained by the model's top-\(k\) tokens and
+sums this quantity over the answer. The score is available from one greedy
+decoding pass and requires neither sampling nor a learned router. We study
+\tailleak{} in \method{}, a dual-path open-domain question-answering framework
+that applies the score to sub-question retrieval and preserves both direct and
+decomposition candidates. Across four development-set traces with
+Llama-3-8B-Instruct, \tailleak{} reaches \(0.749\) macro AUROC for detecting
+wrong direct answers, compared with \(0.726\) for maximum token entropy. In the
+tested end-to-end configuration, replacing entropy with \tailleak{} raises
+macro EM/F1 from \(40.52/47.61\) to \(41.88/48.90\). Decomposition-path queries
+also increase answer-containing retrieval recall on three multi-hop datasets,
+while leaving single-hop PopQA nearly unchanged. These results support
+\tailleak{} as a useful ranking and gating signal, but confidently wrong
+answers remain a fundamental limitation.
+\end{abstract}

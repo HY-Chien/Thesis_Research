@@ -1,0 +1,85 @@
+\documentclass{article}
+
+\usepackage{iclr2027_conference,times}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{etoolbox}
+
+\input{../shared/macros.tex}
+
+\title{Tail Leakage: A Simple Confidence Signal for Adaptive Retrieval}
+
+\author{Anonymous authors\\
+Working draft --- not submitted or published}
+
+% The official anonymous style hard-codes "Paper under double-blind review"
+% instead of using \author. Keep the style file pristine and replace that
+% status locally until this manuscript is actually submitted.
+\makeatletter
+\patchcmd{\@maketitle}
+  {Anonymous authors\\Paper under double-blind review}
+  {Anonymous authors\\Working draft --- not submitted or published}
+  {}{\PackageError{seek-draft}{Could not patch draft status}{}
+  }
+\makeatother
+
+% Keep this commented for the anonymous submission.
+% \iclrfinalcopy
+
+\begin{document}
+
+\maketitle
+
+% Repository-status banner: remove only if this manuscript is actually
+% submitted. The official review style otherwise labels drafts "under review."
+\lhead{Anonymous ICLR 2027 draft --- not submitted or published}
+\begin{center}
+  \textbf{Anonymous draft --- not submitted or published (2026-08-24)}
+\end{center}
+
+\input{sections/abstract}
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/method}
+\input{sections/experiments}
+\input{sections/results}
+\input{sections/limitations_conclusion}
+
+\subsection*{AI use statement}
+Generative AI tools were used to help organize the manuscript, draft and edit
+prose, translate between Chinese and English, review code, format \LaTeX{}, and
+assist with interpreting already-computed experimental results. The reported
+numbers were checked against saved experimental artifacts, and all AI-assisted
+text and code were reviewed by the authors. The authors take responsibility for
+the final content, including text and artifacts produced with AI assistance.
+
+\subsection*{Ethics statement}
+This work evaluates language models on existing public question-answering
+benchmarks and Wikipedia passages. It introduces no new human-subject data.
+Like other retrieval-augmented generation systems, the method can reproduce
+biases or factual errors present in the model and retrieval corpus; confidence
+scores should not be treated as guarantees of correctness.
+
+\subsection*{Reproducibility statement}
+Section~\ref{sec:experiments} specifies the model, data slices, corpus,
+retrieval configuration, training setup, and metrics. Appendix~\ref{app:details}
+provides implementation details, Appendix~\ref{app:additional-results} gives
+additional retrieval analyses, and Appendices~\ref{app:confidence}
+and~\ref{app:routing} report confidence and routing diagnostics. The
+supplementary package is intended to include the scripts and saved traces
+needed to reproduce the reported tables.
+
+\bibliography{../shared/references}
+\bibliographystyle{iclr2027_conference}
+
+\appendix
+\input{sections/appendix}
+
+\end{document}

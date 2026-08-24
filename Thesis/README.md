@@ -26,6 +26,7 @@
 | `back/appendix01.tex` | 附錄 |
 | `back/references.bib` | BibLaTeX 參考文獻 |
 | `figures/` | 正式論文使用的 PDF/PNG 圖 |
+| `figure_sources/` | 13 張正式圖的 source/command manifest 與兩份 recovered Draw.io XML |
 | `make_ch3_signal_figs.py` | 產生第三章 Tail Leakage / Rényi 訊號圖的來源腳本 |
 
 `main.tex` 目前不載入 `back/appendix02.tex`、誌謝、Nomenclature 或三份行政表單
@@ -99,3 +100,9 @@ python scripts/analyze_accuracy_first_failure_taxonomy.py
 這三個命令所需的 canonical traces 已納入 Git，輸出寫到
 `main_methodology/results/reproduced/`。模型權重、原始資料集與 Wikipedia
 Elasticsearch index 只在 live inference 或訓練時需要，不屬於 LaTeX build。
+
+完整的逐實驗、逐表格與全部 13 張圖的命令／資產狀態，請看
+[`main_methodology/THESIS_REPRODUCTION.md`](../main_methodology/THESIS_REPRODUCTION.md)
+與 [`figure_sources/README.md`](figure_sources/README.md)。`Thesis_Overview.pdf`
+的可編輯原始檔目前仍找不到；兩張 prompt 圖則已從 PDF metadata 還原成獨立
+`.drawio` 檔，不再只是 rendered PDF。

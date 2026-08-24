@@ -1,0 +1,73 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Retrieval-augmented generation (RAG) gives a language model access to
+information beyond its parameters by conditioning generation on external
+passages~\citep{rag_survey}. A fixed retrieval policy is nevertheless poorly
+matched to heterogeneous questions. Retrieval can add latency and distracting
+evidence when the model already knows a simple fact, yet a single query is
+often insufficient for a multi-hop question whose decisive entity becomes
+known only after an intermediate step~\citep{ircot,ren2023}. Adaptive RAG
+therefore needs to decide not only \emph{what} to retrieve, but also
+\emph{when} the current reasoning state warrants retrieval.
+
+One appealing solution is to use the language model's own token distribution.
+Uncertainty-triggered methods can act during generation without a separately
+trained routing model~\citep{flare,dragin,targ}. In practice, however,
+uncertainty is not synonymous with factual error. A model can distribute
+probability among several harmless aliases or formatting variants while
+remaining factually correct; it can also assign almost all probability to a
+fluent hallucination. Standard entropy combines these cases because it records
+both competition among high-probability candidates and dispersion into the
+large low-probability tail.
+
+This paper asks whether a more selective statistic of the token distribution
+can provide a better confidence signal for adaptive retrieval. We introduce
+\tailleak{}, which measures how much probability escapes the model's
+own small set of leading candidates. If \(m_t\) is the probability mass of the
+top-\(k\) tokens at generation step \(t\), the answer-level score is
+\[
+    \tl(a)=-\sum_{t\in a}\log m_t.
+\]
+The score is near zero when a small candidate set retains almost all
+probability and increases monotonically as mass moves into the tail. Unlike
+full entropy, it discards how probability is divided inside the leading set
+and how the remaining mass is arranged within the tail. It is computed from
+the logits already produced during greedy decoding, without extra generations,
+labels, or router training.
+
+We evaluate this signal inside \method{}, short for Self-certainty Evaluated
+Evidence-gated Knowledge-retrieval. This dual-path framework for open-domain
+question answering first
+produces a direct answer and also decomposes the original question into
+ordered, executable sub-questions. Each sub-question is tentatively answered
+without retrieval; \tailleak{} then decides whether to retrieve and re-answer
+that step. The decomposed steps are synthesized into a second candidate, and a
+transparent late rule selects between the direct and decomposition candidates.
+This design makes decomposition reversible: it can expose bridge entities for
+retrieval without discarding the original-question answer.
+
+Our evaluation uses four development-set traces spanning three multi-hop
+datasets---\hotpot{}, \twowiki{}, and \musique{}---and the single-hop
+\popqa{} benchmark. Among six representative confidence families,
+\tailleak{} gives the highest macro AUROC for detecting wrong direct answers
+(\(0.749\), versus \(0.726\) for maximum token entropy). In the tested
+end-to-end configuration, the \tailleak{} system obtains \(41.88/48.90\)
+macro EM/F1, compared with \(40.52/47.61\) when maximum token entropy is used.
+The accuracy-first retrieval gate is effectively tied with always retrieving
+while skipping \(6.16\%\) of decomposed steps; more aggressive thresholds show
+a gradual accuracy--retrieval trade-off. The results do not imply that the
+score is a correctness test: confidently wrong answers remain, and final
+routing contributes only a small net gain.
+
+Our contributions are:
+\begin{itemize}
+    \item We derive \tailleak{}, a simple, monotonic, training-free statistic
+    that isolates probability mass leaving the leading token set and
+    accumulates it across an answer.
+    \item We instantiate the score as a sub-question retrieval gate in
+    \method{}, a reversible dual-path framework for decomposition-based RAG.
+    \item We compare representative confidence signals, retrieval behavior,
+    and end-to-end QA across four datasets, while identifying the boundary
+    created by confident errors and imperfect path routing.
+\end{itemize}

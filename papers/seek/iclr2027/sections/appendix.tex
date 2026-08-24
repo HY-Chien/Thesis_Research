@@ -1,0 +1,319 @@
+\section{Implementation Details}
+\label{app:details}
+
+\subsection{Training and inference configuration}
+
+\begin{table}[h]
+\caption{Configuration used for the reported \method{} runs.}
+\label{tab:implementation}
+\centering
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{ll}
+\toprule
+Setting & Value \\
+\midrule
+Backbone & Llama-3-8B-Instruct \\
+Decomposer data & 12,000 examples; 4,000 per source \\
+LoRA & rank 16, scale 32, dropout 0.05 \\
+Target modules & all linear modules \\
+Training & 3 epochs, bf16, effective batch 16 \\
+Optimization & \(10^{-4}\), cosine decay, 10\% warmup \\
+Maximum context & 1,024 tokens \\
+Decoding & greedy; at most 48 answer tokens \\
+Retrieval & BM25, top 8, Wikipedia-21M \\
+Tail set & top \(k=5\) tokens \\
+Step gate & \(\tau=0.002305\) \\
+Direct verifier & \(\tau_d=0.0005\) \\
+Post-decomposition verifier & \(\tau_p=0.0158\) \\
+Type-aware margin & 2.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Prompts}
+
+The answer probe uses the same answer-only instruction for direct and
+sub-question generation:
+\begin{quote}
+\small
+\emph{Answer the question with the answer phrase only. No explanation, no
+preamble, no full sentence---just the answer.}
+\end{quote}
+For a decomposed step, the original question is prepended when it differs from
+the resolved sub-question. Retrieved context, when available, appears between
+the original question and sub-question.
+
+The decomposer instruction asks for an ordered list of atomic sub-questions,
+one per line, with the format \(\texttt{\#<index>:}\). Dependencies must use a
+\(\texttt{\#N}\) placeholder. The final synthesizer receives the original
+question and all sub-question/answer pairs. It returns only a short answer span
+and contains explicit rules for comparison, yes/no, and year questions. The
+supplementary source package contains the exact strings and chat-template
+construction.
+
+\subsection{Final routing rule}
+
+The final rule is deterministic. It first handles exact candidate agreement,
+empty or malformed outputs, unresolved placeholders, and obvious yes/no or
+comparison-type mismatches. If these rules do not decide the route, it chooses
+direct only when
+\[
+ \tl(a^{\mathrm{dir}})<\tau_d
+ \quad\text{and}\quad
+ \max_i\tl(a_i^{\mathrm{post}})>\tau_p
+\]
+or the decomposition is structurally broken; otherwise it chooses
+decomposition. A final type-aware check is applied only to undecided
+decomposition defaults. It scores answer-type compatibility, whether the final
+answer repeats an intermediate answer, whether a step answer appears as an
+entity fragment inside a later query, and whether a candidate simply repeats
+part of the question. It switches to direct only when the direct score exceeds
+the decomposition score by at least 2.5.
+
+\section{Additional Retrieval Results}
+\label{app:additional-results}
+
+\subsection{Gold and untuned decompositions on MuSiQue}
+
+The first 1,000 \musique{} development questions are all two-hop, allowing
+comparison with the official decomposition. Table~\ref{tab:gold-decomp}
+shows that \method{} improves over the original query but remains below a gold
+chain. Replacing the bridge entity with the gold answer closes most of the gap,
+indicating that bridge-answer drift is more important than sub-question wording
+in this slice.
+
+\begin{table}[h]
+\caption{Answer-containing Hit@5 on the MuSiQue slice.}
+\label{tab:gold-decomp}
+\centering
+\small
+\setlength{\tabcolsep}{7pt}
+\begin{tabular}{lc}
+\toprule
+Query condition & Hit@5 \\
+\midrule
+Original question & 19.0 \\
+\method{} decomposition & 38.8 \\
+Gold decomposition + gold bridge & \textbf{55.8} \\
+Gold decomposition, unresolved \(\texttt{\#1}\) & 19.8 \\
+\method{} wording + gold bridge & 54.1 \\
+Untuned base wording + gold bridge & 52.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Title matching}
+
+Original questions are long and constraint-rich, while decomposed queries are
+short and entity-centered. Table~\ref{tab:title-policy} compares title matching
+for both query types. These are live end-to-end reruns.
+
+\begin{table}[h]
+\caption{EM/F1 under three BM25 title policies.}
+\label{tab:title-policy}
+\centering
+\small
+\setlength{\tabcolsep}{7pt}
+\begin{tabular}{lccc}
+\toprule
+Dataset & Titles off & Titles on & Path-aware \\
+\midrule
+\popqa{} & 51.9/54.0 & 52.4/54.6 & \textbf{53.4/55.7} \\
+\hotpot{} & 37.3/48.7 & 37.1/48.4 & \textbf{37.9/49.3} \\
+\musique{} & 23.3/31.6 & 24.9/\textbf{34.5} & \textbf{26.2}/34.4 \\
+\twowiki{} & 44.5/50.4 & 49.1/55.5 & \textbf{49.6/56.3} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Additional Confidence Results}
+\label{app:confidence}
+
+\subsection{Signal definitions}
+
+All scores are oriented so larger values indicate greater uncertainty.
+\begin{itemize}
+    \item \textbf{Maximum token entropy}: the largest next-token entropy in
+    the generated answer.
+    \item \textbf{Sequence NLL}: the summed negative log-likelihood of the
+    generated tokens.
+    \item \textbf{TARG margin}: the transformed average gap between the two
+    largest logits over the first eight answer tokens.
+    \item \textbf{Sample disagreement}: the fraction of ten sampled answers
+    that differ from the greedy answer.
+    \item \textbf{P(True)}: one minus the model's estimated probability that
+    its proposed answer is true.
+    \item \textbf{\tailleak{}}: the sum of negative log top-five mass in
+    Equation~\ref{eq:tail-leakage}.
+\end{itemize}
+The first three and \tailleak{} use the same greedy pass. Sample disagreement
+and P(True) require additional generations.
+
+\subsection{Entropy components}
+
+Table~\ref{tab:entropy-components} evaluates the three terms of
+Equation~\ref{eq:entropy-decomposition}. The boundary-crossing component
+carries most of the useful signal; the arrangement within the tail is close to
+chance. These component values come from the saved diagnostic computation and
+should be recomputed from complete logits before being elevated to a primary
+claim.
+
+\begin{table}[h]
+\caption{Macro AUROC of entropy components.}
+\label{tab:entropy-components}
+\centering
+\small
+\begin{tabular}{lc}
+\toprule
+Component & Macro AUROC \\
+\midrule
+Leading set versus tail & 0.742 \\
+Competition within top five & 0.712 \\
+Arrangement within tail & 0.502 \\
+Full token entropy & 0.726 \\
+Answer-level \tailleak{} & \textbf{0.749} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{End-to-end signal replacement}
+
+\begin{table}[h]
+\caption{EM/F1 with entropy and Tail Leakage.}
+\label{tab:entropy-vs-tail}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lccccc}
+\toprule
+Signal & \hotpot{} & \twowiki{} & \musique{} & \popqa{} & Macro \\
+\midrule
+Max entropy & 35.50/46.11 & \textbf{50.00}/\textbf{56.58} & 24.70/33.06 & 51.90/54.71 & 40.52/47.61 \\
+\tailleak{} & \textbf{37.80}/\textbf{49.03} & 49.30/56.22 & \textbf{26.50}/\textbf{34.63} & \textbf{53.90}/\textbf{55.73} & \textbf{41.88}/\textbf{48.90} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Selective answering}
+
+Table~\ref{tab:selective} ranks direct answers by \tailleak{} and retains only
+the most confident fraction. Accuracy increases as coverage decreases, but the
+hard multi-hop datasets remain unreliable even at low coverage.
+
+\begin{table}[h]
+\caption{Direct-path EM by confidence coverage.}
+\label{tab:selective}
+\centering
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lccccc}
+\toprule
+Coverage & \hotpot{} & \twowiki{} & \musique{} & \popqa{} & Pooled \\
+\midrule
+25\% & 57.6 & 34.0 & 22.4 & 79.2 & 52.8 \\
+50\% & 45.4 & 26.8 & 15.2 & 57.0 & 38.9 \\
+75\% & 38.0 & 22.1 & 12.5 & 46.3 & 30.2 \\
+100\% & 30.3 & 18.0 & 10.2 & 37.8 & 24.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Routing and Failure Analysis}
+\label{app:routing}
+
+\subsection{Candidate overlap}
+
+\begin{table}[h]
+\caption{Correctness overlap before final routing.}
+\label{tab:path-overlap}
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lrrrr}
+\toprule
+Dataset & Both correct & Direct only & Decomp. only & Neither \\
+\midrule
+\hotpot{} & 225 & 78 & 135 & 562 \\
+\twowiki{} & 144 & 36 & 353 & 467 \\
+\musique{} & 75 & 27 & 192 & 706 \\
+\popqa{} & 346 & 32 & 194 & 428 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Verifier effect}
+
+\begin{table}[h]
+\caption{Verifier changes relative to always choosing decomposition.}
+\label{tab:verifier-effect}
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lrrr}
+\toprule
+Dataset & Direct-only recovered & Decomp.-only lost & Net EM \\
+\midrule
+\hotpot{} & 39/78 & 21/135 & +1.80 \\
+\twowiki{} & 3/36 & 7/353 & -0.40 \\
+\musique{} & 9/27 & 11/192 & -0.20 \\
+\popqa{} & 1/32 & 2/194 & -0.10 \\
+\midrule
+Pooled / macro & 52/173 & 41/874 & +0.28 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Decomposition-path failures}
+
+Each incorrect multi-hop decomposition candidate is assigned one primary
+cause. Evidence is counted as present when the required Wikipedia title
+appears in the top ten results from either the original or resolved
+sub-question queries.
+
+\begin{table}[h]
+\caption{Primary causes of incorrect decomposition answers.}
+\label{tab:failure-taxonomy}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lccc}
+\toprule
+Cause & \hotpot{} (\(N=640\)) & \twowiki{} (\(N=503\)) & \musique{} (\(N=733\)) \\
+\midrule
+Missing required evidence & 307 (48.0\%) & 311 (61.8\%) & 513 (70.0\%) \\
+Wrong step answer & 131 (20.5\%) & 98 (19.5\%) & 73 (10.0\%) \\
+Wrong final synthesis & 164 (25.6\%) & 92 (18.3\%) & 138 (18.8\%) \\
+Lost original constraint & 38 (5.9\%) & 2 (0.4\%) & 9 (1.2\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Missing evidence is the largest category on all three multi-hop datasets.
+Routing cannot repair many of these cases because the direct candidate is also
+wrong.
+
+\subsection{Confidently wrong cases}
+
+\begin{table}[h]
+\caption{Tail Leakage when both candidates agree in correctness.}
+\label{tab:quadrant-confidence}
+\centering
+\small
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{lcccc}
+\toprule
+Dataset & Both-correct mean & Both-wrong mean & AUROC & Confidently wrong \\
+\midrule
+\hotpot{} & 0.01260 & 0.12927 & 0.777 & 15.5\% \\
+\twowiki{} & 0.03414 & 0.20215 & 0.751 & 20.1\% \\
+\musique{} & 0.04945 & 0.25025 & 0.766 & 12.7\% \\
+\popqa{} & 0.00974 & 0.10282 & 0.846 & 4.9\% \\
+Pooled & 0.01877 & 0.17926 & 0.817 & 9.3\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Both-wrong examples have higher scores on average, but the groups overlap.
+This is why \tailleak{} is used as a population-level ranking and gating signal
+rather than a per-question correctness test.

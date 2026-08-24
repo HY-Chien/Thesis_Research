@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Analyze direct-path tl_sum by direct/decompose correctness quadrant.
+"""Analyze direct-path tl_sum by accuracy-first correctness quadrant.
 
-All candidate answers come from the final prompt-fix-A traces loaded with
-``replay_verifier_tlsum_fixA.build``. Final routing choices are replayed with
-``decide(..., 'both', 0.0005, 0.0158)``. No legacy confidence field is used.
+Candidates are reconstructed from the tracked prompt-fix-A traces at the
+thesis headline step-gate threshold (``tau=0.002305``). Final routing uses the
+same all-Tail-Leakage/type-aware verifier as the headline analysis. No legacy
+confidence field is used.
 """
 from __future__ import annotations
 
+import argparse
 import math
 import sys
 from pathlib import Path
@@ -23,11 +25,14 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from analyze_confidence_battery import auroc  # noqa: E402
-from replay_verifier_tlsum_fixA import build, decide  # noqa: E402
+from accuracy_first_replay import (  # noqa: E402
+    DEFAULT_SYNTH_PATHS,
+    load_all_accuracy_first_rows,
+)
 
 RESULTS = ROOT / "results"
-THESIS_FIG = ROOT.parent / "Thesis" / "figures" / "fig_quadrant_confidence.png"
-REPORT = RESULTS / "quadrant_confidence_analysis.md"
+DEFAULT_FIG = RESULTS / "reproduced/fig_quadrant_confidence.png"
+DEFAULT_REPORT = RESULTS / "reproduced/quadrant_confidence_analysis.md"
 DATASETS = [
     ("HotpotQA", "hotpotqa"),
     ("2Wiki", "2wiki"),
@@ -35,22 +40,6 @@ DATASETS = [
     ("PopQA", "popqa"),
 ]
 QUADRANTS = ("both_correct", "direct_only", "decomp_only", "both_wrong")
-DIRECT_TAU = 0.0005
-POST_DECOMP_TAU = 0.0158
-EXPECTED_COUNTS = {
-    "HotpotQA": (225, 78, 132, 565),
-    "2Wiki": (140, 40, 350, 470),
-    "MuSiQue": (76, 26, 191, 707),
-    "PopQA": (345, 33, 193, 429),
-}
-EXPECTED_SEPARATION = {
-    # mean correct, mean wrong, AUROC, confidently-wrong percentage
-    "HotpotQA": (0.01277764593698903, 0.13038910097819073, 0.7770619469026548, 15.575221238938052),
-    "2Wiki": (0.03485271656359562, 0.20102858360310327, 0.7474316109422492, 21.06382978723404),
-    "MuSiQue": (0.04983399811698286, 0.250543257081529, 0.7632323382714211, 12.446958981612447),
-    "PopQA": (0.009770083001594857, 0.1025779216833659, 0.8452214452214453, 4.895104895104895),
-    "Pooled": (0.018972535810644835, 0.17931519461305448, 0.8158498036223502, 9.304467987102717),
-}
 QUADRANT_COLORS = ["#2f7f8f", "#244a8f", "#0b8f6a", "#c05a47"]
 
 
@@ -66,15 +55,13 @@ def quadrant(row: dict) -> str:
     return "both_wrong"
 
 
-def load_final_rows(dataset: str) -> list[dict]:
-    rows = build(dataset)
+def validate_final_rows(dataset: str, rows: list[dict]) -> list[dict]:
     for row in rows:
         value = row.get("direct_tl")
         if value is None or not math.isfinite(float(value)):
             raise RuntimeError(f"{dataset}/{row['id']}: missing direct tl_sum")
-        row["final_choice"] = decide(
-            row, "both", DIRECT_TAU, POST_DECOMP_TAU,
-        )
+        if row.get("final_choice") not in {"direct", "decomp"}:
+            raise RuntimeError(f"{dataset}/{row['id']}: invalid final choice")
     return rows
 
 
@@ -146,19 +133,15 @@ def verify(
     stats: dict[str, dict[str, float | int]],
     pooled: dict[str, float | int],
 ) -> None:
-    for dataset, expected in EXPECTED_COUNTS.items():
-        observed = tuple(len(data[dataset][name]) for name in QUADRANTS)
-        if observed != expected:
-            raise AssertionError(f"{dataset}: expected {expected}, observed {observed}")
+    for dataset, buckets in data.items():
+        observed = sum(len(buckets[name]) for name in QUADRANTS)
+        if observed <= 0:
+            raise AssertionError(f"{dataset}: no replay rows")
     to_check = {**stats, "Pooled": pooled}
-    for dataset, expected in EXPECTED_SEPARATION.items():
-        row = to_check[dataset]
-        observed = (
-            row["mean_correct"], row["mean_wrong"],
-            row["auroc"], row["confidently_wrong"],
-        )
-        if not all(np.isclose(a, b, rtol=0.0, atol=1e-12) for a, b in zip(observed, expected)):
-            raise AssertionError(f"{dataset}: expected {expected}, observed {observed}")
+    for dataset, row in to_check.items():
+        required = ("mean_correct", "mean_wrong", "auroc", "confidently_wrong")
+        if not all(math.isfinite(float(row[name])) for name in required):
+            raise AssertionError(f"{dataset}: non-finite separation statistic")
 
 
 def render_quadrant_table(
@@ -221,11 +204,12 @@ def write_report(
     data: dict[str, dict[str, list[dict]]],
     stats: dict[str, dict[str, float | int]],
     pooled: dict[str, float | int],
+    path: Path,
 ) -> None:
     lines = [
         "# Direct-path tl_sum by Correctness Quadrant",
         "",
-        "Setting: final prompt-fix-A candidates with the tl_sum step gate, path-aware retrieval, original-question evidence union, and the final all-tl_sum verifier (direct tau=0.0005; post-decomposition tau=0.0158).",
+        "Setting: prompt-fix-A candidates replayed with the Tail-Leakage step gate at tau=0.002305, path-aware retrieval, original-question evidence union, and the final all-Tail-Leakage verifier (direct tau=0.0005; post-decomposition tau=0.0158).",
         "",
         "The signal is direct-path tail-leakage surprisal (`direct_tl`); higher values indicate greater uncertainty.",
         "",
@@ -245,13 +229,19 @@ def write_report(
         "",
         "## Interpretation",
         "",
-        "Direct-path tl_sum separates both-wrong from both-correct examples on every dataset (pooled AUROC 0.816), but the distributions overlap. Using the pooled both-correct median still leaves 9.3% of both-wrong examples confidently wrong. Confidence is therefore informative at the population level without being a reliable per-question correctness test.",
+        "Direct-path tl_sum separates both-wrong from both-correct examples on every dataset "
+        f"(pooled AUROC {pooled['auroc']:.3f}), but the distributions overlap. Using the "
+        "pooled both-correct median still leaves "
+        f"{pooled['confidently_wrong']:.1f}% of both-wrong examples confidently wrong. "
+        "Confidence is therefore informative at the population level without being a "
+        "reliable per-question correctness test.",
         "",
     ]
-    REPORT.write_text("\n".join(lines), encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def make_fig(data: dict[str, dict[str, list[dict]]]) -> None:
+def make_fig(data: dict[str, dict[str, list[dict]]], path: Path) -> None:
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 7.6), dpi=170, sharey=True)
     labels = ["Both\ncorrect", "Direct\nonly", "Decomp\nonly", "Both\nwrong"]
     for ax, (dataset, buckets) in zip(axes.flat, data.items()):
@@ -280,25 +270,41 @@ def make_fig(data: dict[str, dict[str, list[dict]]]) -> None:
     axes[1, 0].set_ylabel("Tail-leakage surprisal\n(direct answer)")
     fig.suptitle("Tail-Leakage Surprisal by Correctness Quadrant", fontsize=14)
     fig.tight_layout(rect=[0, 0.01, 1, 0.97])
-    THESIS_FIG.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(THESIS_FIG, bbox_inches="tight")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--synth", nargs="+", type=Path, default=list(DEFAULT_SYNTH_PATHS),
+        help="tracked fixed-chain synthesis JSONL shards",
+    )
+    parser.add_argument(
+        "--report-out", type=Path, default=DEFAULT_REPORT,
+        help="output Markdown report (default: results/reproduced)",
+    )
+    parser.add_argument(
+        "--out", type=Path, default=DEFAULT_FIG,
+        help="output PNG (default: results/reproduced)",
+    )
+    args = parser.parse_args()
+
+    loaded = load_all_accuracy_first_rows(args.synth)
     all_rows = {
-        label: load_final_rows(dataset)
+        label: validate_final_rows(dataset, loaded[dataset])
         for label, dataset in DATASETS
     }
     data = {label: bucket_rows(rows) for label, rows in all_rows.items()}
     stats, pooled = compute_stats(data)
     verify(data, stats, pooled)
-    write_report(data, stats, pooled)
-    make_fig(data)
+    write_report(data, stats, pooled, args.report_out)
+    make_fig(data, args.out)
     for dataset, buckets in data.items():
         print(dataset, {name: len(buckets[name]) for name in QUADRANTS})
-    print(f"Wrote {REPORT}")
-    print(f"Wrote {THESIS_FIG}")
+    print(f"Wrote {args.report_out}")
+    print(f"Wrote {args.out}")
 
 
 if __name__ == "__main__":

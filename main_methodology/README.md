@@ -63,6 +63,16 @@ The files `requirements_thesis.txt` and `environment_thesis.yml` are
 provenance snapshots of the original workstation. They are not the recommended
 installation path because they include machine-specific transitive packages.
 
+The root [`README.md`](../README.md) records the exact author-workstation
+hardware and verified package versions. The one-to-one mapping from every
+current thesis experiment and figure to its command, inputs, outputs, and
+resource status is in [`THESIS_REPRODUCTION.md`](THESIS_REPRODUCTION.md).
+
+The root [`README.md`](../README.md) records the exact author-workstation
+hardware and verified package versions. The one-to-one mapping from every
+current thesis experiment and figure to its command, inputs, outputs, and
+resource status is in [`THESIS_REPRODUCTION.md`](THESIS_REPRODUCTION.md).
+
 ## 2. Reproduce the thesis headline without a GPU
 
 Run:
@@ -127,6 +137,48 @@ python scripts/analyze_accuracy_first_failure_taxonomy.py
 
 Both commands write regenerated Markdown/JSON artifacts under
 `results/reproduced/`.
+
+The bundled direct-confidence traces also support the revised confidence
+tables without a GPU:
+
+```bash
+python scripts/analyze_confidence_battery.py
+python scripts/analyze_tail_leakage_variants.py
+python scripts/analyze_tlsum_confidence_story.py
+```
+
+The path-overlap, routing/oracle, and quadrant-confidence analyses are rebuilt
+at the same accuracy-first operating point with:
+
+```bash
+python scripts/make_direct_decompose_2x2_fig.py
+python scripts/make_routing_gap_fig.py
+python scripts/analyze_quadrant_confidence.py
+```
+
+These commands default to `results/reproduced/`; see
+`THESIS_REPRODUCTION.md` for explicit commands that update the thesis figures.
+
+The bundled direct-confidence traces also support the revised confidence
+tables without a GPU:
+
+```bash
+python scripts/analyze_confidence_battery.py
+python scripts/analyze_tail_leakage_variants.py
+python scripts/analyze_tlsum_confidence_story.py
+```
+
+The path-overlap, routing/oracle, and quadrant-confidence analyses are rebuilt
+at the same accuracy-first operating point with:
+
+```bash
+python scripts/make_direct_decompose_2x2_fig.py
+python scripts/make_routing_gap_fig.py
+python scripts/analyze_quadrant_confidence.py
+```
+
+These commands default to `results/reproduced/`; see
+`THESIS_REPRODUCTION.md` for explicit commands that update the thesis figures.
 
 ## 3. Live end-to-end inference
 
@@ -331,6 +383,10 @@ If the base model is already downloaded locally, replace
 | `scripts/analyze_tlsum_fixA_step_gate_final.py` | Reproduce final metrics and threshold sensitivity |
 | `scripts/analyze_skipped_retrieval_questions.py` | Compare SEEK with always retrieve on affected questions |
 | `scripts/analyze_accuracy_first_failure_taxonomy.py` | Recompute the appendix decomposition failure taxonomy |
+| `scripts/accuracy_first_replay.py` | Shared row-level reconstruction for current path/routing figures |
+| `THESIS_REPRODUCTION.md` | Complete thesis experiment/figure command and asset matrix |
+| `scripts/accuracy_first_replay.py` | Shared row-level reconstruction for current path/routing figures |
+| `THESIS_REPRODUCTION.md` | Complete thesis experiment/figure command and asset matrix |
 | `scripts/README.md` | Index of ablation, probe, replay, and plotting scripts |
 | `RESULTS_MASTER.md` | Chronological experiment record; older sections retain historical operating points |
 

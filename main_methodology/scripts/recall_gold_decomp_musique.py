@@ -25,7 +25,7 @@ Arms:
 Usage (from Research/main_methodology):
   python scripts/recall_gold_decomp_musique.py \
       --dev datasets/musique/raw/dev_first1000.jsonl \
-      --trace results/musique_1000_verify_v2_pathaware.jsonl \
+      --trace results/traces/musique/musique_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl \
       --ks 1 3 5 8 10 [--limit 100]
 """
 import argparse
@@ -70,7 +70,11 @@ def contains_answer(passages, needles, include_title=True):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dev", default="datasets/musique/raw/dev_first1000.jsonl")
-    ap.add_argument("--trace", default="results/musique_1000_verify_v2_pathaware.jsonl")
+    ap.add_argument(
+        "--trace",
+        default=("results/traces/musique/"
+                 "musique_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl"),
+    )
     ap.add_argument("--ks", type=int, nargs="+", default=[1, 3, 5, 8, 10])
     ap.add_argument("--corpus", default="wiki")
     ap.add_argument("--limit", type=int, default=0)

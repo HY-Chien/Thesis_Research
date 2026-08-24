@@ -1,0 +1,44 @@
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Adaptive retrieval.}
+Adaptive-RAG routes questions to retrieval strategies using a learned
+complexity classifier~\citep{adaptiverag}, while SKR estimates whether a model
+already knows an answer before retrieval~\citep{skr}. FLARE instead drafts the
+next sentence and retrieves when low-confidence tokens appear~\citep{flare};
+DRAGIN combines a generation-time trigger with attention-based query
+formulation~\citep{dragin}. TARG studies a lightweight question-level decision
+from prefix logits, including entropy and top-logit margins~\citep{targ}.
+These methods make uncertainty useful operationally, but most apply it either
+before reasoning or at the free-form token/sentence level. \method{} applies a
+training-free signal at explicit sub-question boundaries.
+
+Learned policies provide finer control. Self-RAG trains reflection tokens that
+control retrieval and evaluate evidence~\citep{selfrag}. DeepRAG explores
+retrieve-or-answer decisions at individual sub-queries and calibrates the
+policy from preference data~\citep{deeprag}. Such policies can jointly learn
+reasoning and retrieval behavior, whereas our objective is complementary: a
+score that can be inspected and attached to an existing greedy generation
+without policy training.
+
+\paragraph{Decomposition and multi-step retrieval.}
+IRCoT interleaves chain-of-thought sentences with retrieval~\citep{ircot}.
+Question-decomposition methods instead expose explicit intermediate
+operations or sub-questions~\citep{decomprc,break_qdmr}. Decomposition can
+create sharper retrieval queries, but a wrong bridge answer can corrupt later
+queries and short sub-questions can omit constraints from the original
+question. \method{} therefore retains a direct candidate and keeps
+original-question evidence available to the decomposition path. We treat these
+components as an evaluation framework for the confidence signal rather than
+attributing all system gains to decomposition alone.
+
+\paragraph{Confidence and uncertainty in language models.}
+Sequence probability, token entropy, verbalized self-evaluation such as
+P(True), and disagreement across sampled answers capture different aspects of
+model confidence~\citep{kadavath2022,semanticuncertainty,semanticentropy}.
+They are useful ranking signals, but a model may remain confidently wrong.
+\tailleak{} is closest to logit-based uncertainty methods, yet differs in what
+it retains: it ignores the exact probability arrangement within the head and
+tail and records only the mass crossing their boundary. This choice follows
+from an entropy decomposition in Section~\ref{sec:tail-leakage} and is tested
+against representative alternatives in Section~\ref{sec:confidence-results}.

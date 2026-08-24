@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Make the final all-tl_sum direct-vs-decompose routing-gap figure.
+"""Make the accuracy-first direct-vs-decompose routing-gap figure.
 
-The prompt-fix-A candidate traces are loaded through ``build`` and the final
-router is replayed through ``decide(..., 'both', 0.0005, 0.0158)``.
+Candidates are reconstructed at the thesis headline step-gate threshold
+(``tau=0.002305``); routing uses the same final all-Tail-Leakage/type-aware
+verifier as the headline analysis.
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -19,39 +21,25 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from replay_verifier_tlsum_fixA import build, decide  # noqa: E402
+from accuracy_first_replay import (  # noqa: E402
+    DEFAULT_SYNTH_PATHS,
+    load_all_accuracy_first_rows,
+)
 
-OUT = ROOT.parent / "Thesis" / "figures" / "fig_routing_gap_oracle.png"
-SUMMARY_OUT = ROOT / "results" / "routing_gap_oracle.md"
+DEFAULT_OUT = ROOT / "results/reproduced/fig_routing_gap_oracle.png"
+DEFAULT_SUMMARY = ROOT / "results/reproduced/routing_gap_oracle_accuracy_first.md"
 DATASETS = [
     ("HotpotQA", "hotpotqa"),
     ("2Wiki", "2wiki"),
     ("MuSiQue", "musique"),
     ("PopQA", "popqa"),
 ]
-DIRECT_TAU = 0.0005
-POST_DECOMP_TAU = 0.0158
-EXPECTED = {
-    # direct correct, decomp correct, router correct, oracle correct, direct choices
-    "HotpotQA": (303, 357, 375, 435, 167),
-    "2Wiki": (180, 490, 487, 530, 26),
-    "MuSiQue": (102, 267, 266, 293, 122),
-    "PopQA": (378, 538, 537, 571, 10),
-}
-
-
 def summarize(rows: list[dict]) -> dict[str, float | int]:
     n = len(rows)
-    choices = [
-        decide(row, "both", DIRECT_TAU, POST_DECOMP_TAU)
-        for row in rows
-    ]
+    choices = [row["final_choice"] for row in rows]
     direct = sum(int(row["direct_em"]) for row in rows)
     decomp = sum(int(row["decomp_em"]) for row in rows)
-    router = sum(
-        int(row["direct_em"] if choice == "direct" else row["decomp_em"])
-        for row, choice in zip(rows, choices)
-    )
+    router = sum(int(row["final_em"]) for row in rows)
     oracle = sum(int(row["direct_em"] or row["decomp_em"]) for row in rows)
     direct_only = sum(
         int(row["direct_em"] and not row["decomp_em"])
@@ -63,6 +51,22 @@ def summarize(rows: list[dict]) -> dict[str, float | int]:
     )
     both_wrong = sum(
         int(not row["direct_em"] and not row["decomp_em"])
+        for row in rows
+    )
+    direct_only_recovered = sum(
+        int(
+            row["direct_em"]
+            and not row["decomp_em"]
+            and row["final_choice"] == "direct"
+        )
+        for row in rows
+    )
+    decomp_only_lost = sum(
+        int(
+            not row["direct_em"]
+            and row["decomp_em"]
+            and row["final_choice"] == "direct"
+        )
         for row in rows
     )
     direct_em = 100.0 * direct / n
@@ -89,38 +93,47 @@ def summarize(rows: list[dict]) -> dict[str, float | int]:
         "direct_only": direct_only,
         "decomp_only": decomp_only,
         "both_wrong": both_wrong,
+        "direct_only_recovered": direct_only_recovered,
+        "decomp_only_lost": decomp_only_lost,
     }
 
 
 def verify(stats: dict[str, dict[str, float | int]]) -> None:
-    for dataset, expected in EXPECTED.items():
-        row = stats[dataset]
-        observed = (
-            int(row["direct_correct"]),
-            int(row["decomp_correct"]),
-            int(row["router_correct"]),
-            int(row["oracle_correct"]),
-            int(row["direct_choices"]),
+    """Check count identities without embedding thesis result values."""
+    for dataset, row in stats.items():
+        n = int(row["n"])
+        if int(row["direct_choices"]) + int(row["decomp_choices"]) != n:
+            raise AssertionError(f"{dataset}: routing choices do not sum to n={n}")
+        if int(row["oracle_correct"]) + int(row["both_wrong"]) != n:
+            raise AssertionError(f"{dataset}: oracle/both-wrong counts do not sum to n={n}")
+        router_delta = int(row["router_correct"]) - int(row["decomp_correct"])
+        path_delta = (
+            int(row["direct_only_recovered"])
+            - int(row["decomp_only_lost"])
         )
-        if observed != expected:
-            raise AssertionError(f"{dataset}: expected {expected}, observed {observed}")
+        if router_delta != path_delta:
+            raise AssertionError(
+                f"{dataset}: routing delta {router_delta} != path delta {path_delta}"
+            )
 
 
-def write_summary(stats: dict[str, dict[str, float | int]]) -> None:
+def write_summary(stats: dict[str, dict[str, float | int]], path: Path) -> None:
     lines = [
-        "# Direct-vs-Decompose Routing Gap (Final all-tl_sum Router)",
+        "# Direct-vs-Decompose Routing Gap (Accuracy-First Replay)",
         "",
-        "Setting: final prompt-fix-A candidates and all-tl_sum verifier replay with direct tau=0.0005 and post-decomposition tau=0.0158.",
+        "Setting: prompt-fix-A candidates replayed with the Tail-Leakage step gate at tau=0.002305 and the final all-Tail-Leakage verifier (direct tau=0.0005; post-decomposition tau=0.0158).",
         "",
-        "| Dataset | Direct EM | Decomp EM | Best pure EM | SEEK final EM | Oracle EM | Oracle - SEEK | Direct choices | Decomp choices | Direct-only | Decomp-only | Both-wrong |",
+        "| Dataset | Direct EM | Decomp EM | SEEK final EM | Oracle EM | Oracle - SEEK | Direct choices | Direct-only recovered | Decomp-only lost | Direct-only | Decomp-only | Both-wrong |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for dataset, row in stats.items():
         lines.append(
             f"| {dataset} | {row['direct_em']:.2f} | {row['decomp_em']:.2f} | "
-            f"{row['best_pure']:.2f} | {row['router_em']:.2f} | "
+            f"{row['router_em']:.2f} | "
             f"{row['oracle_em']:.2f} | {row['oracle_vs_router']:+.2f} | "
-            f"{int(row['direct_choices'])} | {int(row['decomp_choices'])} | "
+            f"{int(row['direct_choices'])} | "
+            f"{int(row['direct_only_recovered'])} | "
+            f"{int(row['decomp_only_lost'])} | "
             f"{int(row['direct_only'])} | {int(row['decomp_only'])} | "
             f"{int(row['both_wrong'])} |"
         )
@@ -129,10 +142,11 @@ def write_summary(stats: dict[str, dict[str, float | int]]) -> None:
         "The oracle is a gold-label upper bound, not a deployable method. Its gap over SEEK isolates the remaining direct-vs-decompose routing headroom; both-wrong questions remain outside that bound.",
         "",
     ])
-    SUMMARY_OUT.write_text("\n".join(lines), encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def make_figure(stats: dict[str, dict[str, float | int]]) -> None:
+def make_figure(stats: dict[str, dict[str, float | int]], path: Path) -> None:
     datasets = list(stats)
     best = [stats[d]["best_pure"] for d in datasets]
     router = [stats[d]["router_em"] for d in datasets]
@@ -169,18 +183,37 @@ def make_figure(stats: dict[str, dict[str, float | int]]) -> None:
         fontsize=8, color="#555555",
     )
     fig.tight_layout(rect=[0, 0.05, 1, 1])
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT, bbox_inches="tight")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight")
     plt.close(fig)
 
 
 def main() -> None:
-    stats = {label: summarize(build(dataset)) for label, dataset in DATASETS}
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--synth", nargs="+", type=Path, default=list(DEFAULT_SYNTH_PATHS),
+        help="tracked fixed-chain synthesis JSONL shards",
+    )
+    parser.add_argument(
+        "--summary-out", type=Path, default=DEFAULT_SUMMARY,
+        help="output Markdown summary (default: results/reproduced)",
+    )
+    parser.add_argument(
+        "--out", type=Path, default=DEFAULT_OUT,
+        help="output PNG (default: results/reproduced)",
+    )
+    args = parser.parse_args()
+
+    loaded = load_all_accuracy_first_rows(args.synth)
+    stats = {
+        label: summarize(loaded[dataset])
+        for label, dataset in DATASETS
+    }
     verify(stats)
-    write_summary(stats)
-    make_figure(stats)
-    print(f"Wrote {OUT}")
-    print(f"Wrote {SUMMARY_OUT}")
+    write_summary(stats, args.summary_out)
+    make_figure(stats, args.out)
+    print(f"Wrote {args.out}")
+    print(f"Wrote {args.summary_out}")
 
 
 if __name__ == "__main__":

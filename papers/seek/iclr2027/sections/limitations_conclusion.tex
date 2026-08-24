@@ -1,0 +1,37 @@
+\section{Limitations}
+\label{sec:limitations}
+
+The present evidence is diagnostic rather than a complete confirmatory
+evaluation. First, the operating threshold was selected on the same
+development traces used for reporting; a disjoint calibration/evaluation split
+is needed before drawing general conclusions about the selected point. Second,
+all results use one backbone, greedy decoding, and one run on the first
+\(1{,}000\) development examples. The \musique{} slice contains only two-hop
+questions and understates the difficulty of the complete development set.
+Third, external baselines are paper-reported rather than reproduced in the same
+harness. Fourth, original and decomposition-path retrieval differ in title
+matching, and original-question evidence union has not been isolated in a
+separate ablation. The retrieval-recall gain therefore belongs to the complete
+query policy, not uniquely to decomposition.
+
+The threshold sweep is a fixed-chain replay rather than an independent live
+rerun at every point. It preserves a controlled comparison but cannot capture
+all downstream changes caused by an earlier retrieval decision. Finally,
+\tailleak{} measures the shape of a model distribution, not factual
+correctness. It cannot flag a false answer generated with extreme confidence,
+and routing cannot repair questions for which both candidates are wrong.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We introduced \tailleak{}, a training-free confidence statistic that isolates
+probability mass leaving a model's leading token set and accumulates it across
+an answer. In the evaluated Llama-3-8B traces, it ranks direct-answer errors
+better than representative entropy, likelihood, disagreement, margin, and
+self-evaluation signals, and it serves as a useful sub-question retrieval gate
+inside \method{}. The results also set a clear boundary: most decomposed steps
+still benefit from retrieval, late routing adds only a small correction, and
+confident hallucinations remain. Broader backbones, held-out calibration, and
+controlled retrieval ablations are the next tests required to establish how
+far the signal generalizes.
+\label{sec:main-end}

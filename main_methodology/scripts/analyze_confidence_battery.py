@@ -1,7 +1,7 @@
 """Compute ~30 confidence signals from conf_battery dumps and rank them.
 
-Input : results/conf_battery_{ds}.jsonl  (from probe_confidence_battery.py)
-Output: results/confidence_battery_analysis.md
+Input : results/traces/{ds}/conf_battery_{ds}.jsonl
+Output: results/reproduced/confidence_battery_analysis.md
 
 Every signal is oriented so that HIGHER = MORE UNCERTAIN. The prediction
 target is answer wrongness (em == 0) of the deployed direct-path answer.
@@ -274,7 +274,7 @@ def main() -> None:
     skipped: dict[str, int] = {}
 
     for ds in only:
-        path = ROOT / "results" / f"conf_battery_{ds}.jsonl"
+        path = ROOT / "results" / "traces" / ds / f"conf_battery_{ds}.jsonl"
         rows = [json.loads(l) for l in open(path, encoding="utf-8")]
         sig_rows, ys = [], []
         n_skip = 0
@@ -394,7 +394,8 @@ def main() -> None:
             continue
         out.append(f"| {n} | {spearman(pooled[n], pooled[BASELINE]):.3f} |")
 
-    dest = ROOT / "results" / "confidence_battery_analysis.md"
+    dest = ROOT / "results" / "reproduced" / "confidence_battery_analysis.md"
+    dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text("\n".join(out) + "\n", encoding="utf-8")
     print(f"wrote {dest}")
 

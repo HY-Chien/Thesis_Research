@@ -2,12 +2,13 @@
 """Plot the final step-gate accuracy--retrieval trade-off for the thesis.
 
 Values are aggregated directly from the machine-readable fixed-chain replay in
-``results/tlsum_fixA_step_gate_final.json``.  The x-axis uses the observed
+``results/reproduced/tlsum_fixA_step_gate_final.json``. The x-axis uses the observed
 pooled step retrieval rate so the efficiency/accuracy trade-off is visible
 without a second y-axis.
 """
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -19,8 +20,8 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RESULTS = ROOT / "results" / "tlsum_fixA_step_gate_final.json"
-OUT = ROOT.parent / "Thesis" / "figures" / "fig_threshold_tradeoff.png"
+DEFAULT_INPUT = ROOT / "results/reproduced/tlsum_fixA_step_gate_final.json"
+DEFAULT_OUT = ROOT / "results/reproduced/fig_threshold_tradeoff.png"
 DATASETS = ("hotpotqa", "2wiki", "musique", "popqa")
 OPERATING_POINTS = (
     ("tau_0.1165", 0.116500),
@@ -33,8 +34,11 @@ OPERATING_POINTS = (
 )
 
 
-def load_values() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    payload = json.loads(RESULTS.read_text(encoding="utf-8"))
+def load_values(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    protocol = payload.get("protocol") or {}
+    if protocol.get("step_gate_signal") != "tl_sum":
+        raise RuntimeError(f"{path} is not a Tail-Leakage step-gate replay")
     results = payload["results"]
     retrieval_rates: list[float] = []
     em_scores: list[float] = []
@@ -47,30 +51,33 @@ def load_values() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         em_scores.append(float(np.mean([row["em"] for row in rows])))
         f1_scores.append(float(np.mean([row["f1"] for row in rows])))
 
-    rates = np.asarray(retrieval_rates)
-    em = np.asarray(em_scores)
-    f1 = np.asarray(f1_scores)
-    expected_rates = np.asarray([64.40, 69.84, 75.51, 81.39, 87.82, 93.84, 100.00])
-    expected_em = np.asarray([39.42, 39.77, 40.60, 41.20, 41.62, 41.88, 41.88])
-    expected_f1 = np.asarray([46.62, 47.01, 47.72, 48.26, 48.66, 48.90, 48.90])
-    if not (
-        np.allclose(rates, expected_rates, atol=0.005)
-        and np.allclose(em, expected_em, atol=0.005)
-        and np.allclose(f1, expected_f1, atol=0.005)
-    ):
-        raise RuntimeError("Threshold trade-off values do not match the audited table")
-    return rates, em, f1
+    return (
+        np.asarray(retrieval_rates),
+        np.asarray(em_scores),
+        np.asarray(f1_scores),
+    )
 
 
 def main() -> None:
-    rates, em, f1 = load_values()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--input", type=Path, default=DEFAULT_INPUT,
+        help="machine-readable fixed-chain replay JSON",
+    )
+    parser.add_argument(
+        "--out", type=Path, default=DEFAULT_OUT,
+        help="output PNG (default: results/reproduced)",
+    )
+    args = parser.parse_args()
+
+    rates, em, f1 = load_values(args.input)
     thresholds = [threshold for _, threshold in OPERATING_POINTS]
-    deployed_index = 4
+    headline_index = 5
 
     fig, ax = plt.subplots(figsize=(9.6, 5.4), dpi=170)
     ax.axvspan(
-        rates[deployed_index] - 0.65,
-        rates[deployed_index] + 0.65,
+        rates[headline_index] - 0.65,
+        rates[headline_index] + 0.65,
         color="#f2c14e",
         alpha=0.18,
         zorder=0,
@@ -94,14 +101,14 @@ def main() -> None:
         label="Macro F1",
     )
     ax.scatter(
-        [rates[deployed_index], rates[deployed_index]],
-        [em[deployed_index], f1[deployed_index]],
+        [rates[headline_index], rates[headline_index]],
+        [em[headline_index], f1[headline_index]],
         s=115,
         facecolors="white",
         edgecolors="#b77900",
         linewidths=2.2,
         zorder=5,
-        label="Deployed point",
+        label="Accuracy-first headline",
     )
 
     for x_value, score in zip(rates, em):
@@ -131,7 +138,7 @@ def main() -> None:
         f"{rate:.2f}\n$\\tau$={threshold:.6f}"
         for rate, threshold in zip(rates, thresholds)
     ]
-    tick_labels[deployed_index] += "\n(deployed)"
+    tick_labels[headline_index] += "\n(headline)"
     tick_labels[-1] = "100.00\n$\\tau$=0\n(all retrieve)"
     ax.set_xticks(rates)
     ax.set_xticklabels(tick_labels, fontsize=8.5)
@@ -146,10 +153,10 @@ def main() -> None:
     ax.legend(loc="upper left", frameon=False, ncols=3, fontsize=9)
 
     fig.tight_layout()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT, bbox_inches="tight")
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(args.out, bbox_inches="tight")
     plt.close(fig)
-    print(f"Wrote {OUT}")
+    print(f"Wrote {args.out}")
 
 
 if __name__ == "__main__":

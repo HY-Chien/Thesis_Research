@@ -1,0 +1,132 @@
+\section{Tail Leakage}
+\label{sec:tail-leakage}
+
+Let \(p_t(v)\) be the next-token distribution at position \(t\) during
+greedy generation, and let \(V_k(p_t)\) contain its \(k\) most probable
+tokens. We define the retained mass
+\begin{equation}
+    m_t^{(k)}=\sum_{v\in V_k(p_t)}p_t(v),
+    \qquad
+    \ell_t^{(k)}=1-m_t^{(k)},
+    \label{eq:retained-mass}
+\end{equation}
+where \(\ell_t^{(k)}\) is the mass that leaks outside the leading set. We use
+\(k=5\) throughout the main experiments and write \(m_t\) for
+\(m_t^{(5)}\).
+
+\subsection{Why isolate leaked mass?}
+
+Token entropy measures the total spread of \(p_t\), but this spread has
+several sources. Let \(\hat p_t^{\,\mathrm{in}}\) and
+\(\hat p_t^{\,\mathrm{out}}\) denote the distributions obtained by
+renormalizing the tokens inside and outside \(V_5(p_t)\), respectively. The
+entropy chain rule gives
+\begin{align}
+H(p_t)={}&-m_t\log m_t-(1-m_t)\log(1-m_t) \nonumber\\
+         &+m_t H(\hat p_t^{\,\mathrm{in}})
+          +(1-m_t)H(\hat p_t^{\,\mathrm{out}}).
+\label{eq:entropy-decomposition}
+\end{align}
+The first term records how much mass crosses the top-five boundary. The other
+terms record competition among the leading candidates and the arrangement of
+probability within the tail. For short-answer QA, competition among leading
+tokens can reflect casing, aliases, or tokenization rather than factual
+uncertainty. Conversely, the internal shape of a very large tail may change
+without materially changing the model's leading hypothesis. Equation
+\ref{eq:entropy-decomposition} motivates testing the boundary-crossing mass
+separately instead of compressing all three effects into entropy.
+
+\subsection{Token- and answer-level score}
+
+We convert retained mass into a monotonic risk score:
+\begin{equation}
+    \tl_t=-\log m_t,
+    \qquad
+    \tl(a)=\sum_{t\in\mathcal{T}(a)}\tl_t
+          =-\log\prod_{t\in\mathcal{T}(a)}m_t ,
+\label{eq:tail-leakage}
+\end{equation}
+where \(\mathcal{T}(a)\) contains the generated answer tokens and excludes
+EOS. The negative logarithm has two useful properties. First, it increases
+strictly as mass leaves the top-five set; unlike binary entropy, it does not
+decrease once leaked mass exceeds \(0.5\). Second, it is additive across
+positions, allowing small amounts of leakage distributed over a multi-token
+answer to accumulate.
+
+\tailleak{} requires only the top-\(k\) probabilities already available during
+a greedy pass. It is therefore cheaper than sample-disagreement or semantic
+entropy estimates that require multiple generations. It is a ranking score,
+not a calibrated probability that an answer is wrong. In particular, if a
+model concentrates almost all probability on a false continuation,
+Equation~\ref{eq:tail-leakage} provides no warning.
+
+\section{Adaptive Retrieval with \method{}}
+\label{sec:seek}
+
+We use \method{} to test whether \tailleak{} is useful beyond offline error
+detection. Given a question \(q\), a language model \(\mathcal{M}\), and a
+passage corpus \(\mathcal{P}\), \method{} preserves two answer candidates until
+late routing:
+
+\begin{figure}[t]
+\centering
+\small
+\setlength{\fboxsep}{6pt}
+\fbox{\parbox{0.93\linewidth}{
+\textbf{Direct path:}
+\(q \rightarrow\) retrieve with \(q\) \(\rightarrow a^{\mathrm{dir}}\)
+\(\quad\)\(\Vert\)\(\quad\)
+\textbf{Decomposition path:}
+\(q\rightarrow(s_1,\ldots,s_n)\rightarrow\) gate retrieval at each \(s_i\)
+\(\rightarrow a^{\mathrm{dec}}\).
+\par\medskip
+\centering
+\(a^{\mathrm{dir}},a^{\mathrm{dec}}\rightarrow\)
+transparent late routing \(\rightarrow\hat a\)
+}}
+\caption{The two candidate paths in \method{}. Decomposition is retained as a
+retrieval strategy rather than an irreversible early decision.}
+\label{fig:seek-overview}
+\end{figure}
+
+\paragraph{Executable decomposition.}
+A LoRA-adapted decomposer maps \(q\) to ordered, knowledge-graph-style
+sub-questions. A step has the form
+\(\texttt{entity >> relation}\); a placeholder such as \(\texttt{\#1}\)
+refers to the answer of an earlier step. For example,
+\(\texttt{Inception >> director}\) followed by
+\(\texttt{\#1 >> place of birth}\) becomes a directly executable second query
+after the first answer is substituted. One-step reformulations are allowed,
+which prevents the representation from forcing a multi-hop chain onto
+single-hop questions.
+
+\paragraph{Step-level retrieval gate.}
+For each resolved sub-question \(s_i\), the model first generates a tentative
+answer \(\tilde a_i\) without retrieved evidence and computes
+\(\tl(\tilde a_i)\). Retrieval is invoked when
+\begin{equation}
+    \pi(s_i)=\mathbb{I}\!\left[\tl(\tilde a_i)\geq\tau\right].
+\label{eq:gate}
+\end{equation}
+If the gate fires, BM25 returns passages and the model re-answers \(s_i\);
+otherwise \(\tilde a_i\) is retained. Thus the signal operates at a natural
+reasoning boundary rather than at an arbitrary sentence or token position.
+
+\paragraph{Context preservation and synthesis.}
+Short entity-centered sub-questions are useful retrieval queries but can omit
+comparison targets or disambiguating constraints. When a step retrieves,
+\method{} therefore deduplicates the union of passages retrieved from \(s_i\)
+and from the original question \(q\). After all placeholders are resolved, a
+base-model synthesis pass reads \(q\) and the ordered \((s_i,a_i)\) pairs to
+produce \(a^{\mathrm{dec}}\). The direct candidate \(a^{\mathrm{dir}}\)
+answers \(q\) from original-question evidence.
+
+\paragraph{Late routing.}
+A deterministic verifier defaults to the decomposition candidate and switches
+to \(a^{\mathrm{dir}}\) only when direct-answer \tailleak{} is low and the
+decomposition path shows instability, such as high post-synthesis leakage,
+malformed placeholders, or an incompatible answer type. The verifier does not
+regenerate an answer or train a policy. We include it to preserve complementary
+candidates, but do not treat it as the principal source of accuracy:
+Section~\ref{sec:routing-results} shows that its net effect is small. Exact
+rules and diagnostic counts appear in Appendix~\ref{app:details}.
