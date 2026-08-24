@@ -355,26 +355,11 @@ done
 
 </details>
 
-### All 13 thesis figures
+### Thesis figures
 
-| Figure | Producer or editable source |
-|---|---|
-| `Thesis_Overview.pdf` | Manual figure; PDF included |
-| `prompt_Decomposer.pdf` | `../Thesis/figure_sources/prompt_Decomposer.drawio` |
-| `prompt_Answer.pdf` | `../Thesis/figure_sources/prompt_Answer.drawio` |
-| `fig_renyi_reweight_auroc.pdf` | `../Thesis/make_ch3_signal_figs.py` |
-| `fig_same_entropy_risk.pdf` | `../Thesis/make_ch3_signal_figs.py` |
-| `fig_leakage_monotonicity.pdf` | `../Thesis/make_ch3_signal_figs.py` |
-| `fig_tail_leakage_error_bins.pdf` | `../Thesis/make_ch3_signal_figs.py` |
-| `fig_answer_hit_retrieval.png` | `make_answer_hit_fig.py` |
-| `fig_3way_ablation.png` | E1 + `make_3way_fig.py` |
-| `fig_threshold_tradeoff.png` | E1 + `make_threshold_tradeoff_fig.py` |
-| `fig_direct_decompose_2x2_counts.png` | `make_direct_decompose_2x2_fig.py` |
-| `fig_routing_gap_oracle.png` | `make_routing_gap_fig.py` |
-| `fig_quadrant_confidence.png` | `analyze_quadrant_confidence.py` |
-
-Plotters default to `results/reproduced/`; the commands below write the files
-used by LaTeX.
+All figures used by the thesis are in `Thesis/figures/`; captions are defined
+in the corresponding LaTeX chapters. The commands below rebuild the
+script-generated figures.
 
 <details>
 <summary><strong>Show exact commands to regenerate the script-built figures</strong></summary>
@@ -400,9 +385,6 @@ python scripts/analyze_quadrant_confidence.py \
 ```
 
 </details>
-
-The prompt diagrams are exported with diagrams.net. Chapter 3 figure values
-are stored in `make_ch3_signal_figs.py`.
 
 ### Thesis and paper builds
 
