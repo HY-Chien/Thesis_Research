@@ -359,7 +359,7 @@ done
 
 | Figure | Producer or editable source |
 |---|---|
-| `Thesis_Overview.pdf` | Tracked PDF; editable source unavailable |
+| `Thesis_Overview.pdf` | Manual figure; PDF included |
 | `prompt_Decomposer.pdf` | `../Thesis/figure_sources/prompt_Decomposer.drawio` |
 | `prompt_Answer.pdf` | `../Thesis/figure_sources/prompt_Answer.drawio` |
 | `fig_renyi_reweight_auroc.pdf` | `../Thesis/make_ch3_signal_figs.py` |
@@ -427,4 +427,3 @@ The paper draft has 13 pages and is not published.
   Wikipedia index are not in Git.
 - E8, E9, and E12 need additional raw data. Historical aggregation artifacts
   for E10–E12 are not bundled.
-- `Thesis_Overview.pdf` has no editable source; the prompt diagrams do.
