@@ -131,18 +131,21 @@ python scripts/prepare_eval_subsets.py \
 
 </details>
 
-### Runtime assets and outputs
+### Inputs and outputs
 
-| Item | Location | Use |
-|---|---|---|
-| Base model | `meta-llama/Meta-Llama-3-8B-Instruct` | External; live inference and training |
-| SEEK adapter | PEFT adapter directory | External; live inference or produced by E13 |
-| 12K training set | 4K MuSiQue + 4K 2Wiki + 4K PopQA | External; E13 |
-| Raw/paragraph data | `datasets/{dataset}/raw/` | External; E8, E9, E12 |
-| Wikipedia index | Elasticsearch `wiki` | External; open-domain retrieval |
-| Bundled traces | `results/traces/` | Included; E1–E7 inputs |
-| Generated results | `results/reproduced/`, `results/generated/` | Reports, figures, and new traces |
-| PDFs | `../Thesis/main*.pdf`, `../papers/seek/iclr2027/main.pdf` | Thesis and paper draft outputs |
+| Input | Location |
+|---|---|
+| Base model | `meta-llama/Meta-Llama-3-8B-Instruct` |
+| SEEK adapter | PEFT adapter directory |
+| 12K training set | 4K MuSiQue + 4K 2Wiki + 4K PopQA |
+| Raw/paragraph data | `datasets/{dataset}/raw/` |
+| Wikipedia index | Elasticsearch `wiki` |
+| Bundled traces | `results/traces/` |
+
+| Output | Location |
+|---|---|
+| Generated results | `results/reproduced/`, `results/generated/` |
+| PDFs | `../Thesis/main*.pdf`, `../papers/seek/iclr2027/main.pdf` |
 
 ## 5. Thesis experiments and figures
 
