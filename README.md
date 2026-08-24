@@ -10,25 +10,7 @@ manifests, a canonical trace bundle for CPU-only analysis, the complete thesis
 LaTeX project and PDF, and an anonymous ICLR 2027 working draft. The paper is a
 **draft only**: it has not been submitted or published.
 
-The quickest verified check is:
-
-```bash
-git clone https://github.com/HY-Chien/Thesis_Research.git
-cd Thesis_Research/main_methodology
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python scripts/analyze_tlsum_fixA_step_gate_final.py
-```
-
-The accuracy-first `tau=0.002305` row should report **41.88 EM / 48.90
-F1**. The remainder of this README is the complete code-review entry point;
-the reviewer does not need to find another reproduction guide.
-
 ## 1. Hardware environment
-
-The reported experiments were developed and checked on this workstation:
 
 | Component | Author workstation |
 |---|---|
@@ -40,15 +22,11 @@ The reported experiments were developed and checked on this workstation:
 | NVIDIA driver | 575.57.08 |
 | PyTorch CUDA runtime | CUDA 12.8 |
 
-The bundled analyses and plots are CPU-only and need approximately 8 GiB RAM.
-Llama-3-8B bf16 inference needs one CUDA GPU with at least 24 GiB VRAM.
-Full-corpus experiments additionally need an Elasticsearch `wiki` index.
-The two L40S cards describe the author machine, not a requirement for the
-offline reproduction.
+Offline analyses need only a CPU and about 8 GiB RAM. Live Llama-3-8B bf16
+inference needs at least 24 GiB VRAM; full-corpus runs also need the
+Elasticsearch `wiki` index.
 
 ## 2. Software environment
-
-These versions were verified on 2026-08-24:
 
 | Software | Tested version |
 |---|---|
@@ -65,16 +43,9 @@ These versions were verified on 2026-08-24:
 | Elasticsearch Python client / server | 7.17.13 / 7.10.2 |
 | TeX toolchain | TeX Live 2026, latexmk 4.88, Biber 2.21, pdfLaTeX |
 
-Use [main_methodology/requirements.txt](main_methodology/requirements.txt) for
-installation. The files `requirements_thesis.txt` and
-`environment_thesis.yml` are exact workstation snapshots, while the root
-`environment.yml` and `t.txt` are legacy records and are not installation
-sources.
+Install from [main_methodology/requirements.txt](main_methodology/requirements.txt).
 
 ## 3. Installation
-
-Run all Python commands below from `Thesis_Research/main_methodology/`.
-Neither the CPU path nor the virtual environment requires `sudo`.
 
 ### CPU/offline review
 
@@ -93,8 +64,7 @@ python scripts/analyze_tlsum_fixA_step_gate_final.py
 
 ### GPU environment
 
-Install the PyTorch wheel matching the host driver before the other
-requirements. The command used for the tested CUDA 12.8 environment is:
+For the tested CUDA 12.8 environment:
 
 ```bash
 python3.11 -m venv .venv
@@ -106,14 +76,10 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available(), tor
 hf auth login
 ```
 
-Use the corresponding PyTorch build instead of `cu128` on a machine with a
-different CUDA/driver combination.
-
 ### Open-domain retrieval
 
-The thesis uses Elasticsearch 7.10.2 with a `wiki` index built from
-`psgs_w100`, approximately 21 million non-overlapping 100-word Wikipedia
-passages. The index is external and is not stored in Git.
+The thesis uses Elasticsearch 7.10.2 with a `wiki` index built from the
+approximately 21M-passage `psgs_w100` corpus.
 
 ```bash
 curl -s http://localhost:9200/_cluster/health
@@ -125,63 +91,45 @@ export SEEK_ES_PORT=9200
 
 ## 4. Repository, inputs, and outputs
 
-### Repository map
+### Repository structure
 
-| Path | Purpose | Reads | Writes / status |
-|---|---|---|---|
-| [main_methodology/seek](main_methodology/seek) | Active answerer, pipeline, retriever, and verifier | Model, adapter, evaluation JSONL, optional ES | Returns predictions to the selected CLI |
-| [main_methodology/scripts](main_methodology/scripts) | Live runners, analysis, ablations, and plot producers | Evaluation data and `results/traces/` | `results/generated/`, `results/reproduced/`, and logs |
-| [main_methodology/configs](main_methodology/configs) | LLaMA-Factory decomposer configurations | Registered 12K training set and base model | LoRA adapter under the configured `output_dir` |
-| [main_methodology/datasets/evaluation](main_methodology/datasets/evaluation) | Four released 1,000-question evaluation manifests | Official dataset splits | Read-only input for full-corpus live runs |
-| [main_methodology/results/traces](main_methodology/results/traces) | Tracked canonical experiment artifacts | Historical GPU runs | Input to deterministic CPU reproduction |
-| `main_methodology/results/reproduced/` | Reviewer-generated reports and figures | Canonical traces/reports | Generated on demand; ignored by Git |
-| [Thesis](Thesis) | Current thesis LaTeX, PDF, revision diff, and 13 figures | `.tex`, bibliography, figures | `main.pdf`, `main_diff.pdf` |
-| [papers/seek](papers/seek) | Anonymous paper working draft | Paper LaTeX and bibliography | `iclr2027/main.pdf`; not a publication |
-| `deeprag_compare/`, `experiment/` | Earlier baseline and exploratory work | Their own historical assets | Provenance only; not imported by active SEEK |
+| Path | Purpose |
+|---|---|
+| [main_methodology/seek](main_methodology/seek) | SEEK pipeline, retriever, answerer, and verifier |
+| [main_methodology/scripts](main_methodology/scripts) | Experiment, analysis, and figure commands |
+| [main_methodology/configs](main_methodology/configs) | Decomposer training configuration |
+| [main_methodology/datasets/evaluation](main_methodology/datasets/evaluation) | Four 1,000-question evaluation files |
+| [main_methodology/results/traces](main_methodology/results/traces) | Bundled inputs for offline reproduction |
+| [Thesis](Thesis) | Thesis LaTeX, PDFs, and 13 figures |
+| [papers/seek](papers/seek) | Anonymous paper draft LaTeX and PDF |
+| `deeprag_compare/`, `experiment/` | Historical baseline and exploratory work |
 
 ### Four released evaluation sets
 
-These files were generated independently from the official dataset releases.
-They follow DeepRAG's deterministic first-1,000 convention: its pinned
-[`run.sh`](https://github.com/gxy-gxy/DeepRAG/blob/1665780b7b6317375d56e71c3ddc52d6f706c380/scripts/inference/run.sh)
-passes `--sample 1000` without `--shuffle`, and
-[`main.py`](https://github.com/gxy-gxy/DeepRAG/blob/1665780b7b6317375d56e71c3ddc52d6f706c380/src/main.py#L176-L183)
-therefore takes the source split's first 1,000 rows. They are SEEK release
-artifacts, not evaluation files distributed by DeepRAG, and contain exactly
-4,000 records in total.
+SEEK uses the first 1,000 rows without shuffling, matching
+[DeepRAG's selection rule](https://github.com/gxy-gxy/DeepRAG/blob/1665780b7b6317375d56e71c3ddc52d6f706c380/src/main.py#L176-L183).
+HotpotQA, 2Wiki, and MuSiQue use `dev`; PopQA uses `test`.
 
-| Dataset | Official split and selection | Released file | Rows |
-|---|---|---|---:|
-| [HotpotQA](https://github.com/hotpotqa/hotpot) | Distractor development split, first 1,000 | [hotpotqa.jsonl](main_methodology/datasets/evaluation/hotpotqa.jsonl) | 1,000 |
-| [2WikiMultihopQA](https://github.com/Alab-NII/2wikimultihop) | Development split, first 1,000 | [2wikimultihopqa.jsonl](main_methodology/datasets/evaluation/2wikimultihopqa.jsonl) | 1,000 |
-| [MuSiQue](https://github.com/StonyBrookNLP/musique) | Development split, first 1,000 | [musique.jsonl](main_methodology/datasets/evaluation/musique.jsonl) | 1,000 |
-| [PopQA](https://github.com/AlexTMallen/adaptive-retrieval#popqa) | Test split, first 1,000 | [popqa.jsonl](main_methodology/datasets/evaluation/popqa.jsonl) | 1,000 |
+| Dataset | File | Rows |
+|---|---|---:|
+| [HotpotQA](https://github.com/hotpotqa/hotpot) | [hotpotqa.jsonl](main_methodology/datasets/evaluation/hotpotqa.jsonl) | 1,000 |
+| [2WikiMultihopQA](https://github.com/Alab-NII/2wikimultihop) | [2wikimultihopqa.jsonl](main_methodology/datasets/evaluation/2wikimultihopqa.jsonl) | 1,000 |
+| [MuSiQue](https://github.com/StonyBrookNLP/musique) | [musique.jsonl](main_methodology/datasets/evaluation/musique.jsonl) | 1,000 |
+| [PopQA](https://github.com/AlexTMallen/adaptive-retrieval#popqa) | [popqa.jsonl](main_methodology/datasets/evaluation/popqa.jsonl) | 1,000 |
 
-Each compact row has this schema:
+Rows contain `qid`, `question`, `answer`, and `answer_id`. They are direct
+inputs for `--corpus wiki`; `--corpus paragraphs` requires paragraph-bearing
+JSONL instead.
 
-```json
-{
-  "qid": "question identifier",
-  "question": "question text",
-  "answer": "one answer or a list of accepted aliases",
-  "answer_id": null
-}
-```
-
-The tracked manifests are sufficient for `--corpus wiki` live runs because
-retrieval comes from Elasticsearch. For `--corpus paragraphs`, add a
-`paragraphs` array whose entries contain `title` and `paragraph_text`.
-The live runners accept both `qid` and `id`, and both scalar and list-valued
-`answer`.
-
-Verify all four released files from `main_methodology/`:
+Verify from `main_methodology/`:
 
 ```bash
 (cd datasets/evaluation && sha256sum -c SHA256SUMS)
 wc -l datasets/evaluation/*.jsonl
 ```
 
-To reconstruct the same four manifests from official local source files:
+<details>
+<summary><strong>Rebuild the four manifests from official downloads</strong></summary>
 
 ```bash
 python scripts/prepare_eval_subsets.py \
@@ -193,53 +141,40 @@ python scripts/prepare_eval_subsets.py \
   --force
 ```
 
-### Other inputs and output locations
+</details>
 
-| Asset or output | Location/form | Availability |
+### Runtime assets and outputs
+
+| Item | Location | Use |
 |---|---|---|
-| Base model | `meta-llama/Meta-Llama-3-8B-Instruct` or local equivalent | External gated model |
-| Final SEEK decomposer | PEFT directory with adapter config and safetensors | External to Git; can be trained with E13 |
-| 12K decomposer training set | 4K MuSiQue + 4K 2Wiki + 4K PopQA | External to Git |
-| Full paragraph-rich/raw dataset copies | `datasets/{dataset}/raw/` | External to Git; used by E8, E9, and E12 |
-| Wikipedia retrieval index | Elasticsearch `wiki` over `psgs_w100` | External to Git |
-| Canonical offline artifacts | `results/traces/`: 4 final, 4 confidence, 8 step, 2 synthesis, 6 coverage files | Included |
-| Offline reports and plots | `results/reproduced/` | Generated, ignored by Git |
-| New GPU traces | `results/generated/` | Generated, ignored by Git |
-| Run logs | `logs/script_runs/` | Generated, ignored by Git |
-| Thesis figures and PDFs | `../Thesis/figures/`, `../Thesis/main*.pdf` | Source assets and release PDFs included |
-| Paper draft PDF | `../papers/seek/iclr2027/main.pdf` | Included working draft |
+| Base model | `meta-llama/Meta-Llama-3-8B-Instruct` | External; live inference and training |
+| SEEK adapter | PEFT adapter directory | External; live inference or produced by E13 |
+| 12K training set | 4K MuSiQue + 4K 2Wiki + 4K PopQA | External; E13 |
+| Raw/paragraph data | `datasets/{dataset}/raw/` | External; E8, E9, E12 |
+| Wikipedia index | Elasticsearch `wiki` | External; open-domain retrieval |
+| Bundled traces | `results/traces/` | Included; E1–E7 inputs |
+| Generated results | `results/reproduced/`, `results/generated/` | Reports, figures, and new traces |
+| PDFs | `../Thesis/main*.pdf`, `../papers/seek/iclr2027/main.pdf` | Thesis and paper draft outputs |
 
 ## 5. Thesis experiments and figures
 
-Baselines copied from earlier papers are intentionally excluded. Status labels
-used below are:
+Baselines from earlier papers are excluded. E1–E7 run on CPU from the bundled
+`results/traces/`; E8–E14 list their additional requirements.
 
-- **verified clone** — runs on CPU from tracked artifacts;
-- **external assets** — the exact producer is present, but a model, raw data,
-  adapter, or ES index is external;
-- **historical only** — a fresh producer exists, but the exact row-level
-  historical inputs or final aggregation behind the thesis table are absent;
-- **manual source gap** — the rendered asset exists but no generator/editable
-  original was recovered.
+The **41.88 EM / 48.90 F1** result is a fixed-chain replay. E14 is live
+sequential inference, so a fresh E14 run is not expected to be bit-identical.
 
-The reported **41.88 EM / 48.90 F1** is a controlled fixed-chain replay:
-thresholds select between stored no-retrieval and retrieved step answers, and
-the selected chains use stored base-model synthesis. Later resolved
-sub-questions remain fixed. E14 is the active sequential live implementation;
-because an earlier answer can change a later query, a fresh E14 run is not
-claimed to reproduce the fixed-chain number bit-for-bit.
+### E1–E7: offline reproduction
 
-### E1-E7: experiments reproducible after a normal clone
-
-| ID | Thesis content | Input | Output | Status |
-|---|---|---|---|---|
-| E1 | Ch. 4 SEEK main row; Ch. 5 retrieval necessity and threshold sensitivity | 18 canonical final/confidence/step/synthesis traces | `tlsum_fixA_step_gate_final.{md,json}` | verified clone |
-| E2 | Ch. 5 skipped-retrieval safety | E1 artifacts | Markdown, JSON, and case JSONL | verified clone |
-| E3 | Appendix decomposition failure taxonomy | E1 artifacts and six coverage traces | `decomp_failure_taxonomy_tau0p002305.{md,json}` | verified clone |
-| E4 | Ch. 5 representative confidence-signal AUROC battery | Four confidence traces | `confidence_battery_analysis.md` | verified clone |
-| E5 | Ch. 5 entropy components and selective accuracy; Appendix confidently-wrong categories | Four confidence traces | `tlsum_confidence_story.md` | verified clone |
-| E6 | Ch. 5 summed-vs-weakest-token result and paired bootstrap | Four confidence traces | `tail_leakage_variants.md` | verified clone |
-| E7 | Ch. 5 path choice/overlap, routing/oracle; Appendix confidence quadrants | Accuracy-first replay artifacts | Three reports and three PNGs | verified clone |
+| ID | Thesis content | Output |
+|---|---|---|
+| E1 | Ch. 4 main row; Ch. 5 retrieval necessity and threshold sweep | `tlsum_fixA_step_gate_final.{md,json}` |
+| E2 | Ch. 5 skipped-retrieval safety | Markdown, JSON, and case JSONL |
+| E3 | Appendix failure taxonomy | `decomp_failure_taxonomy_tau0p002305.{md,json}` |
+| E4 | Ch. 5 confidence-signal AUROC | `confidence_battery_analysis.md` |
+| E5 | Ch. 5 entropy/selective accuracy; Appendix confidently-wrong cases | `tlsum_confidence_story.md` |
+| E6 | Ch. 5 Tail Leakage variants and bootstrap | `tail_leakage_variants.md` |
+| E7 | Ch. 5 routing/oracle and Appendix confidence quadrants | Three reports and three PNGs |
 
 ```bash
 # E1
@@ -266,9 +201,7 @@ python scripts/make_routing_gap_fig.py
 python scripts/analyze_quadrant_confidence.py
 ```
 
-All outputs go to `results/reproduced/`. For E1, use the
-`tau=0.002305` row in the threshold table; the report also retains the older
-`tau=0.008461` source-chain operating point for provenance.
+Outputs go to `results/reproduced/`. E1 at `tau=0.002305` gives:
 
 ```text
 HotpotQA  37.80 EM / 49.03 F1
@@ -279,17 +212,17 @@ Macro     41.88 EM / 48.90 F1
 Pooled step retrieval rate: 93.84%
 ```
 
-### E8-E14: experiments requiring external assets or historical provenance
+### E8–E14: external runs
 
-| ID | Thesis content | Status |
+| ID | Thesis content | Needs |
 |---|---|---|
-| E8 | Four-dataset answer-containing Hit@5 | external raw inputs + ES; figure alone is verified from clone |
-| E9 | MuSiQue original/SEEK/gold/base decomposition recall | external base model + raw input + ES |
-| E10 | Title-off/title-on/path-aware comparison | external assets; final aggregation is historical |
-| E11 | Maximum token entropy versus Tail Leakage | historical maximum-entropy row; fresh producer included |
-| E12 | Repeated-sampling confidence errors | external assets; final appendix aggregation is historical |
-| E13 | 12K decomposer training | external training data + base model |
-| E14 | Live final SEEK system | external base model + adapter + ES |
+| E8 | Answer-containing Hit@5 | Raw inputs + ES; the figure alone uses a bundled report |
+| E9 | MuSiQue decomposition recall | Base model + raw input + ES |
+| E10 | Title-policy comparison | Base model + adapter + ES |
+| E11 | Maximum entropy vs. Tail Leakage | Historical max-entropy traces are not bundled |
+| E12 | Repeated-sampling errors | Base model + adapter + paragraph data |
+| E13 | Decomposer training | Base model + 12K training set |
+| E14 | Live SEEK | Base model + adapter + ES |
 
 <details>
 <summary><strong>Show exact E8-E14 commands, inputs, and outputs</strong></summary>
@@ -302,12 +235,8 @@ export SEEK_ADAPTER=/absolute/path/to/seek-lora-adapter
 mkdir -p results/generated
 ```
 
-**E8 — four-dataset answer-containing Hit@5.** This recomputation reads the
-four normalized files under `datasets/{dataset}/raw/`, the tracked final
-traces, and the external ES `wiki` index. It writes the report and plot under
-`results/reproduced/`. The compact released manifests document the exact
-question set, but the current E8 loader still uses the normalized raw copies.
-Status: **external assets**.
+**E8 — answer-containing Hit@5.** Uses normalized raw files, bundled traces,
+and ES; writes the report and plot to `results/reproduced/`.
 
 ```bash
 python scripts/recompute_answer_containing_recall_4ds.py \
@@ -320,7 +249,7 @@ python scripts/make_answer_hit_fig.py \
   --out results/reproduced/fig_answer_hit_retrieval.png
 ```
 
-The figure alone can be rebuilt without ES from the tracked canonical report:
+The figure alone can use the bundled report:
 
 ```bash
 python scripts/make_answer_hit_fig.py \
@@ -328,10 +257,8 @@ python scripts/make_answer_hit_fig.py \
   --out results/reproduced/fig_answer_hit_retrieval.png
 ```
 
-**E9 — MuSiQue original/SEEK/gold/base decomposition recall.** Inputs are the
-normalized MuSiQue development slice, base model, tracked SEEK trace, and ES
-`wiki`. Outputs are a base-decomposition JSONL, row-level detail JSONL, and
-the printed recall table. Status: **external assets**.
+**E9 — MuSiQue decomposition recall.** Produces a base-decomposition JSONL,
+detail JSONL, and recall table.
 
 ```bash
 python scripts/decompose_base_musique.py \
@@ -348,11 +275,8 @@ python scripts/recall_gold_decomp_musique.py \
   --corpus wiki
 ```
 
-**E10 — title-off/title-on/path-aware comparison.** The launcher reads the
-base model, adapter, tracked source traces, and ES `wiki`; it writes per-arm
-JSONL and logs under `results/generated/title_policy/`. The exact thesis
-table aggregation is historical and is not labelled a clean-clone
-reproduction. Status: **external assets + historical aggregation**.
+**E10 — title-policy comparison.** Writes per-arm traces under
+`results/generated/title_policy/`; the thesis table aggregation is historical.
 
 ```bash
 bash scripts/run_tlsum_title_ablation_tau002305.sh off 0
@@ -360,12 +284,9 @@ bash scripts/run_tlsum_title_ablation_tau002305.sh global 0
 bash scripts/run_tlsum_title_ablation_tau002305.sh pathaware 0
 ```
 
-**E11 — maximum token entropy versus Tail Leakage.** The Tail Leakage row is
-E1. The following exact command produces a fresh maximum-entropy live arm for
-all four released datasets. The row-level historical maximum-entropy traces
-used by the thesis are not bundled, so this is a new run rather than a
-bit-for-bit reconstruction of that row. Status: **historical only for the
-thesis maximum-entropy row**.
+**E11 — maximum entropy vs. Tail Leakage.** E1 supplies the Tail Leakage row;
+this command creates a new max-entropy run because the historical traces are
+not bundled.
 
 ```bash
 for DATASET in hotpotqa 2wikimultihopqa musique popqa; do
@@ -389,11 +310,8 @@ for DATASET in hotpotqa 2wikimultihopqa musique popqa; do
 done
 ```
 
-**E12 — repeated-sampling confidence errors.** This probe reads the model,
-adapter, and paragraph-rich normalized evaluation files and writes 15 samples
-per question under `results/generated/multisample/`. The appendix's final
-identical-answer/zero-mean-entropy aggregation has no dedicated current writer.
-Status: **external assets + historical aggregation**.
+**E12 — repeated-sampling errors.** Writes 15 samples per question; the final
+appendix aggregation is historical.
 
 ```bash
 bash scripts/run_m2b_multisample.sh \
@@ -404,12 +322,8 @@ bash scripts/run_m2b_multisample.sh \
   popqa:datasets/popqa/raw/dev.jsonl
 ```
 
-**E13 — decomposer training.** Register the external
-`musique_decomp`, `twowiki_decomp`, and `popqa_decomp` datasets in
-LLaMA-Factory's `data/dataset_info.json`. The config reads those 12,000
-examples and the base model, and writes the LoRA adapter to
-`saves/seek/llama3-8b-decomposer-musique-2wiki-popqa`. Status:
-**external assets**.
+**E13 — decomposer training.** Register `musique_decomp`, `twowiki_decomp`,
+and `popqa_decomp` in LLaMA-Factory's `data/dataset_info.json`.
 
 ```bash
 cd ../..
@@ -422,11 +336,7 @@ llamafactory-cli train \
 cd ../Thesis_Research/main_methodology
 ```
 
-**E14 — live final SEEK system.** This is the active sequential producer. It
-reads the base model, adapter, released 1,000-question manifest, and ES
-`wiki`, then writes one prediction trace per dataset. Use
-`--corpus paragraphs` only with paragraph-rich JSONL. Status:
-**external assets**.
+**E14 — live SEEK.** Writes one prediction trace per dataset.
 
 ```bash
 for DATASET in hotpotqa 2wikimultihopqa musique popqa; do
@@ -456,25 +366,24 @@ done
 
 ### All 13 thesis figures
 
-| Figure | Producer or editable source | Status |
-|---|---|---|
-| `Thesis_Overview.pdf` | Preserve the tracked PDF; no producer was found | manual source gap |
-| `prompt_Decomposer.pdf` | `../Thesis/figure_sources/prompt_Decomposer.drawio` | editable diagrams.net source recovered |
-| `prompt_Answer.pdf` | `../Thesis/figure_sources/prompt_Answer.drawio` | editable diagrams.net source recovered |
-| `fig_renyi_reweight_auroc.pdf` | `../Thesis/make_ch3_signal_figs.py` | script-rebuildable from documented constants |
-| `fig_same_entropy_risk.pdf` | Same Chapter 3 producer | script-rebuildable illustrative figure |
-| `fig_leakage_monotonicity.pdf` | Same Chapter 3 producer | script-rebuildable illustrative figure |
-| `fig_tail_leakage_error_bins.pdf` | Same Chapter 3 producer | script-rebuildable from documented values |
-| `fig_answer_hit_retrieval.png` | `make_answer_hit_fig.py` and the tracked report, or E8 | plot verified from clone; metric recomputation needs ES |
-| `fig_3way_ablation.png` | E1, then `make_3way_fig.py` | verified clone |
-| `fig_threshold_tradeoff.png` | E1, then `make_threshold_tradeoff_fig.py` | verified clone |
-| `fig_direct_decompose_2x2_counts.png` | `make_direct_decompose_2x2_fig.py` | verified clone |
-| `fig_routing_gap_oracle.png` | `make_routing_gap_fig.py` | verified clone |
-| `fig_quadrant_confidence.png` | `analyze_quadrant_confidence.py` | verified clone |
+| Figure | Producer or editable source |
+|---|---|
+| `Thesis_Overview.pdf` | Tracked PDF; editable source unavailable |
+| `prompt_Decomposer.pdf` | `../Thesis/figure_sources/prompt_Decomposer.drawio` |
+| `prompt_Answer.pdf` | `../Thesis/figure_sources/prompt_Answer.drawio` |
+| `fig_renyi_reweight_auroc.pdf` | `../Thesis/make_ch3_signal_figs.py` |
+| `fig_same_entropy_risk.pdf` | `../Thesis/make_ch3_signal_figs.py` |
+| `fig_leakage_monotonicity.pdf` | `../Thesis/make_ch3_signal_figs.py` |
+| `fig_tail_leakage_error_bins.pdf` | `../Thesis/make_ch3_signal_figs.py` |
+| `fig_answer_hit_retrieval.png` | `make_answer_hit_fig.py` |
+| `fig_3way_ablation.png` | E1 + `make_3way_fig.py` |
+| `fig_threshold_tradeoff.png` | E1 + `make_threshold_tradeoff_fig.py` |
+| `fig_direct_decompose_2x2_counts.png` | `make_direct_decompose_2x2_fig.py` |
+| `fig_routing_gap_oracle.png` | `make_routing_gap_fig.py` |
+| `fig_quadrant_confidence.png` | `analyze_quadrant_confidence.py` |
 
-The four Chapter 3 files are written directly into `Thesis/figures/`.
-The other plotters normally write to `results/reproduced/`; the explicit
-`--out` paths below update the LaTeX assets.
+Plotters default to `results/reproduced/`; the commands below write the files
+used by LaTeX.
 
 <details>
 <summary><strong>Show exact commands to regenerate the script-built figures</strong></summary>
@@ -501,14 +410,10 @@ python scripts/analyze_quadrant_confidence.py \
 
 </details>
 
-The two Draw.io files are manual editable sources and are exported with
-diagrams.net. The four Chapter 3 figures contain documented illustrative or
-reported constants; rebuilding them verifies the source-to-figure path, not a
-new raw-data experiment.
+The prompt diagrams are exported with diagrams.net. Chapter 3 figure values
+are stored in `make_ch3_signal_figs.py`.
 
 ### Thesis and paper builds
-
-The thesis uses pdfLaTeX:
 
 ```bash
 (cd ../Thesis && \
@@ -516,30 +421,19 @@ The thesis uses pdfLaTeX:
   latexmk -pdf -interaction=nonstopmode -halt-on-error main_diff.tex)
 ```
 
-Both current thesis PDFs have 63 pages and all 13 referenced figure files are
-included. `main_diff.tex` is buildable, although the exact historical source
-used by the original latexdiff run is no longer available.
-
-Build the anonymous paper draft separately:
+The two thesis PDFs have 63 pages. Build the paper draft with:
 
 ```bash
 (cd ../papers/seek/iclr2027 && \
   latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex)
 ```
 
-The current paper output has 13 pages. It remains a working draft, not evidence
-of submission or publication.
+The paper draft has 13 pages and is not published.
 
-### Known external and provenance limits
+### Limits
 
 - Gated Llama weights, the final adapter, 12K training data, and the 21M
   Wikipedia index are not in Git.
-- E8, E9, and E12 require normalized or paragraph-rich raw inputs in addition
-  to the released compact evaluation manifests.
-- E10's final table aggregation, E11's historical maximum-entropy row, and
-  E12's final appendix aggregation cannot be reproduced bit-for-bit from the
-  minimal clone; their available producers and limits are stated above.
-- `Thesis_Overview.pdf` has no recovered editable source. The two prompt
-  diagrams do have recovered Draw.io sources.
-- Newly generated traces, reports, figures, and logs are ignored by Git unless
-  deliberately promoted as release artifacts.
+- E8, E9, and E12 need additional raw data. Historical aggregation artifacts
+  for E10–E12 are not bundled.
+- `Thesis_Overview.pdf` has no editable source; the prompt diagrams do.
