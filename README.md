@@ -139,13 +139,6 @@ export SEEK_ES_PORT=9200
 | [papers/seek](papers/seek) | Anonymous paper working draft | Paper LaTeX and bibliography | `iclr2027/main.pdf`; not a publication |
 | `deeprag_compare/`, `experiment/` | Earlier baseline and exploratory work | Their own historical assets | Provenance only; not imported by active SEEK |
 
-Optional detailed indexes remain in
-[main_methodology/DATASETS.md](main_methodology/DATASETS.md),
-[main_methodology/scripts/README.md](main_methodology/scripts/README.md),
-[main_methodology/results/README.md](main_methodology/results/README.md), and
-[Thesis/figure_sources/README.md](Thesis/figure_sources/README.md). All
-commands needed for code review are already included in this root README.
-
 ### Four released evaluation sets
 
 These files were generated independently from the official dataset releases.
