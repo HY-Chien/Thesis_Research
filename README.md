@@ -47,26 +47,14 @@ Install from [main_methodology/requirements.txt](main_methodology/requirements.t
 
 ## 3. Installation
 
-### CPU/offline review
+### Python and GPU environment
+
+For the tested CUDA 12.8 environment:
 
 ```bash
 git clone https://github.com/HY-Chien/Thesis_Research.git
 cd Thesis_Research/main_methodology
 
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-
-python scripts/run_seek_dual.py --help
-python scripts/analyze_tlsum_fixA_step_gate_final.py
-```
-
-### GPU environment
-
-For the tested CUDA 12.8 environment:
-
-```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
