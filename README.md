@@ -5,11 +5,6 @@ generation. It decomposes a question into dependent sub-questions, uses
 **Tail Leakage** to decide which steps need retrieval, and conservatively
 selects between a direct answer and the decomposition-path answer.
 
-This repository contains the active code, four 1,000-question evaluation
-manifests, a canonical trace bundle for CPU-only analysis, the complete thesis
-LaTeX project and PDF, and an anonymous ICLR 2027 working draft. The paper is a
-**draft only**: it has not been submitted or published.
-
 ## 1. Hardware environment
 
 | Component | Author workstation |
