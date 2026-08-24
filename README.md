@@ -1,4 +1,4 @@
-# SEEK: Tail-Leakage-Guided Adaptive Retrieval
+# SEEK: Self-certainty Evaluated Evidence-gated Knowledge-retrieval
 
 SEEK is the research code for a thesis on adaptive retrieval-augmented
 generation. It decomposes a question into dependent sub-questions, uses
