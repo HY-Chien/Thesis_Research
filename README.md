@@ -146,7 +146,9 @@ Set `SEEK_ES_HOST` and `SEEK_ES_PORT`, or pass `--es-host` and
 | Training data | generated JSON/JSONL registered with LLaMA-Factory | decomposer training |
 | Wikipedia retrieval | Elasticsearch `wiki` index | open-domain runs |
 
-Generated artifacts are intentionally ignored by Git:
+Output locations are listed below. New run outputs under `results/generated/`,
+`results/reproduced/`, and `logs/` are ignored by Git. The canonical trace
+bundle and release figures/PDFs are intentionally tracked exceptions.
 
 | Output path | Contents |
 |---|---|
@@ -300,7 +302,8 @@ The normal clone deliberately excludes:
 - the final SEEK LoRA adapter;
 - raw evaluation and training datasets;
 - the full Wikipedia Elasticsearch data directory;
-- generated traces, logs, caches, and checkpoints;
+- newly generated traces and run logs, caches, full checkpoint weights, and
+  intermediate optimizer state;
 - unfinished Qwen cross-backbone sweep scripts/results.
 
 Those exclusions do not affect the verified clone/offline commands above.
