@@ -10,6 +10,12 @@ experiment/cache/
 *.json
 *.jsonl
 
+# Compact, canonical 1,000-question evaluation inputs released with SEEK.
+!main_methodology/datasets/evaluation/hotpotqa.jsonl
+!main_methodology/datasets/evaluation/2wikimultihopqa.jsonl
+!main_methodology/datasets/evaluation/musique.jsonl
+!main_methodology/datasets/evaluation/popqa.jsonl
+
 # Minimal SEEK artifact bundle used by the documented offline reproduction.
 # All other JSON/JSONL datasets, traces, and generated outputs remain ignored.
 !main_methodology/results/traces/hotpotqa/hotpotqa_1000_verify_v2_pathaware_directctx_typeaware_replay.jsonl

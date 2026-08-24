@@ -10,6 +10,7 @@ full open-domain BM25. Use OpenDomainBM25 for a retrieval-equivalent comparison.
 """
 from __future__ import annotations
 
+import os
 import re
 from typing import Iterable
 
@@ -62,7 +63,7 @@ class OpenDomainBM25:
     index). Constructed once and shared across all questions."""
 
     def __init__(self, corpus_name: str = "wiki",
-                 host: str = "localhost", port: int = 9200,
+                 host: str | None = None, port: int | None = None,
                  query_title_field_too: bool = True):
         try:
             from elasticsearch import Elasticsearch
@@ -71,6 +72,10 @@ class OpenDomainBM25:
                 "Open-domain retrieval requires the 'elasticsearch' package. "
                 "Install the project dependencies before using an ES corpus."
             ) from exc
+        if host is None:
+            host = os.environ.get("SEEK_ES_HOST", "localhost")
+        if port is None:
+            port = int(os.environ.get("SEEK_ES_PORT", "9200"))
         self._es = Elasticsearch([f"http://{host}:{port}"], request_timeout=30)
         self.corpus_name = corpus_name
         # Match the `title` field as well as `paragraph_text`. Titles are highly

@@ -40,6 +40,10 @@ from seek.verifier import choose_answer, exact_match, token_f1  # noqa: E402
 DIRECT_TL_TAU = 0.0005
 POST_TL_TAU = 0.0158
 TYPEAWARE_MARGIN = 2.5
+ACCURACY_FIRST_TAU = 0.002305
+ACCURACY_FIRST_POLICY = "tau_0.002305"
+SOURCE_CHAIN_TAU = 0.008461
+SOURCE_CHAIN_POLICY = "deployed"
 
 
 def load_fix_rows(ds: str) -> dict[str, dict]:
@@ -249,8 +253,9 @@ def build_report(results: dict[str, dict[str, dict]], mismatches: dict[str, int]
         "Llama-3-8B synthesis prompt as the deployed run.",
         "",
         "**Fixed-chain definition.** Later `sub_q` strings are the already-resolved strings in the "
-        "deployed tau=0.008461 trace. If an earlier answer changes under another threshold, later "
-        "queries are not regenerated or re-resolved. Scores away from the deployed threshold are "
+        f"source-chain tau={SOURCE_CHAIN_TAU:.6f} trace. If an earlier answer changes under "
+        "another threshold, later queries are not regenerated or re-resolved. Scores away from "
+        "the source-chain threshold are "
         "therefore controlled fixed-chain replays, not live end-to-end reruns.",
         "",
         "Downstream routing is the adopted all-Tail-Leakage verifier: direct tau=0.0005 and "
@@ -261,39 +266,44 @@ def build_report(results: dict[str, dict[str, dict]], mismatches: dict[str, int]
         "",
     ]
     for ds in DATASETS:
-        lines.append(f"- {ds}: deployed synthesis mismatches = {mismatches[ds]} / 1000")
+        lines.append(f"- {ds}: source-chain synthesis mismatches = {mismatches[ds]} / 1000")
 
     lines.extend([
         "",
-        "## Never / deployed / always",
+        "## Never / accuracy-first / always",
         "",
         "Each cell is final-system EM/F1/step-retrieval-rate.",
         "",
-        "| Dataset | Never | Source-chain tau=0.008461 | Always | Gate EM - Never EM |",
+        f"| Dataset | Never | Accuracy-first tau={ACCURACY_FIRST_TAU:.6f} | Always | Accuracy-first EM - Never EM |",
         "|---|---:|---:|---:|---:|",
     ])
     for ds in DATASETS:
         never = results[ds]["never"]
-        deployed = results[ds]["deployed"]
+        accuracy_first = results[ds][ACCURACY_FIRST_POLICY]
         always = results[ds]["always"]
         lines.append(
-            f"| {ds} | {format_cell(never)} | {format_cell(deployed)} | "
-            f"{format_cell(always)} | {deployed['em'] - never['em']:+.2f} |"
+            f"| {ds} | {format_cell(never)} | {format_cell(accuracy_first)} | "
+            f"{format_cell(always)} | {accuracy_first['em'] - never['em']:+.2f} |"
         )
 
     macro_threeway = {}
-    for policy in ("never", "deployed", "always"):
+    threeway_policies = {
+        "never": "never",
+        "accuracy_first": ACCURACY_FIRST_POLICY,
+        "always": "always",
+    }
+    for label, policy in threeway_policies.items():
         policy_rows = [results[ds][policy] for ds in DATASETS]
-        macro_threeway[policy] = {
+        macro_threeway[label] = {
             "em": float(np.mean([row["em"] for row in policy_rows])),
             "f1": float(np.mean([row["f1"] for row in policy_rows])),
             "retrieval_rate": float(np.mean([row["retrieval_rate"] for row in policy_rows])),
         }
     lines.append(
         f"| Macro | {format_cell(macro_threeway['never'])} | "
-        f"{format_cell(macro_threeway['deployed'])} | "
+        f"{format_cell(macro_threeway['accuracy_first'])} | "
         f"{format_cell(macro_threeway['always'])} | "
-        f"{macro_threeway['deployed']['em'] - macro_threeway['never']['em']:+.2f} |"
+        f"{macro_threeway['accuracy_first']['em'] - macro_threeway['never']['em']:+.2f} |"
     )
 
     lines.extend([
@@ -381,13 +391,22 @@ def main() -> None:
             "replay": "fixed-chain",
             "step_gate_signal": "tl_sum",
             "step_gate_rule": "retrieve iff tl_sum >= tau",
-            "deployed_step_tau": 0.008461,
+            "headline_policy": ACCURACY_FIRST_POLICY,
+            "accuracy_first_step_tau": ACCURACY_FIRST_TAU,
+            "source_chain_policy": SOURCE_CHAIN_POLICY,
+            "source_chain_step_tau": SOURCE_CHAIN_TAU,
+            "deployed_step_tau": SOURCE_CHAIN_TAU,
+            "deployed_step_tau_note": (
+                "Backward-compatible name for source_chain_step_tau; "
+                "the headline accuracy-first operating point is 0.002305."
+            ),
             "direct_verifier_signal": "tl_sum",
             "direct_verifier_tau": DIRECT_TL_TAU,
             "post_verifier_signal": "post_tl_sum",
             "post_verifier_tau": POST_TL_TAU,
             "entropy_operational": False,
         },
+        "source_chain_synthesis_mismatches": mismatches,
         "deployed_synthesis_mismatches": mismatches,
         "results": results,
     }

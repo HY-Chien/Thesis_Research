@@ -21,6 +21,7 @@ from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from seek.eval_data import normalize_eval_row  # noqa: E402
 from seek.pipeline import run_seek  # noqa: E402
 from seek.retriever import PerQuestionBM25, format_context  # noqa: E402
 from seek.verifier import choose_answer, exact_match, token_f1  # noqa: E402
@@ -165,7 +166,11 @@ def main() -> None:
     model = PeftModel.from_pretrained(base, args.adapter)
     model.eval()
 
-    rows = [json.loads(line) for line in open(args.dev, encoding="utf-8") if line.strip()]
+    rows = [
+        normalize_eval_row(json.loads(line))
+        for line in open(args.dev, encoding="utf-8")
+        if line.strip()
+    ]
     if args.limit:
         rows = rows[:args.limit]
 
@@ -272,6 +277,7 @@ def main() -> None:
                 "id": row.get("id"),
                 "question": row["question"],
                 "gold": row["answer"],
+                "gold_aliases": row.get("answer_aliases") or [],
                 "signal": args.signal,
                 "tau": args.tau,
                 "targ_prefix_k": args.targ_prefix_k,

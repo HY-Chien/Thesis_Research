@@ -112,6 +112,10 @@ decomposer 只預測有順序的子問題，不預測各步答案。子答案是
 統一使用 `top_k=8`；這與只在資料集提供的 distractor paragraphs 中選取證據是
 不同 protocol，兩者結果不可混用。
 
+Git 已包含這 4,000 題的 compact question/gold manifests，位置是
+`datasets/evaluation/`；可用 `scripts/prepare_eval_subsets.py` 從官方來源重新建立。
+含 paragraphs 的 prepared dev files 及完整上游資料集仍屬外部資產。
+
 推論時，SEEK 先產生子問題及暫定答案，再從 next-token distribution 計算
 **Tail Leakage**。當 Tail Leakage 達到閾值時才為該步檢索，最後合成分解路徑答案，
 並在 direct 與 decomposition 路徑之間選擇輸出。

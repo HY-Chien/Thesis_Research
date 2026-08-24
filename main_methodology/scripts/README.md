@@ -9,6 +9,7 @@
 |---|---|
 | Live dual-path SEEK | `run_seek_dual.py`（`--signal tail_leakage`） |
 | 單一路徑 / gate 診斷 | `run_seek.py` |
+| 重建四份 1,000 題 evaluation manifests | `prepare_eval_subsets.py` |
 | 產生 Tail Leakage 雙分支 trace | `rerun_tlsum_fixA.py` |
 | 固定鏈重新 synthesis | `replay_tlsum_fixA_step_gate_synthesis.py` |
 | 重現 41.88 EM / 48.90 F1 | `analyze_tlsum_fixA_step_gate_final.py` |

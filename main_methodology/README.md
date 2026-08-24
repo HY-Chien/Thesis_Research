@@ -1,5 +1,8 @@
 # SEEK Reproduction Guide
 
+The repository-root `README.md` is the sole entry point for code review and
+reproduction; this file contains implementation details for `main_methodology/`.
+
 SEEK is a dual-path adaptive retrieval system for knowledge-intensive question
 answering. It keeps both a direct answer and a decomposed reasoning path,
 retrieves evidence only for uncertain sub-questions, and uses a deterministic

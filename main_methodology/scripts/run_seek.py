@@ -25,6 +25,7 @@ from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from seek.eval_data import normalize_eval_row  # noqa: E402
 from seek.pipeline import run_seek  # noqa: E402
 
 BASE = os.environ.get(
@@ -131,7 +132,7 @@ def main() -> None:
     model.eval()
 
     rows = [
-        json.loads(line)
+        normalize_eval_row(json.loads(line))
         for line in open(args.dev, encoding="utf-8")
         if line.strip()
     ]
@@ -178,6 +179,7 @@ def main() -> None:
                 "id": r.get("id"),
                 "question": r["question"],
                 "gold": r["answer"],
+                "gold_aliases": r.get("answer_aliases") or [],
                 "pred": trace.final_answer,
                 "signal": args.signal,
                 "tau": args.tau,
