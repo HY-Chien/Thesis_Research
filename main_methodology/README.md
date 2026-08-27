@@ -28,7 +28,7 @@ alias for old experiment scripts.
 | Reproduce the reported 41.88 EM / 48.90 F1 | Yes | Bundled canonical artifacts; CPU only |
 | Re-run fixed-chain synthesis | No | Llama-3-8B-Instruct and a CUDA GPU |
 | Run SEEK live on a JSONL dataset | No | Base model, LoRA adapter, dataset, and optionally an ES index |
-| Train the decomposer | No | Training data and the pinned LLaMA-Factory checkout |
+| Train the decomposer | No | Public HF 12K set, gated base model, pinned LLaMA-Factory, and a CUDA GPU |
 
 Large raw datasets, the base model, the LoRA weights, and the 21M-passage
 Wikipedia index are deliberately not committed to Git. The approximately
@@ -332,10 +332,68 @@ python scripts/analyze_tlsum_fixA_step_gate_final.py \
     results/generated/tlsum_fixA_step_gate_synth_shard1.jsonl
 ```
 
-## 5. Dataset preparation and decomposer training
+## 5. Dataset download and decomposer training
 
-The raw datasets and generated SFT files are excluded from Git. The preparation
-scripts always write relative to this checkout:
+The exact training set is public at
+[`Chien1011/SEEK-decomposer-12k`](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k).
+It contains three configs with 4,000 examples each: `musique`, `twowiki`, and
+`popqa`.
+
+### 5.1 Download and verify
+
+```bash
+SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
+hf download Chien1011/SEEK-decomposer-12k \
+  --repo-type dataset \
+  --revision 3dcb5c057a82b6610b7b303855e273bb93f9bab7 \
+  --local-dir "$SEEK_DATA_DIR"
+(cd "$SEEK_DATA_DIR" && sha256sum -c SHA256SUMS)
+```
+
+### 5.2 Train with the pinned LLaMA-Factory checkout
+
+```bash
+git clone https://github.com/hiyouga/LLaMA-Factory.git
+cd LLaMA-Factory
+git checkout 7e20db5735443861fad91766614b3415ff8966a4
+python -m pip install -e .
+
+SEEK_DATA_DIR="${SEEK_DATA_DIR:-/tmp/SEEK-decomposer-12k}"
+mkdir -p data/seek_decomposer_12k
+cp -R "$SEEK_DATA_DIR/data/." data/seek_decomposer_12k/
+```
+
+Merge these entries into `data/dataset_info.json`:
+
+```json
+{
+  "musique_decomp": {
+    "file_name": "seek_decomposer_12k/musique/train.json"
+  },
+  "twowiki_decomp": {
+    "file_name": "seek_decomposer_12k/twowiki/train.json"
+  },
+  "popqa_decomp": {
+    "file_name": "seek_decomposer_12k/popqa/train.json"
+  }
+}
+```
+
+Run from the LLaMA-Factory checkout:
+
+```bash
+llamafactory-cli train \
+  /path/to/Thesis_Research/main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml
+```
+
+The YAML uses a public Hugging Face model ID and a relative output directory.
+If the base model is already downloaded locally, replace `model_name_or_path`
+with that path.
+
+### 5.3 Optional: rebuild the training data from upstream sources
+
+The raw datasets and generated SFT files remain excluded from Git. The
+preparation scripts write relative to this checkout:
 
 ```bash
 python scripts/prepare_musique.py
@@ -345,32 +403,14 @@ python scripts/prepare_hotpotqa.py
 
 PopQA evaluation data follows the DeepRAG-aligned 1,000-question protocol and
 must be supplied to `scripts/prep_popqa.py --src ...`. After the held-out
-evaluation IDs exist, build the 4,000-example PopQA decomposer set with:
+evaluation IDs exist, rebuild its 4,000-example decomposer set with:
 
 ```bash
 python scripts/build_popqa_sft.py
 ```
 
-The final decomposer uses 12,000 examples: 4,000 each from MuSiQue,
-2WikiMultihopQA, and PopQA. See `DATASETS.md` for data construction details.
-
-Training uses the LLaMA-Factory revision recorded for the experiment:
-
-```bash
-git clone https://github.com/hiyouga/LLaMA-Factory.git
-cd LLaMA-Factory
-git checkout 7e20db5735443861fad91766614b3415ff8966a4
-python -m pip install -e .
-
-# Register the three generated datasets in LLaMA-Factory's data/dataset_info.json,
-# then run from the LLaMA-Factory checkout:
-llamafactory-cli train \
-  /path/to/Thesis_Research/main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml
-```
-
-The YAML uses a public Hugging Face model ID and a relative output directory.
-If the base model is already downloaded locally, replace
-`model_name_or_path` with that path.
+See `DATASETS.md` for construction details. Rebuilt upstream snapshots may
+differ; the pinned Hugging Face commit above is the canonical training release.
 
 ## 6. Active code and research artifacts
 

@@ -59,6 +59,25 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available(), tor
 hf auth login
 ```
 
+### Exact 12K decomposer training set
+
+The released training set is public at
+[`Chien1011/SEEK-decomposer-12k`](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k).
+Download the exact verified revision and check its hashes with:
+
+```bash
+SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
+hf download Chien1011/SEEK-decomposer-12k \
+  --repo-type dataset \
+  --revision 3dcb5c057a82b6610b7b303855e273bb93f9bab7 \
+  --local-dir "$SEEK_DATA_DIR"
+(cd "$SEEK_DATA_DIR" && sha256sum -c SHA256SUMS)
+```
+
+The three Hub configs are `musique`, `twowiki`, and `popqa`, with 4,000
+examples each. The dataset is public; Hugging Face login is still required for
+the gated Llama-3 base model.
+
 ### Open-domain retrieval
 
 The thesis uses Elasticsearch 7.10.2 with a `wiki` index built from the
@@ -132,7 +151,7 @@ python scripts/prepare_eval_subsets.py \
 |---|---|
 | Base model | `meta-llama/Meta-Llama-3-8B-Instruct` |
 | SEEK adapter | PEFT adapter directory |
-| 12K training set | 4K MuSiQue + 4K 2Wiki + 4K PopQA |
+| 12K training set | [Hugging Face: 4K MuSiQue + 4K 2Wiki + 4K PopQA](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k) |
 | Raw/paragraph data | `datasets/{dataset}/raw/` |
 | Wikipedia index | Elasticsearch `wiki` |
 | Bundled traces | `results/traces/` |
@@ -308,8 +327,9 @@ bash scripts/run_m2b_multisample.sh \
   popqa:datasets/popqa/raw/dev.jsonl
 ```
 
-**E13 — decomposer training.** Register `musique_decomp`, `twowiki_decomp`,
-and `popqa_decomp` in LLaMA-Factory's `data/dataset_info.json`.
+**E13 — decomposer training.** The exact 12K data is hosted at
+[`Chien1011/SEEK-decomposer-12k`](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k).
+Use the pinned LLaMA-Factory checkout:
 
 ```bash
 cd ../..
@@ -317,6 +337,31 @@ git clone https://github.com/hiyouga/LLaMA-Factory.git
 cd LLaMA-Factory
 git checkout 7e20db5735443861fad91766614b3415ff8966a4
 python -m pip install -e .
+
+SEEK_DATA_DIR="${SEEK_DATA_DIR:-/tmp/SEEK-decomposer-12k}"
+mkdir -p data/seek_decomposer_12k
+cp -R "$SEEK_DATA_DIR/data/." data/seek_decomposer_12k/
+```
+
+Merge these entries into `data/dataset_info.json`:
+
+```json
+{
+  "musique_decomp": {
+    "file_name": "seek_decomposer_12k/musique/train.json"
+  },
+  "twowiki_decomp": {
+    "file_name": "seek_decomposer_12k/twowiki/train.json"
+  },
+  "popqa_decomp": {
+    "file_name": "seek_decomposer_12k/popqa/train.json"
+  }
+}
+```
+
+Then train from the LLaMA-Factory checkout:
+
+```bash
 llamafactory-cli train \
   ../Thesis_Research/main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml
 cd ../Thesis_Research/main_methodology
@@ -400,7 +445,7 @@ The paper draft has 13 pages and is not published.
 
 ### Limits
 
-- Gated Llama weights, the final adapter, 12K training data, and the 21M
-  Wikipedia index are not in Git.
+- Gated Llama weights, the final adapter, and the 21M Wikipedia index are not
+  in Git. The exact 12K training set is released on Hugging Face.
 - E8, E9, and E12 need additional raw data. Historical aggregation artifacts
   for E10–E12 are not bundled.
