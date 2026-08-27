@@ -171,15 +171,23 @@ sequential inference, so a fresh E14 run is not expected to be bit-identical.
 
 ### E1–E7: offline reproduction
 
-| ID | Thesis content | Output |
-|---|---|---|
-| E1 | Ch. 4 main row; Ch. 5 retrieval necessity and threshold sweep | `tlsum_fixA_step_gate_final.{md,json}` |
-| E2 | Ch. 5 skipped-retrieval safety | Markdown, JSON, and case JSONL |
-| E3 | Appendix failure taxonomy | `decomp_failure_taxonomy_tau0p002305.{md,json}` |
-| E4 | Ch. 5 confidence-signal AUROC | `confidence_battery_analysis.md` |
-| E5 | Ch. 5 entropy/selective accuracy; Appendix confidently-wrong cases | `tlsum_confidence_story.md` |
-| E6 | Ch. 5 Tail Leakage variants and bootstrap | `tail_leakage_variants.md` |
-| E7 | Ch. 5 routing/oracle and Appendix confidence quadrants | Three reports and three PNGs |
+This is the recommended starting point for a reviewer checking whether the
+code runs. Every input below is committed under `results/traces/`; these checks
+need only a CPU and do not download the Hugging Face training set, load Llama,
+or contact Elasticsearch. Run all commands from `main_methodology/`.
+
+| ID | Thesis content | Input | Output |
+|---|---|---|---|
+| E1 | Ch. 4 main row; Ch. 5 retrieval necessity and threshold sweep | 18 bundled fixed-chain step, direct-confidence, and synthesis traces under `results/traces/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` |
+| E2 | Ch. 5 skipped-retrieval safety | Same fixed-chain traces as E1 | Markdown, JSON, and case JSONL under `results/reproduced/` |
+| E3 | Appendix failure taxonomy | E1 inputs plus six bundled original/decomposed-query coverage traces | `results/reproduced/decomp_failure_taxonomy_tau0p002305.{md,json}` |
+| E4 | Ch. 5 confidence-signal AUROC | Four `results/traces/{dataset}/conf_battery_{dataset}.jsonl` files | `results/reproduced/confidence_battery_analysis.md` |
+| E5 | Ch. 5 entropy/selective accuracy; Appendix confidently-wrong cases | Same four `conf_battery` traces as E4 | `results/reproduced/tlsum_confidence_story.md` |
+| E6 | Ch. 5 Tail Leakage variants and bootstrap | Same four `conf_battery` traces as E4 | `results/reproduced/tail_leakage_variants.md` |
+| E7 | Ch. 5 routing/oracle and Appendix confidence quadrants | E1 fixed-chain traces plus the four direct-confidence traces | Three Markdown reports and three PNGs under `results/reproduced/` |
+
+For a minimal pass/fail check, run E1. For the complete offline smoke test, run
+E1 through E7:
 
 ```bash
 # E1
