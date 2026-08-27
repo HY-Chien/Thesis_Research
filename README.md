@@ -227,15 +227,15 @@ Pooled step retrieval rate: 93.84%
 
 ### E8–E14: external runs
 
-| ID | Thesis content | Needs |
-|---|---|---|
-| E8 | Answer-containing Hit@5 | Raw inputs + ES; the figure alone uses a bundled report |
-| E9 | MuSiQue decomposition recall | Base model + raw input + ES |
-| E10 | Title-policy comparison | Base model + adapter + ES |
-| E11 | Maximum entropy vs. Tail Leakage | Historical max-entropy traces are not bundled |
-| E12 | Repeated-sampling errors | Base model + adapter + paragraph data |
-| E13 | Decomposer training | Base model + 12K training set |
-| E14 | Live SEEK | Base model + adapter + ES |
+| ID | Thesis content | Input | Additional resources/status |
+|---|---|---|---|
+| E8 | Answer-containing Hit@5 | `datasets/{hotpotqa,2wiki,musique}/raw/dev_first1000.jsonl`, `datasets/popqa/raw/dev.jsonl`, and bundled final traces | Elasticsearch index `wiki`; CPU. Figure-only reproduction can use the bundled report without raw data or ES. |
+| E9 | MuSiQue decomposition recall | `datasets/musique/raw/dev_first1000.jsonl`, the bundled MuSiQue final trace, and generated base-decomposition JSONL | Base model, GPU, and Elasticsearch index `wiki` |
+| E10 | Title-policy comparison | Bundled fixed-chain source and confidence traces under `results/traces/` | Base model, LoRA adapter, GPU, and Elasticsearch index `wiki`; final table aggregation is historical |
+| E11 | Maximum entropy vs. Tail Leakage | `datasets/evaluation/{hotpotqa,2wikimultihopqa,musique,popqa}.jsonl` | Base model, adapter, GPU, and Elasticsearch index `wiki`; historical max-entropy traces are not bundled |
+| E12 | Repeated-sampling errors | Paragraph-bearing raw files: `datasets/{hotpotqa,2wiki,musique}/raw/dev_first1000.jsonl` and `datasets/popqa/raw/dev.jsonl` | Base model, adapter, and GPU; final appendix aggregation is provenance-only |
+| E13 | Decomposer training | [`Chien1011/SEEK-decomposer-12k`](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k) at revision `3dcb5c057a82b6610b7b303855e273bb93f9bab7`, plus `configs/llama3_8b_decomposer_lora_3ds.yaml` | Gated base model, pinned LLaMA-Factory, and GPU |
+| E14 | Live SEEK | `datasets/evaluation/{hotpotqa,2wikimultihopqa,musique,popqa}.jsonl` | Base model, adapter, GPU, and Elasticsearch index `wiki` (or paragraph-bearing JSONL input) |
 
 <details>
 <summary><strong>Show exact E8-E14 commands, inputs, and outputs</strong></summary>
