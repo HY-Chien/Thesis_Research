@@ -36,10 +36,10 @@ Run these commands from `main_methodology/`.
 
 | Goal | Command | Input | Output |
 |---|---|---|---|
-| Fastest reported-result check | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | Saved SEEK predictions and confidence scores for the four thesis datasets in `results/traces/`; already included in this repository | One Markdown report and one JSON file in `results/reproduced/` |
-| Complete offline analysis | `bash scripts/run_offline_reproduction.sh` | Saved predictions, confidence scores, and retrieval results in `results/traces/`; already included in this repository | Recreated thesis reports in Markdown/JSON/JSONL and three PNG figures in `results/reproduced/` |
-| Train the decomposer | [Use the training instructions below](#train-the-decomposer) | 12,000 training examples from Hugging Face, Llama-3-8B-Instruct, and the provided training configuration | A trained LoRA adapter under `LLaMA-Factory/saves/seek/` |
-| Run the thesis main method | [Use the four-dataset command below](#main-evaluation) | Four 1,000-question JSONL files, Llama-3-8B-Instruct, a trained SEEK adapter, and the Wikipedia search index | One prediction file per dataset: `results/generated/seek_{dataset}.jsonl` |
+| Fastest reported-result check | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | `results/traces/{hotpotqa,2wiki,musique,popqa,other}/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` |
+| Complete offline analysis | `bash scripts/run_offline_reproduction.sh` | `results/traces/` | `results/reproduced/` |
+| Train the decomposer | [Use the training instructions below](#train-the-decomposer) | `LLaMA-Factory/data/seek_decomposer_12k/`<br>`configs/llama3_8b_decomposer_lora_3ds.yaml` | `LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/` |
+| Run the thesis main method | [Use the four-dataset command below](#main-evaluation) | `datasets/evaluation/{hotpotqa,2wikimultihopqa,musique,popqa}.jsonl`<br>Base model, adapter, and Elasticsearch paths are configured below | `results/generated/seek_{dataset}.jsonl` |
 
 The fastest check reproduces **41.88 EM / 48.90 F1** from the saved model
 outputs included in this repository. The main evaluation performs fresh
