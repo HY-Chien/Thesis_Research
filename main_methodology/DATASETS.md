@@ -23,7 +23,45 @@ MuSiQue 4K + 2Wiki 4K + PopQA 4K = 12K SFT
 `musique_decomp,twowiki_decomp,popqa_decomp`。HotpotQA 沒有加入 decomposer
 訓練，可用來觀察模型對未見訓練來源的泛化。
 
-## 2. 12K decomposer 資料如何建構
+## 2. 下載與註冊正式 12K 資料
+
+正式版本已公開於
+[`Chien1011/SEEK-decomposer-12k`](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k)。
+下載並驗證固定 revision：
+
+```bash
+SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
+hf download Chien1011/SEEK-decomposer-12k \
+  --repo-type dataset \
+  --revision 3dcb5c057a82b6610b7b303855e273bb93f9bab7 \
+  --local-dir "$SEEK_DATA_DIR"
+(cd "$SEEK_DATA_DIR" && sha256sum -c SHA256SUMS)
+```
+
+複製到 LLaMA-Factory：
+
+```bash
+mkdir -p data/seek_decomposer_12k
+cp -R "$SEEK_DATA_DIR/data/." data/seek_decomposer_12k/
+```
+
+將以下三筆合併至 LLaMA-Factory 的 `data/dataset_info.json`：
+
+```json
+{
+  "musique_decomp": {
+    "file_name": "seek_decomposer_12k/musique/train.json"
+  },
+  "twowiki_decomp": {
+    "file_name": "seek_decomposer_12k/twowiki/train.json"
+  },
+  "popqa_decomp": {
+    "file_name": "seek_decomposer_12k/popqa/train.json"
+  }
+}
+```
+
+## 3. 12K decomposer 資料如何建構
 
 ### MuSiQue（4K）
 
@@ -90,7 +128,7 @@ HotpotQA train split 有 90,447 題，dev split 有 7,405 題。它沒有提供�
 相同形式、可直接作為訓練目標的 gold 子問題序列，因此不加入 12K SFT；正式
 實驗只使用其準備後的 1,000 題評估集。
 
-## 3. SFT 樣本格式
+## 4. SFT 樣本格式
 
 LLaMA-Factory 使用 Alpaca 格式，每個樣本包含 `instruction`、`input` 和 `output`：
 
@@ -105,7 +143,7 @@ LLaMA-Factory 使用 Alpaca 格式，每個樣本包含 `instruction`、`input` 
 decomposer 只預測有順序的子問題，不預測各步答案。子答案是在 SEEK 推論期間由
 基座模型產生。
 
-## 4. 四資料集評估 protocol
+## 5. 四資料集評估 protocol
 
 正式結果在 HotpotQA、2WikiMultiHopQA、MuSiQue 與 PopQA 各 1,000 題上計算，
 共 4,000 題。檢索使用完整 Wikipedia `wiki` 索引（約 21M passages），四個資料集

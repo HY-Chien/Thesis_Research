@@ -35,10 +35,19 @@ to `results/generated/`. Both directories are ignored by Git.
 | E10 | Ch. 5 title-off/title-on/path-aware end-to-end comparison | `run_tlsum_title_ablation_tau002305.sh` for all three arms | Base model, LoRA adapter, bundled source traces, ES `wiki` | Per-arm JSONL/logs under `results/generated/title_policy/` | GPU + ES; **external assets**; thesis table aggregation is historical |
 | E11 | Ch. 5 maximum-entropy vs Tail Leakage end-to-end comparison | Tail Leakage row from E1; maximum-entropy live producer is `run_seek_dual.py --signal max_ent` | Base model, adapter, raw dev, ES, historical operating point | Live JSONL | Maximum-entropy row-level historical traces are not bundled; **provenance only** |
 | E12 | Appendix repeated-sampling errors | `probe_multisample.py` or portable launcher `run_m2b_multisample.sh` | Base model, adapter, evaluation JSONL with paragraphs | Per-dataset multisample JSONL | GPU; exact appendix zero-entropy aggregation has no dedicated current writer, so final table is **provenance only** |
-| E13 | Ch. 4 decomposer training configuration | LLaMA-Factory config in `configs/` | External 12K training set, base model | LoRA adapter checkpoint | GPU; **external assets** |
+| E13 | Ch. 4 decomposer training configuration | LLaMA-Factory config in `configs/` | Public [SEEK 12K dataset](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k), gated base model | LoRA adapter checkpoint | GPU; **external assets** |
 | E14 | Ch. 4 live final system | `run_seek_dual.py` | Base model, adapter, evaluation JSONL, optional ES | Prediction JSONL selected by `--out` | GPU; **external assets** |
 
 ## 2. Verified clone commands
+
+Run every verified E1–E7 item with:
+
+```bash
+bash scripts/run_offline_reproduction.sh
+```
+
+The complete script was rerun successfully on 2026-08-30. The commands below
+show the individual entry points.
 
 ### E1-E3: headline, gate ablations, skip safety, and taxonomy
 
@@ -206,17 +215,29 @@ aggregated and does not have a dedicated current report writer.
 ### E13: decomposer training
 
 ```bash
+SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
+hf download Chien1011/SEEK-decomposer-12k \
+  --repo-type dataset \
+  --revision 3dcb5c057a82b6610b7b303855e273bb93f9bab7 \
+  --local-dir "$SEEK_DATA_DIR"
+(cd "$SEEK_DATA_DIR" && sha256sum -c SHA256SUMS)
+
 git clone https://github.com/hiyouga/LLaMA-Factory.git
 cd LLaMA-Factory
 git checkout 7e20db5735443861fad91766614b3415ff8966a4
 python -m pip install -e .
 
-# Register the three generated datasets in data/dataset_info.json.
+# Copy the downloaded data and register musique_decomp, twowiki_decomp, and
+# popqa_decomp in data/dataset_info.json as documented in DATASETS.md.
+mkdir -p data/seek_decomposer_12k
+cp -R "$SEEK_DATA_DIR/data/." data/seek_decomposer_12k/
+
 llamafactory-cli train \
   /path/to/Thesis_Research/main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml
 ```
 
-See `DATASETS.md` for the 4K MuSiQue + 4K 2Wiki + 4K PopQA construction.
+The three `dataset_info.json` entries and original construction provenance
+are documented in `DATASETS.md`.
 
 ### E14: live SEEK
 

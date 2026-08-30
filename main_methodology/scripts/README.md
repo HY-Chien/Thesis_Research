@@ -8,6 +8,7 @@
 | 目的 | 入口 |
 |---|---|
 | Live dual-path SEEK | `run_seek_dual.py`（`--signal tail_leakage`） |
+| 一鍵執行 E1–E7 離線驗證 | `run_offline_reproduction.sh` |
 | 單一路徑 / gate 診斷 | `run_seek.py` |
 | 重建四份 1,000 題 evaluation manifests | `prepare_eval_subsets.py` |
 | 產生 Tail Leakage 雙分支 trace | `rerun_tlsum_fixA.py` |

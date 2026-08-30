@@ -43,8 +43,8 @@ Clone the default `main` branch:
 git clone https://github.com/HY-Chien/Thesis_Research.git
 cd Thesis_Research/main_methodology
 
-python3.11 -m venv .venv
-source .venv/bin/activate
+python3.11 -m venv venv
+source venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
@@ -71,14 +71,16 @@ hardware and verified package versions. The one-to-one mapping from every
 current thesis experiment and figure to its command, inputs, outputs, and
 resource status is in [`THESIS_REPRODUCTION.md`](THESIS_REPRODUCTION.md).
 
-The root [`README.md`](../README.md) records the exact author-workstation
-hardware and verified package versions. The one-to-one mapping from every
-current thesis experiment and figure to its command, inputs, outputs, and
-resource status is in [`THESIS_REPRODUCTION.md`](THESIS_REPRODUCTION.md).
-
 ## 2. Reproduce the thesis headline without a GPU
 
-Run:
+Run the complete verified E1–E7 suite:
+
+```bash
+bash scripts/run_offline_reproduction.sh
+```
+
+This entry point completed in approximately four minutes on the author
+workstation on 2026-08-30. For the fastest headline-only check, run:
 
 ```bash
 python scripts/analyze_tlsum_fixA_step_gate_final.py
@@ -140,27 +142,6 @@ python scripts/analyze_accuracy_first_failure_taxonomy.py
 
 Both commands write regenerated Markdown/JSON artifacts under
 `results/reproduced/`.
-
-The bundled direct-confidence traces also support the revised confidence
-tables without a GPU:
-
-```bash
-python scripts/analyze_confidence_battery.py
-python scripts/analyze_tail_leakage_variants.py
-python scripts/analyze_tlsum_confidence_story.py
-```
-
-The path-overlap, routing/oracle, and quadrant-confidence analyses are rebuilt
-at the same accuracy-first operating point with:
-
-```bash
-python scripts/make_direct_decompose_2x2_fig.py
-python scripts/make_routing_gap_fig.py
-python scripts/analyze_quadrant_confidence.py
-```
-
-These commands default to `results/reproduced/`; see
-`THESIS_REPRODUCTION.md` for explicit commands that update the thesis figures.
 
 The bundled direct-confidence traces also support the revised confidence
 tables without a GPU:
