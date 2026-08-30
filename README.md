@@ -5,22 +5,10 @@ knowledge-intensive question answering. It generates direct and decomposed
 answer paths, uses **Tail Leakage** to decide whether each sub-question needs
 retrieval, and applies a deterministic verifier to select the final answer.
 
-This README is the reviewer entry point. Exact commands for every thesis
-experiment and figure are in
+This README covers the basic code-review workflow. For detailed reproduction,
+including every experiment's exact command, input, output, expected value, and
+figure-generation step, follow
 [`main_methodology/THESIS_REPRODUCTION.md`](main_methodology/THESIS_REPRODUCTION.md).
-
-## Reviewer Quick Start
-
-| Goal | Command | Requirement |
-|---|---|---|
-| Fastest code/result check | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | CPU, bundled traces |
-| Complete offline check (E1–E7) | `bash scripts/run_offline_reproduction.sh` | CPU, bundled traces |
-| Run the thesis main method live (E14) | `python scripts/run_seek_dual.py ...` | GPU, base model, adapter, ES `wiki` |
-| Train the decomposer (E13) | `llamafactory-cli train ...` | GPU, base model, public 12K dataset |
-
-The reported **41.88 EM / 48.90 F1** is reproduced by E1 from canonical
-fixed-chain traces. E14 is fresh sequential generation and is not expected to
-be bit-identical.
 
 ## Hardware and Software
 
@@ -40,6 +28,21 @@ The author workstation used Ubuntu 24.04.2 LTS, two Intel Xeon Gold 6430 CPUs,
 E1–E7 need only a CPU and approximately 8 GiB RAM. Live Llama-3-8B BF16
 inference needs at least 24 GiB VRAM. The released stack has been verified on
 Python 3.11.15; Python 3.8 compatibility has not been verified.
+
+## Reviewer Quick Start
+
+Run these commands from `main_methodology/`.
+
+| Goal | Command | Input | Output | Requirement |
+|---|---|---|---|---|
+| Fastest code/result check | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | 18 bundled fixed-chain step, direct-confidence, and synthesis traces under `results/traces/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` | CPU, approximately 8 GiB RAM |
+| Complete offline check (E1–E7) | `bash scripts/run_offline_reproduction.sh` | Bundled fixed-chain, confidence, and coverage traces under `results/traces/` | Markdown, JSON/JSONL, and three PNGs under `results/reproduced/` | CPU, approximately 8 GiB RAM |
+| Run the thesis main method live (E14) | `python scripts/run_seek_dual.py ...` | Four `datasets/evaluation/*.jsonl` manifests, base model, SEEK adapter, and ES `wiki` index | `results/generated/seek_{dataset}.jsonl` | GPU with at least 24 GiB VRAM; Elasticsearch 7.10.2 |
+| Train the decomposer (E13) | `llamafactory-cli train ...` | Public HF 12K dataset, gated base model, and `configs/llama3_8b_decomposer_lora_3ds.yaml` | `LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/` | GPU; pinned LLaMA-Factory revision |
+
+The reported **41.88 EM / 48.90 F1** is reproduced by E1 from canonical
+fixed-chain traces. E14 is fresh sequential generation and is not expected to
+be bit-identical.
 
 ## Environment Installation
 
