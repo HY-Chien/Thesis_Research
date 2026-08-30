@@ -25,15 +25,15 @@ alias for old experiment scripts.
 | Task | Works after a normal clone? | Additional resources |
 |---|---:|---|
 | Import the code and inspect every CLI | Yes | None |
-| Reproduce the reported 41.88 EM / 48.90 F1 | Yes | Bundled canonical artifacts; CPU only |
+| Reproduce the reported 41.88 EM / 48.90 F1 | Yes | Required prediction files are included in Git; CPU only |
 | Re-run fixed-chain synthesis | No | Llama-3-8B-Instruct and a CUDA GPU |
 | Run SEEK live on a JSONL dataset | No | Base model, LoRA adapter, dataset, and optionally an ES index |
 | Train the decomposer | No | Public HF 12K set, gated base model, pinned LLaMA-Factory, and a CUDA GPU |
 
 Large raw datasets, the base model, the LoRA weights, and the 21M-passage
 Wikipedia index are deliberately not committed to Git. The approximately
-52 MB artifact bundle needed for the official offline evaluation and revised
-thesis diagnostics **is** committed.
+52 MB of saved predictions and confidence scores needed for the offline
+evaluation and thesis analyses **is** included in Git.
 
 ## 1. Clone and install
 
@@ -62,9 +62,9 @@ python scripts/run_seek_dual.py --help
 python scripts/analyze_tlsum_fixA_step_gate_final.py --help
 ```
 
-The files `requirements_thesis.txt` and `environment_thesis.yml` are
-provenance snapshots of the original workstation. They are not the recommended
-installation path because they include machine-specific transitive packages.
+The files `requirements_thesis.txt` and `environment_thesis.yml` record the
+original workstation environment. They are not the recommended installation
+path because they include machine-specific transitive packages.
 
 The root [`README.md`](../README.md) records the exact author-workstation
 hardware and verified package versions. The one-to-one mapping from every
@@ -86,9 +86,9 @@ workstation on 2026-08-30. For the fastest headline-only check, run:
 python scripts/analyze_tlsum_fixA_step_gate_final.py
 ```
 
-The command reads the bundled trace and synthesis shards under
-`results/traces/`, applies the all-Tail-Leakage verifier, and writes a report
-and machine-readable JSON under `results/reproduced/`.
+The command reads the saved step answers, confidence scores, and final-answer
+outputs under `results/traces/`. It then applies the Tail Leakage verifier and
+writes a Markdown report and JSON file under `results/reproduced/`.
 
 The accuracy-first row `tau=0.002305` should be:
 
@@ -106,18 +106,18 @@ retrieved step answers, then uses the stored base-model synthesis. Later
 resolved sub-questions remain fixed. It is not presented as an independent
 live rerun at every threshold.
 
-### Bundled inputs
+### Inputs Included in This Repository
 
 For each of `hotpotqa`, `2wiki`, `musique`, and `popqa`, Git contains:
 
-- the canonical direct/decomposition trace;
-- the direct-answer confidence battery;
-- two `tlsum_fixA` step-answer shards.
+- saved direct and decomposed answers;
+- saved confidence scores for direct answers;
+- saved sub-question answers with and without retrieval.
 
-Two deduplicated fixed-chain synthesis shards are stored in
-`results/traces/other/`. Six compact coverage traces for HotpotQA, 2Wiki, and
-MuSiQue support the revised failure-taxonomy appendix. Other historical traces
-remain excluded because the complete local experiment directory is
+The saved final-answer outputs are stored in `results/traces/other/`. Six
+retrieval-coverage files for HotpotQA, 2Wiki, and MuSiQue support the revised
+failure-taxonomy appendix. Other historical per-question outputs remain
+excluded because the complete local experiment directory is
 substantially larger.
 
 ### Revised-thesis diagnostic analyses
@@ -133,18 +133,18 @@ Its pooled check finds 478 skipped steps out of 7,761 (6.16%). Among the 418
 affected questions, the paired final-EM quadrants are 211 both correct, 16
 SEEK-only, 16 always-retrieve-only, and 175 both wrong.
 
-The decomposition-path failure taxonomy additionally joins the bundled
-coverage@10 traces:
+The decomposition-path failure taxonomy additionally reads the included
+coverage@10 retrieval files:
 
 ```bash
 python scripts/analyze_accuracy_first_failure_taxonomy.py
 ```
 
-Both commands write regenerated Markdown/JSON artifacts under
+Both commands write regenerated Markdown/JSON reports under
 `results/reproduced/`.
 
-The bundled direct-confidence traces also support the revised confidence
-tables without a GPU:
+The included direct-answer confidence files also support the revised
+confidence tables without a GPU:
 
 ```bash
 python scripts/analyze_confidence_battery.py
@@ -391,9 +391,10 @@ python scripts/build_popqa_sft.py
 ```
 
 See `DATASETS.md` for construction details. Rebuilt upstream snapshots may
-differ; the pinned Hugging Face commit above is the canonical training release.
+differ; the pinned Hugging Face commit above is the exact training release used
+by this repository.
 
-## 6. Active code and research artifacts
+## 6. Active Code and Research Files
 
 | Path | Role |
 |---|---|
@@ -408,14 +409,12 @@ differ; the pinned Hugging Face commit above is the canonical training release.
 | `scripts/analyze_skipped_retrieval_questions.py` | Compare SEEK with always retrieve on affected questions |
 | `scripts/analyze_accuracy_first_failure_taxonomy.py` | Recompute the appendix decomposition failure taxonomy |
 | `scripts/accuracy_first_replay.py` | Shared row-level reconstruction for current path/routing figures |
-| `THESIS_REPRODUCTION.md` | Complete thesis experiment/figure command and asset matrix |
-| `scripts/accuracy_first_replay.py` | Shared row-level reconstruction for current path/routing figures |
-| `THESIS_REPRODUCTION.md` | Complete thesis experiment/figure command and asset matrix |
+| `THESIS_REPRODUCTION.md` | Complete thesis analysis/figure commands and required-input guide |
 | `scripts/README.md` | Index of ablation, probe, replay, and plotting scripts |
 | `RESULTS_MASTER.md` | Chronological experiment record; older sections retain historical operating points |
 
 Scripts outside the active path are retained because they generated thesis
-ablations and diagnostic figures. They are research artifacts rather than
+ablations and diagnostic figures. They are research records rather than
 required steps in the quick-start path.
 
 ## 7. Resource expectations

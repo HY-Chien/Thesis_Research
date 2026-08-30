@@ -10,13 +10,13 @@
 | Live dual-path SEEK | `run_seek_dual.py`（`--signal tail_leakage`） |
 | 一鍵執行完整離線驗證 | `run_offline_reproduction.sh` |
 | 單一路徑 / gate 診斷 | `run_seek.py` |
-| 重建四份 1,000 題 evaluation manifests | `prepare_eval_subsets.py` |
-| 產生 Tail Leakage 雙分支 trace | `rerun_tlsum_fixA.py` |
+| 重建四份 1,000 題 evaluation JSONL | `prepare_eval_subsets.py` |
+| 產生 Tail Leakage 雙分支預測結果 | `rerun_tlsum_fixA.py` |
 | 固定鏈重新 synthesis | `replay_tlsum_fixA_step_gate_synthesis.py` |
 | 重現 41.88 EM / 48.90 F1 | `analyze_tlsum_fixA_step_gate_final.py` |
 
 只想檢查或執行正式方法時，先看上表與上層 `README.md`。其餘檔案保留作
-論文 ablation、diagnostic 與 historical experiment provenance，不是 quick-start
+論文 ablation、diagnostic 與歷史實驗紀錄，不是 quick-start
 必跑步驟。
 
 ## 命名慣例(前綴 = 用途)
@@ -25,7 +25,7 @@
 |------|------|
 | `run_*` | 執行 pipeline / 實驗(`.py` 為主程式,`.sh` 為 GPU 啟動器) |
 | `probe_*` | 跑模型收集信心訊號(需 GPU) |
-| `analyze_*` | 讀既有 trace 產出分析報告（現役重現輸出到 `results/reproduced/`；歷史腳本可能仍指 `results/reports/`） |
+| `analyze_*` | 讀取已儲存的預測結果並產出分析報告（現役重現輸出到 `results/reproduced/`；歷史腳本可能仍指 `results/reports/`） |
 | `replay_*` / `rerun_*` | 離線重播 verifier / gate 決策,不重跑生成 |
 | `sweep_*` | 閾值掃描 |
 | `make_*` / `plot_*` | 畫圖(部分直接輸出到 `Thesis/figures/`) |
@@ -53,5 +53,5 @@
 
 目前論文逐表／逐圖的精確命令、輸入、輸出與 external-asset 狀態統一列在
 上層 [`THESIS_REPRODUCTION.md`](../THESIS_REPRODUCTION.md)。其中 path overlap、
-routing 與 quadrant 圖共用 `accuracy_first_replay.py`，一律從 bundled row-level
-artifacts 重建 `tau=0.002305` 候選，不使用舊 threshold 的硬編碼數字。
+routing 與 quadrant 圖共用 `accuracy_first_replay.py`，一律從 Git 內已儲存的
+逐題結果重建 `tau=0.002305` 候選，不使用舊 threshold 的硬編碼數字。

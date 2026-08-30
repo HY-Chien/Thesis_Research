@@ -25,9 +25,10 @@ The author workstation used Ubuntu 24.04.2 LTS, two Intel Xeon Gold 6430 CPUs,
 | NumPy / SciPy / Matplotlib | 2.4.6 / 1.17.1 / 3.10.9 |
 | Elasticsearch client / server | 7.17.13 / 7.10.2 |
 
-The bundled offline analyses need only a CPU and approximately 8 GiB RAM. Live
-Llama-3-8B BF16 inference needs at least 24 GiB VRAM. The released stack has
-been verified on Python 3.11.15; Python 3.8 compatibility has not been verified.
+The offline analyses use result files already included in this repository and
+need only a CPU and approximately 8 GiB RAM. Live Llama-3-8B BF16 inference
+needs at least 24 GiB VRAM. The released stack has been verified on Python
+3.11.15; Python 3.8 compatibility has not been verified.
 
 ## Quick Start
 
@@ -35,14 +36,14 @@ Run these commands from `main_methodology/`.
 
 | Goal | Command | Input | Output |
 |---|---|---|---|
-| Fastest reported-result check | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | 18 bundled fixed-chain step, direct-confidence, and synthesis traces under `results/traces/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` |
-| Complete offline analysis | `bash scripts/run_offline_reproduction.sh` | Bundled fixed-chain, confidence, and coverage traces under `results/traces/` | Markdown, JSON/JSONL, and three PNGs under `results/reproduced/` |
-| Train the decomposer | [Use the training instructions below](#train-the-decomposer) | Public Hugging Face 12K dataset, gated base model, and `configs/llama3_8b_decomposer_lora_3ds.yaml` | `LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/` |
-| Run the thesis main method | [Use the four-dataset command below](#main-evaluation) | Four `datasets/evaluation/*.jsonl` manifests, base model, SEEK adapter, and ES `wiki` index | `results/generated/seek_{dataset}.jsonl` |
+| Fastest reported-result check | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | Saved SEEK predictions and confidence scores for the four thesis datasets in `results/traces/`; already included in this repository | One Markdown report and one JSON file in `results/reproduced/` |
+| Complete offline analysis | `bash scripts/run_offline_reproduction.sh` | Saved predictions, confidence scores, and retrieval results in `results/traces/`; already included in this repository | Recreated thesis reports in Markdown/JSON/JSONL and three PNG figures in `results/reproduced/` |
+| Train the decomposer | [Use the training instructions below](#train-the-decomposer) | 12,000 training examples from Hugging Face, Llama-3-8B-Instruct, and the provided training configuration | A trained LoRA adapter under `LLaMA-Factory/saves/seek/` |
+| Run the thesis main method | [Use the four-dataset command below](#main-evaluation) | Four 1,000-question JSONL files, Llama-3-8B-Instruct, a trained SEEK adapter, and the Wikipedia search index | One prediction file per dataset: `results/generated/seek_{dataset}.jsonl` |
 
-The fastest check reproduces **41.88 EM / 48.90 F1** from the bundled
-fixed-chain traces. The main evaluation performs fresh sequential generation
-and is not expected to be bit-identical.
+The fastest check reproduces **41.88 EM / 48.90 F1** from the saved model
+outputs included in this repository. The main evaluation performs fresh
+sequential generation and is not expected to be bit-identical.
 
 ## Environment Installation
 
@@ -59,21 +60,21 @@ python -m pip install -r requirements.txt
 python -m pip check
 ```
 
-CUDA and Hugging Face login are unnecessary for the bundled offline analyses.
-Training and live evaluation use the gated
+CUDA and Hugging Face login are unnecessary when analyzing the saved result
+files. Training and live evaluation use the gated
 [`meta-llama/Meta-Llama-3-8B-Instruct`](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct)
 model; accept its license and run `hf auth login` before downloading it.
 
-## Data and Model Assets
+## Data and Model Files
 
-| Asset | Location | Availability |
+| Item | Location | Availability |
 |---|---|---|
-| Offline reproduction traces | `main_methodology/results/traces/` | Bundled |
-| Four 1,000-question manifests | `main_methodology/datasets/evaluation/` | Bundled |
+| Saved model outputs used to reproduce thesis tables | `main_methodology/results/traces/` | Included in this repository |
+| Four 1,000-question evaluation files | `main_methodology/datasets/evaluation/` | Included in this repository |
 | Exact 12K decomposer training set | [Hugging Face](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k) | Public |
 | Base model | `meta-llama/Meta-Llama-3-8B-Instruct` | Gated license |
-| SEEK LoRA adapter | PEFT adapter directory | External; train it with the instructions below or obtain it from the author |
-| Wikipedia corpus | Elasticsearch 7.10.2 index `wiki` | External |
+| SEEK LoRA adapter | Directory created by decomposer training | Not included; train it below or obtain it from the author |
+| Wikipedia search data | Elasticsearch 7.10.2 index named `wiki` | Not included |
 
 Download and verify the exact training data:
 
@@ -228,9 +229,9 @@ latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
 - [Detailed analysis and figure commands](main_methodology/THESIS_REPRODUCTION.md)
 - [Dataset sources and preparation](main_methodology/DATASETS.md)
 - [Script index](main_methodology/scripts/README.md)
-- [Result artifact index](main_methodology/results/README.md)
+- [Saved-result file index](main_methodology/results/README.md)
 
 The gated base model, final LoRA adapter, raw paragraph datasets, and 21M
 Wikipedia index are not in Git. Some historical title-policy, maximum-entropy,
-and repeated-sampling results do not include every original row-level artifact;
-the detailed guide labels these limits explicitly.
+and repeated-sampling results do not include every original per-question output
+file; the detailed guide labels these limits explicitly.
