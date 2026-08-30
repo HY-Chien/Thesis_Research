@@ -6,6 +6,14 @@
 *.csv
 *.pyc
 __pycache__/
+venv/
+.venv/
+*.pyi
+*.whl
+*.wheel
+*.a
+*.o
+*.class
 experiment/cache/
 *.json
 *.jsonl

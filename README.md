@@ -5,65 +5,116 @@ generation. It decomposes a question into dependent sub-questions, uses
 **Tail Leakage** to decide which steps need retrieval, and conservatively
 selects between a direct answer and the decomposition-path answer.
 
-## 1. Hardware environment
+## Hardware Environment
 
-| Component | Author workstation |
-|---|---|
-| Operating system | Ubuntu 24.04.2 LTS |
-| CPU | 2 × Intel Xeon Gold 6430, 32 physical cores/socket, 128 logical CPUs total |
-| System memory | 251 GiB RAM |
-| GPU | 2 × NVIDIA L40S |
-| VRAM | 49,140 MiB per GPU (approximately 48 GiB) |
-| NVIDIA driver | 575.57.08 |
-| PyTorch CUDA runtime | CUDA 12.8 |
+- OS: Ubuntu 24.04.2 LTS
+- CPU: 2 × Intel Xeon Gold 6430, 32 physical cores per socket
+- System memory: 251 GiB
+- GPU: 2 × NVIDIA L40S
+- VRAM: approximately 48 GiB per GPU
+- NVIDIA driver: 575.57.08
+- CUDA runtime used by PyTorch: 12.8
 
-Offline analyses need only a CPU and about 8 GiB RAM. Live Llama-3-8B bf16
-inference needs at least 24 GiB VRAM; full-corpus runs also need the
-Elasticsearch `wiki` index.
+The bundled offline analyses require only a CPU and approximately 8 GiB RAM.
+Live Llama-3-8B BF16 inference requires at least 24 GiB VRAM. Open-domain
+retrieval additionally requires the Elasticsearch `wiki` index.
 
-## 2. Software environment
+## Software Environment
 
-| Software | Tested version |
-|---|---|
-| Python | 3.11.15 |
-| PyTorch | 2.10.0+cu128 |
-| Transformers | 5.6.0 |
-| Accelerate | 1.11.0 |
-| PEFT | 0.18.1 |
-| Datasets | 4.0.0 |
-| NumPy / SciPy | 2.4.6 / 1.17.1 |
-| Matplotlib | 3.10.9 |
-| SentencePiece | 0.2.1 |
-| rank-bm25 | 0.2.2 |
-| Elasticsearch Python client / server | 7.17.13 / 7.10.2 |
-| TeX toolchain | TeX Live 2026, latexmk 4.88, Biber 2.21, pdfLaTeX |
+- Python: 3.11.15
+- PyTorch: 2.10.0+cu128
+- Transformers: 5.6.0
+- Accelerate: 1.11.0
+- PEFT: 0.18.1
+- Datasets: 4.0.0
+- NumPy: 2.4.6
+- SciPy: 1.17.1
+- Matplotlib: 3.10.9
+- SentencePiece: 0.2.1
+- rank-bm25: 0.2.2
+- Elasticsearch client/server: 7.17.13/7.10.2
+- TeX: TeX Live 2026, latexmk 4.88, Biber 2.21, pdfLaTeX
 
-Install from [main_methodology/requirements.txt](main_methodology/requirements.txt).
+Python dependencies are listed in
+[`main_methodology/requirements.txt`](main_methodology/requirements.txt).
 
-## 3. Installation
+## Environment Installation
 
-### Python and GPU environment
-
-For the tested CUDA 12.8 environment:
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/HY-Chien/Thesis_Research.git
 cd Thesis_Research/main_methodology
+```
 
-python3.11 -m venv .venv
-source .venv/bin/activate
+Run all remaining experiment commands from `main_methodology/` unless a
+section says otherwise.
+
+### 2. Check the CUDA environment
+
+The GPU workflow was tested with CUDA 12.8:
+
+```bash
+nvidia-smi
+```
+
+The E1–E7 offline reproduction does not require CUDA.
+
+### 3. Create the Python environment
+
+```bash
+python3.11 -m venv venv
+source venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cu128
+python -m pip install torch==2.10.0 \
+  --index-url https://download.pytorch.org/whl/cu128
 python -m pip install -r requirements.txt
-python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+
+Verify the installation:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+python -m compileall -q seek scripts
+```
+
+### 4. Request access to the base model
+
+The training and live-inference experiments use the gated
+[`meta-llama/Meta-Llama-3-8B-Instruct`](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct)
+weights. Accept Meta's license on Hugging Face, then authenticate:
+
+```bash
 hf auth login
 ```
 
-### Exact 12K decomposer training set
+The offline E1–E7 reproduction and the public SEEK training dataset do not
+require access to the gated model.
 
-The released training set is public at
+### 5. Check Elasticsearch for open-domain retrieval
+
+The thesis uses Elasticsearch 7.10.2 with a `wiki` index built from the
+approximately 21M-passage `psgs_w100` corpus:
+
+```bash
+curl -s http://localhost:9200/_cluster/health
+curl -s http://localhost:9200/_cat/indices/wiki?v
+
+export SEEK_ES_HOST=localhost
+export SEEK_ES_PORT=9200
+```
+
+Elasticsearch is required only for the open-domain E8–E11 and E14 runs.
+
+## Dataset
+
+### Decomposer training dataset
+
+The exact 12K training set is public at
 [`Chien1011/SEEK-decomposer-12k`](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k).
-Download the exact verified revision and check its hashes with:
+It contains 4,000 MuSiQue, 4,000 2Wiki, and 4,000 PopQA examples.
+
+Download the verified revision:
 
 ```bash
 SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
@@ -74,39 +125,9 @@ hf download Chien1011/SEEK-decomposer-12k \
 (cd "$SEEK_DATA_DIR" && sha256sum -c SHA256SUMS)
 ```
 
-The three Hub configs are `musique`, `twowiki`, and `popqa`, with 4,000
-examples each. The dataset is public; Hugging Face login is still required for
-the gated Llama-3 base model.
+The Hub configurations are `musique`, `twowiki`, and `popqa`.
 
-### Open-domain retrieval
-
-The thesis uses Elasticsearch 7.10.2 with a `wiki` index built from the
-approximately 21M-passage `psgs_w100` corpus.
-
-```bash
-curl -s http://localhost:9200/_cluster/health
-curl -s http://localhost:9200/_cat/indices/wiki?v
-
-export SEEK_ES_HOST=localhost
-export SEEK_ES_PORT=9200
-```
-
-## 4. Repository, inputs, and outputs
-
-### Repository structure
-
-| Path | Purpose |
-|---|---|
-| [main_methodology/seek](main_methodology/seek) | SEEK pipeline, retriever, answerer, and verifier |
-| [main_methodology/scripts](main_methodology/scripts) | Experiment, analysis, and figure commands |
-| [main_methodology/configs](main_methodology/configs) | Decomposer training configuration |
-| [main_methodology/datasets/evaluation](main_methodology/datasets/evaluation) | Four 1,000-question evaluation files |
-| [main_methodology/results/traces](main_methodology/results/traces) | Bundled inputs for offline reproduction |
-| [Thesis](Thesis) | Thesis LaTeX, PDFs, and 13 figures |
-| [papers/seek](papers/seek) | Anonymous paper draft LaTeX and PDF |
-| `deeprag_compare/`, `experiment/` | Historical baseline and exploratory work |
-
-### Four released evaluation sets
+### Evaluation datasets
 
 SEEK uses the first 1,000 rows without shuffling, matching
 [DeepRAG's selection rule](https://github.com/gxy-gxy/DeepRAG/blob/1665780b7b6317375d56e71c3ddc52d6f706c380/src/main.py#L176-L183).
@@ -145,7 +166,25 @@ python scripts/prepare_eval_subsets.py \
 
 </details>
 
-### Inputs and outputs
+## Repository Structure
+
+```text
+Thesis_Research/
+├── main_methodology/
+│   ├── seek/                  # SEEK pipeline and retrieval components
+│   ├── scripts/               # Experiments, analyses, and figure generators
+│   ├── configs/               # Decomposer training configurations
+│   ├── datasets/evaluation/   # Four deterministic evaluation manifests
+│   └── results/traces/        # Inputs for the offline reproduction
+├── Thesis/                    # Thesis LaTeX, PDFs, and figures
+├── papers/seek/               # Paper draft source and PDF
+├── deeprag_compare/           # Historical DeepRAG comparison
+├── experiment/                # Exploratory experiments
+├── .gitignore
+└── README.md
+```
+
+## Models, Inputs, and Outputs
 
 | Input | Location |
 |---|---|
@@ -161,7 +200,25 @@ python scripts/prepare_eval_subsets.py \
 | Generated results | `results/reproduced/`, `results/generated/` |
 | PDFs | `../Thesis/main*.pdf`, `../papers/seek/iclr2027/main.pdf` |
 
-## 5. Thesis experiments and figures
+## Training
+
+The decomposer is a LoRA fine-tune of
+`meta-llama/Meta-Llama-3-8B-Instruct` on the public 12K dataset. The exact
+configuration is
+[`main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml`](main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml).
+It trains for three epochs with LoRA rank 16, LoRA alpha 32, learning rate
+`1e-4`, BF16, per-device batch size 4, and gradient accumulation 4.
+
+The trained adapter is written to:
+
+```text
+LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/
+```
+
+The complete LLaMA-Factory installation and training command appears under
+E13 below.
+
+## Benchmark Evaluation
 
 Baselines from earlier papers are excluded. E1–E7 run on CPU from the bundled
 `results/traces/`; E8–E14 list their additional requirements.
@@ -403,7 +460,7 @@ done
 
 </details>
 
-### Thesis figures
+## Analysis and Thesis Figures
 
 All figures used by the thesis are in `Thesis/figures/`; captions are defined
 in the corresponding LaTeX chapters. The commands below rebuild the
@@ -434,7 +491,14 @@ python scripts/analyze_quadrant_confidence.py \
 
 </details>
 
-### Thesis and paper builds
+## Thesis and Paper
+
+- Thesis source: [`Thesis/main.tex`](Thesis/main.tex)
+- Thesis PDF: [`Thesis/main.pdf`](Thesis/main.pdf)
+- Paper source: [`papers/seek/iclr2027/main.tex`](papers/seek/iclr2027/main.tex)
+- Paper PDF: [`papers/seek/iclr2027/main.pdf`](papers/seek/iclr2027/main.pdf)
+
+Build the thesis and marked-difference thesis:
 
 ```bash
 (cd ../Thesis && \
@@ -451,7 +515,7 @@ The two thesis PDFs have 63 pages. Build the paper draft with:
 
 The paper draft has 13 pages and is not published.
 
-### Limits
+## Reproducibility Limits
 
 - Gated Llama weights, the final adapter, and the 21M Wikipedia index are not
   in Git. The exact 12K training set is released on Hugging Face.
