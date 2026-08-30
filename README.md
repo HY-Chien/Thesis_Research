@@ -35,15 +35,28 @@ Run these commands from `main_methodology/`.
 
 | Goal | Command | Input | Output |
 |---|---|---|---|
-| Fastest code/result check | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | 18 bundled fixed-chain step, direct-confidence, and synthesis traces under `results/traces/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` |
-| Complete offline check | `bash scripts/run_offline_reproduction.sh` | Bundled fixed-chain, confidence, and coverage traces under `results/traces/` | Markdown, JSON/JSONL, and three PNGs under `results/reproduced/` |
-| Run the thesis main method live | [Use the exact four-dataset command below](#main-method-live-seek-e14) | Four `datasets/evaluation/*.jsonl` manifests, base model, SEEK adapter, and ES `wiki` index | `results/generated/seek_{dataset}.jsonl` |
+| Fastest code/result check (E1) | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | 18 bundled fixed-chain step, direct-confidence, and synthesis traces under `results/traces/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` |
+| Complete offline check (E1–E7) | `bash scripts/run_offline_reproduction.sh` | Bundled fixed-chain, confidence, and coverage traces under `results/traces/` | Markdown, JSON/JSONL, and three PNGs under `results/reproduced/` |
+| Train the decomposer (E13) | [Use the exact training instructions below](#decomposer-training-e13) | Public Hugging Face 12K dataset, gated base model, and `configs/llama3_8b_decomposer_lora_3ds.yaml` | `LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/` |
+| Run the thesis main method live (E14) | [Use the exact four-dataset command below](#main-method-live-seek-e14) | Four `datasets/evaluation/*.jsonl` manifests, base model, SEEK adapter, and ES `wiki` index | `results/generated/seek_{dataset}.jsonl` |
 
-The fast result check reproduces **41.88 EM / 48.90 F1** from canonical
-fixed-chain traces. The live main method performs fresh sequential generation
-and is not expected to be bit-identical. Training and the external
-ablation/diagnostic runs are documented separately below and are not required
-for the quick code check.
+The E1 fast check reproduces **41.88 EM / 48.90 F1** from canonical fixed-chain
+traces. E13 and E14 remain in this section because they are the decomposer
+training procedure and the final live SEEK system. E14 performs fresh
+sequential generation and is not expected to be bit-identical.
+
+### Why E8–E12 Are Separate
+
+| ID | Thesis content | Why it is not a quick-start run |
+|---|---|---|
+| E8 | Answer-containing Hit@5 | Needs four raw development sets and the ES `wiki` index; the figure-only path can use the bundled report. |
+| E9 | MuSiQue gold/base decomposition recall | Needs raw MuSiQue data, the base model, a GPU, and the ES `wiki` index. |
+| E10 | Title-policy comparison | Needs the base model, SEEK adapter, a GPU, and Elasticsearch; the thesis table aggregation is historical. |
+| E11 | Maximum entropy vs. Tail Leakage | A new live run is possible, but the exact historical maximum-entropy traces are not bundled. |
+| E12 | Repeated-sampling errors | Needs the SEEK adapter, a GPU, and paragraph-bearing data; the exact appendix aggregation is provenance-only. |
+
+Exact E8–E12 commands, inputs, and outputs are in the
+[detailed reproduction guide](main_methodology/THESIS_REPRODUCTION.md#3-external-asset-commands).
 
 ## Environment Installation
 
