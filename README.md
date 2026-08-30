@@ -5,9 +5,9 @@ knowledge-intensive question answering. It generates direct and decomposed
 answer paths, uses **Tail Leakage** to decide whether each sub-question needs
 retrieval, and applies a deterministic verifier to select the final answer.
 
-This README covers the basic code-review workflow. For detailed reproduction,
-including every experiment's exact command, input, output, expected value, and
-figure-generation step, follow
+This README is the main entry point for reproducing the thesis. For detailed
+analysis commands, inputs, outputs, expected values, and figure-generation
+steps, follow
 [`main_methodology/THESIS_REPRODUCTION.md`](main_methodology/THESIS_REPRODUCTION.md).
 
 ## Hardware and Software
@@ -25,9 +25,9 @@ The author workstation used Ubuntu 24.04.2 LTS, two Intel Xeon Gold 6430 CPUs,
 | NumPy / SciPy / Matplotlib | 2.4.6 / 1.17.1 / 3.10.9 |
 | Elasticsearch client / server | 7.17.13 / 7.10.2 |
 
-E1–E7 need only a CPU and approximately 8 GiB RAM. Live Llama-3-8B BF16
-inference needs at least 24 GiB VRAM. The released stack has been verified on
-Python 3.11.15; Python 3.8 compatibility has not been verified.
+The bundled offline analyses need only a CPU and approximately 8 GiB RAM. Live
+Llama-3-8B BF16 inference needs at least 24 GiB VRAM. The released stack has
+been verified on Python 3.11.15; Python 3.8 compatibility has not been verified.
 
 ## Quick Start
 
@@ -35,28 +35,14 @@ Run these commands from `main_methodology/`.
 
 | Goal | Command | Input | Output |
 |---|---|---|---|
-| Fastest code/result check (E1) | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | 18 bundled fixed-chain step, direct-confidence, and synthesis traces under `results/traces/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` |
-| Complete offline check (E1–E7) | `bash scripts/run_offline_reproduction.sh` | Bundled fixed-chain, confidence, and coverage traces under `results/traces/` | Markdown, JSON/JSONL, and three PNGs under `results/reproduced/` |
-| Train the decomposer (E13) | [Use the exact training instructions below](#decomposer-training-e13) | Public Hugging Face 12K dataset, gated base model, and `configs/llama3_8b_decomposer_lora_3ds.yaml` | `LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/` |
-| Run the thesis main method live (E14) | [Use the exact four-dataset command below](#main-method-live-seek-e14) | Four `datasets/evaluation/*.jsonl` manifests, base model, SEEK adapter, and ES `wiki` index | `results/generated/seek_{dataset}.jsonl` |
+| Fastest reported-result check | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | 18 bundled fixed-chain step, direct-confidence, and synthesis traces under `results/traces/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` |
+| Complete offline analysis | `bash scripts/run_offline_reproduction.sh` | Bundled fixed-chain, confidence, and coverage traces under `results/traces/` | Markdown, JSON/JSONL, and three PNGs under `results/reproduced/` |
+| Train the decomposer | [Use the training instructions below](#train-the-decomposer) | Public Hugging Face 12K dataset, gated base model, and `configs/llama3_8b_decomposer_lora_3ds.yaml` | `LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/` |
+| Run the thesis main method | [Use the four-dataset command below](#main-evaluation) | Four `datasets/evaluation/*.jsonl` manifests, base model, SEEK adapter, and ES `wiki` index | `results/generated/seek_{dataset}.jsonl` |
 
-The E1 fast check reproduces **41.88 EM / 48.90 F1** from canonical fixed-chain
-traces. E13 and E14 remain in this section because they are the decomposer
-training procedure and the final live SEEK system. E14 performs fresh
-sequential generation and is not expected to be bit-identical.
-
-### Why E8–E12 Are Separate
-
-| ID | Thesis content | Why it is not a quick-start run |
-|---|---|---|
-| E8 | Answer-containing Hit@5 | Needs four raw development sets and the ES `wiki` index; the figure-only path can use the bundled report. |
-| E9 | MuSiQue gold/base decomposition recall | Needs raw MuSiQue data, the base model, a GPU, and the ES `wiki` index. |
-| E10 | Title-policy comparison | Needs the base model, SEEK adapter, a GPU, and Elasticsearch; the thesis table aggregation is historical. |
-| E11 | Maximum entropy vs. Tail Leakage | A new live run is possible, but the exact historical maximum-entropy traces are not bundled. |
-| E12 | Repeated-sampling errors | Needs the SEEK adapter, a GPU, and paragraph-bearing data; the exact appendix aggregation is provenance-only. |
-
-Exact E8–E12 commands, inputs, and outputs are in the
-[detailed reproduction guide](main_methodology/THESIS_REPRODUCTION.md#3-external-asset-commands).
+The fastest check reproduces **41.88 EM / 48.90 F1** from the bundled
+fixed-chain traces. The main evaluation performs fresh sequential generation
+and is not expected to be bit-identical.
 
 ## Environment Installation
 
@@ -73,8 +59,8 @@ python -m pip install -r requirements.txt
 python -m pip check
 ```
 
-For E1–E7, CUDA and Hugging Face login are unnecessary. E13 and E14 use the
-gated
+CUDA and Hugging Face login are unnecessary for the bundled offline analyses.
+Training and live evaluation use the gated
 [`meta-llama/Meta-Llama-3-8B-Instruct`](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct)
 model; accept its license and run `hf auth login` before downloading it.
 
@@ -86,7 +72,7 @@ model; accept its license and run `hf auth login` before downloading it.
 | Four 1,000-question manifests | `main_methodology/datasets/evaluation/` | Bundled |
 | Exact 12K decomposer training set | [Hugging Face](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k) | Public |
 | Base model | `meta-llama/Meta-Llama-3-8B-Instruct` | Gated license |
-| SEEK LoRA adapter | PEFT adapter directory | External; train with E13 or obtain from the author |
+| SEEK LoRA adapter | PEFT adapter directory | External; train it with the instructions below or obtain it from the author |
 | Wikipedia corpus | Elasticsearch 7.10.2 index `wiki` | External |
 
 Download and verify the exact training data:
@@ -104,7 +90,7 @@ The dataset contains 4,000 MuSiQue, 4,000 2Wiki, and 4,000 PopQA examples.
 Sources, schemas, licenses, and evaluation-subset construction are documented
 in [`main_methodology/DATASETS.md`](main_methodology/DATASETS.md).
 
-## Fast Reproduction of the Thesis Result (E1)
+## Reproduce the Reported Thesis Result
 
 Run from `main_methodology/`:
 
@@ -125,7 +111,7 @@ Expected accuracy-first result at `tau=0.002305`:
 The pooled step-retrieval rate must be **93.84%**. Outputs are written to
 `results/reproduced/tlsum_fixA_step_gate_final.{md,json}`.
 
-For the complete CPU-only E1–E7 check:
+For the complete CPU-only analysis:
 
 ```bash
 bash scripts/run_offline_reproduction.sh
@@ -135,7 +121,7 @@ This runs the headline result, skip-safety analysis, failure taxonomy,
 confidence analyses, routing analysis, and associated figures. All outputs go
 to `results/reproduced/` and do not modify tracked thesis figures.
 
-## Main Method: Live SEEK (E14)
+## Main Evaluation
 
 The thesis main method uses:
 
@@ -189,7 +175,7 @@ change `--corpus wiki` to `--corpus paragraphs`, and add `--limit 10`.
 The required JSONL schema is in
 [`main_methodology/README.md`](main_methodology/README.md#32-input-jsonl).
 
-## Decomposer Training (E13)
+## Train the Decomposer
 
 Training uses the public 12K dataset and the pinned LLaMA-Factory revision
 `7e20db5735443861fad91766614b3415ff8966a4`. The thesis configuration is:
@@ -206,31 +192,21 @@ adapter is written to:
 LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/
 ```
 
-The complete dataset-registration and training commands are in
-[`E13 of the reproduction matrix`](main_methodology/THESIS_REPRODUCTION.md#e13-decomposer-training).
+The complete dataset-registration and training commands are in the
+[detailed reproduction guide](main_methodology/THESIS_REPRODUCTION.md#decomposer-training).
 
-## Thesis Experiment Map
+## Analysis and Ablations
 
-| ID | Thesis content | Entry point | Status |
-|---|---|---|---|
-| E1 | Main result, retrieval necessity, threshold sweep | `analyze_tlsum_fixA_step_gate_final.py` | Verified clone |
-| E2 | Skipped-retrieval safety | `analyze_skipped_retrieval_questions.py` | Verified clone |
-| E3 | Failure taxonomy | `analyze_accuracy_first_failure_taxonomy.py` | Verified clone |
-| E4 | Confidence-signal AUROC | `analyze_confidence_battery.py` | Verified clone |
-| E5 | Selective accuracy and confidently-wrong cases | `analyze_tlsum_confidence_story.py` | Verified clone |
-| E6 | Tail Leakage variants and bootstrap | `analyze_tail_leakage_variants.py` | Verified clone |
-| E7 | Routing, oracle, and confidence quadrants | Three analysis/plot scripts | Verified clone |
-| E8 | Answer-containing Hit@5 | `recompute_answer_containing_recall_4ds.py` | Raw data + ES |
-| E9 | MuSiQue decomposition recall | Two decomposition/recall scripts | Base model + raw data + ES |
-| E10 | Title-policy comparison | `run_tlsum_title_ablation_tau002305.sh` | Base model + adapter + ES |
-| E11 | Maximum entropy vs. Tail Leakage | `run_seek_dual.py --signal max_ent` | Historical traces incomplete |
-| E12 | Repeated-sampling errors | `run_m2b_multisample.sh` | Historical aggregation incomplete |
-| E13 | Decomposer training | LLaMA-Factory configuration | External model + GPU |
-| E14 | Live final SEEK | `run_seek_dual.py` | External adapter + ES + GPU |
+The complete offline script covers the main result, threshold sweep,
+skipped-retrieval safety, failure taxonomy, confidence analyses, Tail Leakage
+variants, routing behavior, oracle headroom, and confidence-quadrant figures.
 
-Inputs, outputs, exact commands, expected values, and thesis figure producers
-for every ID are recorded in
-[`main_methodology/THESIS_REPRODUCTION.md`](main_methodology/THESIS_REPRODUCTION.md).
+Additional thesis analyses cover answer-containing retrieval recall, MuSiQue
+decomposition recall, title-policy comparison, maximum entropy versus Tail
+Leakage, and repeated-sampling errors. These runs need raw development data,
+the base model, the SEEK adapter, a GPU, or the Elasticsearch `wiki` index.
+Their exact commands, inputs, outputs, and availability notes are in the
+[detailed reproduction guide](main_methodology/THESIS_REPRODUCTION.md).
 
 ## Thesis and Paper
 
@@ -249,12 +225,12 @@ latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
 ## Detailed Documentation and Limits
 
 - [Implementation and live-input schema](main_methodology/README.md)
-- [All experiment and figure commands](main_methodology/THESIS_REPRODUCTION.md)
+- [Detailed analysis and figure commands](main_methodology/THESIS_REPRODUCTION.md)
 - [Dataset sources and preparation](main_methodology/DATASETS.md)
 - [Script index](main_methodology/scripts/README.md)
 - [Result artifact index](main_methodology/results/README.md)
 
 The gated base model, final LoRA adapter, raw paragraph datasets, and 21M
-Wikipedia index are not in Git. E10–E12 retain some historical/provenance-only
-results; the reproduction matrix labels these cases explicitly rather than
-claiming clean-clone reproduction.
+Wikipedia index are not in Git. Some historical title-policy, maximum-entropy,
+and repeated-sampling results do not include every original row-level artifact;
+the detailed guide labels these limits explicitly.

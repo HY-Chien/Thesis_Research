@@ -73,7 +73,7 @@ resource status is in [`THESIS_REPRODUCTION.md`](THESIS_REPRODUCTION.md).
 
 ## 2. Reproduce the thesis headline without a GPU
 
-Run the complete verified E1–E7 suite:
+Run the complete verified offline analysis suite:
 
 ```bash
 bash scripts/run_offline_reproduction.sh

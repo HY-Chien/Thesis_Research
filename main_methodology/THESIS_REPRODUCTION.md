@@ -1,4 +1,4 @@
-# Thesis experiment and figure reproduction matrix
+# Thesis Reproduction Guide
 
 This document maps every SEEK experiment, table, and figure in the current
 thesis to its executable entry point. Baselines quoted from earlier papers are
@@ -16,31 +16,31 @@ changes directory.
 | **Provenance only** | The result is retained in the thesis/research ledger, but its complete row-level inputs or final aggregation program are not available in a normal clone |
 | **Manual source gap** | The rendered asset exists, but no editable original or generator was found |
 
-Generated reviewer outputs go to `results/reproduced/`. GPU/live outputs go
+Generated analysis outputs go to `results/reproduced/`. GPU/live outputs go
 to `results/generated/`. Both directories are ignored by Git.
 
-## 1. Experiment and table matrix
+## 1. Thesis Results and Entry Points
 
-| ID | Thesis item | Entry point | Inputs | Output | Resources/status |
-|---|---|---|---|---|---|
-| E1 | Ch. 4 SEEK main-result row; Ch. 5 retrieval-necessity table; threshold-sensitivity table | `analyze_tlsum_fixA_step_gate_final.py` | 18 canonical traces under `results/traces/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` | CPU; **verified clone** |
-| E2 | Ch. 5 skipped-retrieval safety | `analyze_skipped_retrieval_questions.py` | Same fixed-chain artifacts as E1 | Markdown, JSON, and case JSONL in `results/reproduced/` | CPU; **verified clone** |
-| E3 | Appendix decomposition failure taxonomy and diagnostic flags | `analyze_accuracy_first_failure_taxonomy.py` | E1 artifacts plus six bundled coverage traces | `decomp_failure_taxonomy_tau0p002305.{md,json}` | CPU; **verified clone** |
-| E4 | Ch. 5 confidence-signal AUROC battery | `analyze_confidence_battery.py` | Four bundled `conf_battery` traces | `confidence_battery_analysis.md` | CPU; **verified clone** |
-| E5 | Ch. 5 entropy components, selective accuracy; Appendix confidently-wrong categories | `analyze_tlsum_confidence_story.py` | Four bundled `conf_battery` traces | `tlsum_confidence_story.md` | CPU; **verified clone** |
-| E6 | Supporting Tail Leakage metric variants and paired bootstrap | `analyze_tail_leakage_variants.py` | Four bundled `conf_battery` traces | `tail_leakage_variants.md` | CPU; **verified clone** |
-| E7 | Ch. 5 verifier choices, path correctness overlap, routing effect, oracle headroom; Appendix quadrant confidence | Accuracy-first replay helper plus three analysis/plot scripts | Bundled step/final/synthesis/direct-confidence traces | Three Markdown reports and three PNGs | CPU; **verified clone** |
-| E8 | Ch. 5 answer-containing Hit@5 | `recompute_answer_containing_recall_4ds.py` | Four raw dev sets, bundled final traces, ES `wiki` | `answer_containing_recall_4ds_open_domain.md` | CPU + ES; **external assets** |
-| E9 | Ch. 5 MuSiQue gold/base decomposition recall | `decompose_base_musique.py`, then `recall_gold_decomp_musique.py` | Raw MuSiQue dev, base model, bundled final trace, ES `wiki` | Base decomposition JSONL, detail JSONL, stdout table | GPU + ES; **external assets** |
-| E10 | Ch. 5 title-off/title-on/path-aware end-to-end comparison | `run_tlsum_title_ablation_tau002305.sh` for all three arms | Base model, LoRA adapter, bundled source traces, ES `wiki` | Per-arm JSONL/logs under `results/generated/title_policy/` | GPU + ES; **external assets**; thesis table aggregation is historical |
-| E11 | Ch. 5 maximum-entropy vs Tail Leakage end-to-end comparison | Tail Leakage row from E1; maximum-entropy live producer is `run_seek_dual.py --signal max_ent` | Base model, adapter, raw dev, ES, historical operating point | Live JSONL | Maximum-entropy row-level historical traces are not bundled; **provenance only** |
-| E12 | Appendix repeated-sampling errors | `probe_multisample.py` or portable launcher `run_m2b_multisample.sh` | Base model, adapter, evaluation JSONL with paragraphs | Per-dataset multisample JSONL | GPU; exact appendix zero-entropy aggregation has no dedicated current writer, so final table is **provenance only** |
-| E13 | Ch. 4 decomposer training configuration | LLaMA-Factory config in `configs/` | Public [SEEK 12K dataset](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k), gated base model | LoRA adapter checkpoint | GPU; **external assets** |
-| E14 | Ch. 4 live final system | `run_seek_dual.py` | Base model, adapter, evaluation JSONL, optional ES | Prediction JSONL selected by `--out` | GPU; **external assets** |
+| Thesis content | Entry point | Inputs | Output | Resources/status |
+|---|---|---|---|---|
+| Ch. 4 SEEK main-result row; Ch. 5 retrieval-necessity and threshold-sensitivity tables | `analyze_tlsum_fixA_step_gate_final.py` | 18 canonical traces under `results/traces/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` | CPU; **verified clone** |
+| Ch. 5 skipped-retrieval safety | `analyze_skipped_retrieval_questions.py` | Bundled fixed-chain artifacts | Markdown, JSON, and case JSONL in `results/reproduced/` | CPU; **verified clone** |
+| Appendix decomposition failure taxonomy and diagnostic flags | `analyze_accuracy_first_failure_taxonomy.py` | Main-result artifacts plus six bundled coverage traces | `decomp_failure_taxonomy_tau0p002305.{md,json}` | CPU; **verified clone** |
+| Ch. 5 confidence-signal AUROC battery | `analyze_confidence_battery.py` | Four bundled `conf_battery` traces | `confidence_battery_analysis.md` | CPU; **verified clone** |
+| Ch. 5 entropy components and selective accuracy; Appendix confidently-wrong categories | `analyze_tlsum_confidence_story.py` | Four bundled `conf_battery` traces | `tlsum_confidence_story.md` | CPU; **verified clone** |
+| Supporting Tail Leakage variants and paired bootstrap | `analyze_tail_leakage_variants.py` | Four bundled `conf_battery` traces | `tail_leakage_variants.md` | CPU; **verified clone** |
+| Ch. 5 verifier choices, path overlap, routing effect, oracle headroom; Appendix quadrant confidence | Accuracy-first replay helper plus three analysis/plot scripts | Bundled step/final/synthesis/direct-confidence traces | Three Markdown reports and three PNGs | CPU; **verified clone** |
+| Ch. 5 answer-containing Hit@5 | `recompute_answer_containing_recall_4ds.py` | Four raw dev sets, bundled final traces, ES `wiki` | `answer_containing_recall_4ds_open_domain.md` | CPU + ES; **external assets** |
+| Ch. 5 MuSiQue gold/base decomposition recall | `decompose_base_musique.py`, then `recall_gold_decomp_musique.py` | Raw MuSiQue dev, base model, bundled final trace, ES `wiki` | Base decomposition JSONL, detail JSONL, stdout table | GPU + ES; **external assets** |
+| Ch. 5 title-off/title-on/path-aware comparison | `run_tlsum_title_ablation_tau002305.sh` for all three arms | Base model, LoRA adapter, bundled source traces, ES `wiki` | Per-arm JSONL/logs under `results/generated/title_policy/` | GPU + ES; **external assets**; thesis aggregation is historical |
+| Ch. 5 maximum entropy vs. Tail Leakage | Tail Leakage from the bundled main-result analysis; maximum-entropy live producer is `run_seek_dual.py --signal max_ent` | Base model, adapter, raw dev, ES, historical operating point | Live JSONL | Historical maximum-entropy row-level traces are not bundled; **provenance only** |
+| Appendix repeated-sampling errors | `probe_multisample.py` or `run_m2b_multisample.sh` | Base model, adapter, evaluation JSONL with paragraphs | Per-dataset multisample JSONL | GPU; final historical aggregation is **provenance only** |
+| Ch. 4 decomposer training | LLaMA-Factory config in `configs/` | Public [SEEK 12K dataset](https://huggingface.co/datasets/Chien1011/SEEK-decomposer-12k), gated base model | LoRA adapter checkpoint | GPU; **external assets** |
+| Ch. 4 live final SEEK system | `run_seek_dual.py` | Base model, adapter, evaluation JSONL, optional ES | Prediction JSONL selected by `--out` | GPU; **external assets** |
 
-## 2. Verified clone commands
+## 2. Bundled Offline Reproduction
 
-Run every verified E1–E7 item with:
+Run every bundled CPU analysis with:
 
 ```bash
 bash scripts/run_offline_reproduction.sh
@@ -49,7 +49,7 @@ bash scripts/run_offline_reproduction.sh
 The complete script was rerun successfully on 2026-08-30. The commands below
 show the individual entry points.
 
-### E1-E3: headline, gate ablations, skip safety, and taxonomy
+### Main Result, Gate Ablations, Skip Safety, and Taxonomy
 
 ```bash
 python scripts/analyze_tlsum_fixA_step_gate_final.py
@@ -57,7 +57,7 @@ python scripts/analyze_skipped_retrieval_questions.py
 python scripts/analyze_accuracy_first_failure_taxonomy.py
 ```
 
-The E1 accuracy-first row must be:
+The accuracy-first row must be:
 
 ```text
 Tail Leakage tau = 0.002305
@@ -69,9 +69,10 @@ Macro             41.88 EM / 48.90 F1
 Pooled retrieval  93.84%
 ```
 
-E2 must find 478 skipped steps out of 7,761 and 418 affected questions.
+The skipped-retrieval analysis must find 478 skipped steps out of 7,761 and
+418 affected questions.
 
-### E4-E6: confidence analyses
+### Confidence Analyses
 
 ```bash
 python scripts/analyze_confidence_battery.py
@@ -83,7 +84,7 @@ These were rerun against a clean canonical bundle on 2026-08-24. The
 representative signal battery, entropy-component AUROCs, selective-accuracy
 table, and all 491 confidently-wrong cases match the current thesis.
 
-### E7: path overlap, routing, oracle, and confidence quadrants
+### Path Overlap, Routing, Oracle, and Confidence Quadrants
 
 ```bash
 python scripts/make_direct_decompose_2x2_fig.py
@@ -106,9 +107,9 @@ Expected direct-choice counts are 171, 25, 121, and 10 respectively. The
 quadrant-confidence report should give pooled AUROC 0.817 and 9.3% confidently
 wrong after rounding.
 
-## 3. External-asset commands
+## 3. GPU and External-Data Analyses
 
-### E8: four-dataset answer-containing Hit@5
+### Four-Dataset Answer-Containing Hit@5
 
 Provide the following raw files:
 
@@ -130,7 +131,7 @@ python scripts/recompute_answer_containing_recall_4ds.py \
 The script joins raw gold answers/aliases with the tracked final traces. It
 writes `results/reproduced/answer_containing_recall_4ds_open_domain.md`.
 
-### E9: MuSiQue gold/base decomposition diagnostic
+### MuSiQue Gold/Base Decomposition Diagnostic
 
 ```bash
 python scripts/decompose_base_musique.py \
@@ -150,7 +151,7 @@ python scripts/recall_gold_decomp_musique.py \
 The second command prints the summary table and writes row-level details when
 `--detail` is supplied.
 
-### E10: title handling
+### Title Handling
 
 ```bash
 export BASE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct
@@ -166,10 +167,10 @@ the active `python` unless `PYTHON_BIN` is set. The thesis table predates
 the current packaging pass; its final aggregation is retained as historical
 provenance rather than falsely labelled a clean-clone reproduction.
 
-### E11: maximum-entropy live arm
+### Maximum-Entropy Live Arm
 
-Use the same live command as E14, changing the step signal and corresponding
-verifier thresholds:
+Use the same setup as the live SEEK evaluation below, changing the step signal
+and corresponding verifier thresholds:
 
 ```bash
 python scripts/run_seek_dual.py \
@@ -194,7 +195,7 @@ python scripts/run_seek_dual.py \
 This is the live producer. The exact historical traces underlying the
 maximum-entropy thesis row are not part of the minimal Git bundle.
 
-### E12: repeated sampling
+### Repeated Sampling
 
 ```bash
 export BASE_MODEL=meta-llama/Meta-Llama-3-8B-Instruct
@@ -212,7 +213,7 @@ The launcher produces 15 samples/question at temperature 0.7. The current
 appendix's identical-answer/zero-mean-max-entropy count was historically
 aggregated and does not have a dedicated current report writer.
 
-### E13: decomposer training
+### Decomposer Training
 
 ```bash
 SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
@@ -239,7 +240,7 @@ llamafactory-cli train \
 The three `dataset_info.json` entries and original construction provenance
 are documented in `DATASETS.md`.
 
-### E14: live SEEK
+### Live SEEK
 
 The exact path-aware, original-question-union command is in the root README
 and `main_methodology/README.md`. Use `--corpus paragraphs` for a smoke
@@ -256,9 +257,9 @@ test without ES, or `--corpus wiki` for the thesis retrieval setting.
 | `fig_same_entropy_risk.pdf` | Same Chapter 3 command | Rebuildable |
 | `fig_leakage_monotonicity.pdf` | Same Chapter 3 command | Rebuildable |
 | `fig_tail_leakage_error_bins.pdf` | Same Chapter 3 command | Rebuildable; source values documented in script |
-| `fig_answer_hit_retrieval.png` | E8, then `python scripts/make_answer_hit_fig.py --out ../Thesis/figures/fig_answer_hit_retrieval.png` | **External assets** |
-| `fig_3way_ablation.png` | E1, then `python scripts/make_3way_fig.py --out ../Thesis/figures/fig_3way_ablation.png` | **Verified clone**; plots final-system EM |
-| `fig_threshold_tradeoff.png` | E1, then `python scripts/make_threshold_tradeoff_fig.py --out ../Thesis/figures/fig_threshold_tradeoff.png` | **Verified clone**; highlights accuracy-first `tau=0.002305` |
+| `fig_answer_hit_retrieval.png` | Run the four-dataset Hit@5 analysis, then `python scripts/make_answer_hit_fig.py --out ../Thesis/figures/fig_answer_hit_retrieval.png` | **External assets** |
+| `fig_3way_ablation.png` | Run the main-result analysis, then `python scripts/make_3way_fig.py --out ../Thesis/figures/fig_3way_ablation.png` | **Verified clone**; plots final-system EM |
+| `fig_threshold_tradeoff.png` | Run the main-result analysis, then `python scripts/make_threshold_tradeoff_fig.py --out ../Thesis/figures/fig_threshold_tradeoff.png` | **Verified clone**; highlights accuracy-first `tau=0.002305` |
 | `fig_direct_decompose_2x2_counts.png` | `python scripts/make_direct_decompose_2x2_fig.py --out ../Thesis/figures/fig_direct_decompose_2x2_counts.png` | **Verified clone** |
 | `fig_routing_gap_oracle.png` | `python scripts/make_routing_gap_fig.py --out ../Thesis/figures/fig_routing_gap_oracle.png` | **Verified clone** |
 | `fig_quadrant_confidence.png` | `python scripts/analyze_quadrant_confidence.py --out ../Thesis/figures/fig_quadrant_confidence.png` | **Verified clone** |
