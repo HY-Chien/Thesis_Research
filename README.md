@@ -215,23 +215,3 @@ Their exact commands, inputs, outputs, and availability notes are in the
   [`Thesis/main.pdf`](Thesis/main.pdf)
 - Paper source/PDF: [`papers/seek/iclr2027/main.tex`](papers/seek/iclr2027/main.tex) /
   [`papers/seek/iclr2027/main.pdf`](papers/seek/iclr2027/main.pdf)
-
-Build the thesis:
-
-```bash
-cd ../Thesis
-latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
-```
-
-## Detailed Documentation and Limits
-
-- [Implementation and live-input schema](main_methodology/README.md)
-- [Detailed analysis and figure commands](main_methodology/THESIS_REPRODUCTION.md)
-- [Dataset sources and preparation](main_methodology/DATASETS.md)
-- [Script index](main_methodology/scripts/README.md)
-- [Saved-result file index](main_methodology/results/README.md)
-
-The gated base model, final LoRA adapter, raw paragraph datasets, and 21M
-Wikipedia index are not in Git. Some historical title-policy, maximum-entropy,
-and repeated-sampling results do not include every original per-question output
-file; the detailed guide labels these limits explicitly.
