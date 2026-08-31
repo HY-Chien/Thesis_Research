@@ -1,12 +1,14 @@
 # Portable direct dependencies for SEEK inference and result analysis.
 # Tested with Python 3.11.15. Transitive dependencies are intentionally omitted.
 #
-# PyTorch below is not tied to a CUDA wheel. For GPU execution, install the
-# build matching the host driver from https://pytorch.org/get-started/locally/
-# before installing this file; pip will then keep the compatible installation.
+# The PyTorch packages below are not tied to a CUDA wheel. Install the matching
+# CUDA builds from https://pytorch.org/get-started/locally/ before this file;
+# pip will then retain the compatible trio while installing LLaMA-Factory.
 
 # Core model inference
 torch==2.10.0
+torchvision==0.25.0
+torchaudio==2.10.0
 transformers==5.6.0
 accelerate==1.11.0
 peft==0.18.1

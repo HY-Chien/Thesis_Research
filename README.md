@@ -86,7 +86,8 @@ cd Thesis_Research/main_methodology
 python3.11 -m venv venv
 source venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install torch==2.10.0 \
+python -m pip install \
+  torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 \
   --index-url https://download.pytorch.org/whl/cu128
 python -m pip install -r requirements.txt
 python -m pip check
@@ -228,6 +229,7 @@ fi
 
 git -C "$LLAMA_FACTORY_DIR" checkout 7e20db5735443861fad91766614b3415ff8966a4
 python -m pip install -e "$LLAMA_FACTORY_DIR"
+python -m pip check
 ```
 
 After downloading the 12K dataset as described above, validate every path and

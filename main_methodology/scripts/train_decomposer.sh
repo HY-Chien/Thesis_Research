@@ -27,6 +27,21 @@ fi
 "$PYTHON_BIN" -c \
   'import sys; assert sys.version_info >= (3, 11), "Python 3.11 or newer is required"'
 
+"$PYTHON_BIN" -c '
+import torch
+import torchaudio
+import torchvision
+
+expected = {
+    "torch": (torch.__version__, "2.10.0"),
+    "torchvision": (torchvision.__version__, "0.25.0"),
+    "torchaudio": (torchaudio.__version__, "2.10.0"),
+}
+for name, (actual, wanted) in expected.items():
+    if actual.split("+")[0] != wanted:
+        raise SystemExit(f"{name}=={wanted} is required; found {actual}")
+'
+
 if [[ ! -f "$CONFIG_PATH" ]]; then
   echo "Training configuration not found: $CONFIG_PATH" >&2
   exit 2

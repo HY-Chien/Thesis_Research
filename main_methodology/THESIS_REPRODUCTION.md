@@ -235,6 +235,7 @@ fi
 
 git -C "$LLAMA_FACTORY_DIR" checkout 7e20db5735443861fad91766614b3415ff8966a4
 python -m pip install -e "$LLAMA_FACTORY_DIR"
+python -m pip check
 
 # Validate the setup without training.
 bash scripts/train_decomposer.sh --check-only

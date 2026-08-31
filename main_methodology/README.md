@@ -46,15 +46,19 @@ cd Thesis_Research/main_methodology
 python3.11 -m venv venv
 source venv/bin/activate
 python -m pip install --upgrade pip
+python -m pip install \
+  torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 \
+  --index-url https://download.pytorch.org/whl/cu128
 python -m pip install -r requirements.txt
 python -m pip check
 python -m unittest discover -s tests -v
 ```
 
-`requirements.txt` contains the portable direct dependencies. It does not
-contain author-specific paths or CUDA packages. For GPU inference, install the
-PyTorch build matching the host CUDA driver before installing the requirements;
-the compatible existing PyTorch installation will be retained.
+`requirements.txt` contains the portable direct dependencies and does not
+contain author-specific paths. Install the matching PyTorch, TorchVision, and
+TorchAudio wheels first; keeping all three at the documented versions prevents
+LLaMA-Factory from replacing the CUDA 12.8 build with a newer incompatible
+PyTorch release.
 
 Confirm that the active entry points load:
 
@@ -347,6 +351,7 @@ fi
 
 git -C "$LLAMA_FACTORY_DIR" checkout 7e20db5735443861fad91766614b3415ff8966a4
 python -m pip install -e "$LLAMA_FACTORY_DIR"
+python -m pip check
 
 export SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
 
