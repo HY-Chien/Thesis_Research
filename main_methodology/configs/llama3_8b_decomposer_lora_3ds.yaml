@@ -1,6 +1,7 @@
 ### SEEK decomposer — LoRA SFT of Llama3-8B-Instruct on MuSiQue + 2Wiki + PopQA gold (12000)
-### run:  cd ~/LLaMA-Factory && conda activate thesis
-###       llamafactory-cli train .../configs/llama3_8b_decomposer_lora_3ds.yaml
+### This YAML is an input file, not an executable. Do not run it with `./configs/...yaml`.
+### run:  cd main_methodology
+###       bash scripts/train_decomposer.sh
 
 ### model
 model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
@@ -38,6 +39,6 @@ gradient_accumulation_steps: 4
 learning_rate: 1.0e-4
 num_train_epochs: 3.0
 lr_scheduler_type: cosine
-warmup_ratio: 0.1
+warmup_steps: 225
 bf16: true
 ddp_timeout: 180000000

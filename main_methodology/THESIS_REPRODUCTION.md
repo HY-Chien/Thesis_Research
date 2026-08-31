@@ -217,6 +217,8 @@ aggregated and does not have a dedicated current report writer.
 
 ### Decomposer Training
 
+Run from `main_methodology/`:
+
 ```bash
 SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
 hf download Chien1011/SEEK-decomposer-12k \
@@ -225,22 +227,30 @@ hf download Chien1011/SEEK-decomposer-12k \
   --local-dir "$SEEK_DATA_DIR"
 (cd "$SEEK_DATA_DIR" && sha256sum -c SHA256SUMS)
 
-git clone https://github.com/hiyouga/LLaMA-Factory.git
-cd LLaMA-Factory
-git checkout 7e20db5735443861fad91766614b3415ff8966a4
-python -m pip install -e .
+export LLAMA_FACTORY_DIR="$(cd ../.. && pwd)/LLaMA-Factory"
 
-# Copy the downloaded data and register musique_decomp, twowiki_decomp, and
-# popqa_decomp in data/dataset_info.json as documented in DATASETS.md.
-mkdir -p data/seek_decomposer_12k
-cp -R "$SEEK_DATA_DIR/data/." data/seek_decomposer_12k/
+if [ ! -d "$LLAMA_FACTORY_DIR/.git" ]; then
+  git clone https://github.com/hiyouga/LLaMA-Factory.git "$LLAMA_FACTORY_DIR"
+fi
 
-llamafactory-cli train \
-  /path/to/Thesis_Research/main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml
+git -C "$LLAMA_FACTORY_DIR" checkout 7e20db5735443861fad91766614b3415ff8966a4
+python -m pip install -e "$LLAMA_FACTORY_DIR"
+
+# Validate the setup without training.
+bash scripts/train_decomposer.sh --check-only
+
+# Optional: run one optimizer step and save only under /tmp.
+bash scripts/train_decomposer.sh --smoke-test
+
+# Full three-epoch thesis training run.
+bash scripts/train_decomposer.sh
 ```
 
-The three `dataset_info.json` entries and the original construction record
-are documented in `DATASETS.md`.
+The wrapper registers the three datasets automatically. `--smoke-test` runs one
+real optimizer step and writes to `/tmp`; omit it for the full three-epoch run.
+Dataset sources and the original construction record are documented in
+`DATASETS.md`. The wrapper uses GPU 0 by default so the effective batch size
+remains 16, matching the thesis run.
 
 ### Live SEEK
 

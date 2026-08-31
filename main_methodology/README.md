@@ -47,6 +47,8 @@ python3.11 -m venv venv
 source venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
+python -m pip check
+python -m unittest discover -s tests -v
 ```
 
 `requirements.txt` contains the portable direct dependencies. It does not
@@ -333,43 +335,38 @@ hf download Chien1011/SEEK-decomposer-12k \
 
 ### 5.2 Train with the pinned LLaMA-Factory checkout
 
-```bash
-git clone https://github.com/hiyouga/LLaMA-Factory.git
-cd LLaMA-Factory
-git checkout 7e20db5735443861fad91766614b3415ff8966a4
-python -m pip install -e .
-
-SEEK_DATA_DIR="${SEEK_DATA_DIR:-/tmp/SEEK-decomposer-12k}"
-mkdir -p data/seek_decomposer_12k
-cp -R "$SEEK_DATA_DIR/data/." data/seek_decomposer_12k/
-```
-
-Merge these entries into `data/dataset_info.json`:
-
-```json
-{
-  "musique_decomp": {
-    "file_name": "seek_decomposer_12k/musique/train.json"
-  },
-  "twowiki_decomp": {
-    "file_name": "seek_decomposer_12k/twowiki/train.json"
-  },
-  "popqa_decomp": {
-    "file_name": "seek_decomposer_12k/popqa/train.json"
-  }
-}
-```
-
-Run from the LLaMA-Factory checkout:
+Run the following commands from `main_methodology/`. The YAML file is a
+configuration input and must not be executed directly.
 
 ```bash
-llamafactory-cli train \
-  /path/to/Thesis_Research/main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml
+export LLAMA_FACTORY_DIR="$(cd ../.. && pwd)/LLaMA-Factory"
+
+if [ ! -d "$LLAMA_FACTORY_DIR/.git" ]; then
+  git clone https://github.com/hiyouga/LLaMA-Factory.git "$LLAMA_FACTORY_DIR"
+fi
+
+git -C "$LLAMA_FACTORY_DIR" checkout 7e20db5735443861fad91766614b3415ff8966a4
+python -m pip install -e "$LLAMA_FACTORY_DIR"
+
+export SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
+
+# Validate the setup without training.
+bash scripts/train_decomposer.sh --check-only
+
+# Optional: run one optimizer step and save only under /tmp.
+bash scripts/train_decomposer.sh --smoke-test
+
+# Full three-epoch thesis training run.
+bash scripts/train_decomposer.sh
 ```
 
-The YAML uses a public Hugging Face model ID and a relative output directory.
-If the base model is already downloaded locally, replace `model_name_or_path`
-with that path.
+The wrapper checks Python, the LLaMA-Factory commit, CLI availability, and all
+three training files. The `--smoke-test` mode performs one real training step
+and writes only to `/tmp`. The full run copies and registers the datasets before
+passing the YAML to `llamafactory-cli train`. It defaults to one GPU
+(`CUDA_VISIBLE_DEVICES=0`) to preserve the thesis effective batch size of 16.
+If the base model is already downloaded locally, replace
+`model_name_or_path` in the YAML with that path.
 
 ### 5.3 Optional: rebuild the training data from upstream sources
 

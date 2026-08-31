@@ -17,6 +17,7 @@ Thesis_Research/
 ├── main_methodology/                         # Main SEEK implementation and reproduction package
 │   ├── seek/                                 # Core answerer, retrieval, pipeline, and verifier code
 │   ├── scripts/                              # Evaluation, reproduction, analysis, and plotting programs
+│   ├── tests/                                # Unit tests for data and training helpers
 │   ├── configs/                              # Decomposer training configurations
 │   ├── datasets/evaluation/                  # Four 1,000-question evaluation JSONL files
 │   ├── results/
@@ -57,8 +58,9 @@ The author workstation used Ubuntu 24.04.2 LTS, two Intel Xeon Gold 6430 CPUs,
 
 The offline analyses use result files already included in this repository and
 need only a CPU and approximately 8 GiB RAM. Live Llama-3-8B BF16 inference
-needs at least 24 GiB VRAM. The released stack has been verified on Python
-3.11.15; Python 3.8 compatibility has not been verified.
+needs at least 24 GiB VRAM. Python 3.11 is required because the pinned
+LLaMA-Factory revision requires Python 3.11 or newer; Python 3.8 cannot install
+that training stack.
 
 ## Quick Start
 
@@ -68,7 +70,7 @@ Run these commands from `main_methodology/`.
 |---|---|---|---|
 | Fastest reported-result check | `python scripts/analyze_tlsum_fixA_step_gate_final.py` | `results/traces/{hotpotqa,2wiki,musique,popqa,other}/` | `results/reproduced/tlsum_fixA_step_gate_final.{md,json}` |
 | Complete offline analysis | `bash scripts/run_offline_reproduction.sh` | `results/traces/` | `results/reproduced/` |
-| Train the decomposer | [Use the training instructions below](#train-the-decomposer) | `LLaMA-Factory/data/seek_decomposer_12k/`<br>`configs/llama3_8b_decomposer_lora_3ds.yaml` | `LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/` |
+| Train the decomposer | `bash scripts/train_decomposer.sh` | `$SEEK_DATA_DIR/data/{musique,twowiki,popqa}/train.json`<br>`configs/llama3_8b_decomposer_lora_3ds.yaml` | `LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/` |
 | Run the thesis main method | [Use the four-dataset command below](#main-evaluation) | `datasets/evaluation/{hotpotqa,2wikimultihopqa,musique,popqa}.jsonl`<br>Base model, adapter, and Elasticsearch paths are configured below | `results/generated/seek_{dataset}.jsonl` |
 
 The fastest check reproduces **41.88 EM / 48.90 F1** from the saved model
@@ -88,6 +90,7 @@ python -m pip install torch==2.10.0 \
   --index-url https://download.pytorch.org/whl/cu128
 python -m pip install -r requirements.txt
 python -m pip check
+python -m unittest discover -s tests -v
 ```
 
 CUDA and Hugging Face login are unnecessary when analyzing the saved result
@@ -209,7 +212,51 @@ The required JSONL schema is in
 ## Train the Decomposer
 
 Training uses the public 12K dataset and the pinned LLaMA-Factory revision
-`7e20db5735443861fad91766614b3415ff8966a4`. The thesis configuration is:
+`7e20db5735443861fad91766614b3415ff8966a4`.
+
+The YAML file is a configuration input, not an executable program. Do **not**
+run `./configs/llama3_8b_decomposer_lora_3ds.yaml`.
+
+From `main_methodology/`, install the pinned training tool:
+
+```bash
+export LLAMA_FACTORY_DIR="$(cd ../.. && pwd)/LLaMA-Factory"
+
+if [ ! -d "$LLAMA_FACTORY_DIR/.git" ]; then
+  git clone https://github.com/hiyouga/LLaMA-Factory.git "$LLAMA_FACTORY_DIR"
+fi
+
+git -C "$LLAMA_FACTORY_DIR" checkout 7e20db5735443861fad91766614b3415ff8966a4
+python -m pip install -e "$LLAMA_FACTORY_DIR"
+```
+
+After downloading the 12K dataset as described above, validate every path and
+dataset registration without starting training:
+
+```bash
+export SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
+bash scripts/train_decomposer.sh --check-only
+```
+
+Optionally run one real training step and write its temporary output under
+`/tmp/seek-decomposer-smoke.*`:
+
+```bash
+bash scripts/train_decomposer.sh --smoke-test
+```
+
+Start training only after the preflight passes:
+
+```bash
+bash scripts/train_decomposer.sh
+```
+
+The wrapper defaults to `CUDA_VISIBLE_DEVICES=0` so that the effective batch
+size remains 16, matching the thesis run. To use another GPU, provide one GPU
+ID, for example `CUDA_VISIBLE_DEVICES=1 bash scripts/train_decomposer.sh`.
+
+The wrapper copies and registers all three datasets, then passes this
+configuration to `llamafactory-cli train`:
 
 ```text
 main_methodology/configs/llama3_8b_decomposer_lora_3ds.yaml
