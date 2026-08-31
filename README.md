@@ -10,6 +10,36 @@ analysis commands, inputs, outputs, expected values, and figure-generation
 steps, follow
 [`main_methodology/THESIS_REPRODUCTION.md`](main_methodology/THESIS_REPRODUCTION.md).
 
+## Repository Structure
+
+```text
+Thesis_Research/
+├── main_methodology/                         # Main SEEK implementation and reproduction package
+│   ├── seek/                                 # Core answerer, retrieval, pipeline, and verifier code
+│   ├── scripts/                              # Evaluation, reproduction, analysis, and plotting programs
+│   ├── configs/                              # Decomposer training configurations
+│   ├── datasets/evaluation/                  # Four 1,000-question evaluation JSONL files
+│   ├── results/
+│   │   ├── traces/                           # Saved predictions and confidence scores used for analysis
+│   │   └── reproduced/                       # Reports and figures created by reproduction scripts
+│   ├── checkpoints/                          # Training metadata; model weights are not included
+│   ├── requirements.txt                      # Python dependencies
+│   ├── DATASETS.md                           # Dataset sources and preparation
+│   └── THESIS_REPRODUCTION.md                # Detailed analysis and figure commands
+├── experiment/                               # Supporting and historical thesis experiments
+├── deeprag_compare/                          # DeepRAG comparison code and results
+├── Thesis/                                   # Thesis source, PDF, chapters, and figures
+│   ├── contents/                             # Thesis chapters
+│   ├── figures/                              # Thesis figures
+│   ├── front/                                # Abstracts and front matter
+│   ├── back/                                 # References and appendices
+│   ├── main.tex                              # Main LaTeX source
+│   └── main.pdf                              # Compiled thesis
+├── papers/seek/                              # SEEK paper drafts
+├── .gitignore
+└── README.md
+```
+
 ## Hardware and Software
 
 The author workstation used Ubuntu 24.04.2 LTS, two Intel Xeon Gold 6430 CPUs,
