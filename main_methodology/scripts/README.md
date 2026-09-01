@@ -9,7 +9,7 @@
 |---|---|
 | Live dual-path SEEK | `run_seek_dual.py`（`--signal tail_leakage`） |
 | 一鍵執行完整離線驗證 | `run_offline_reproduction.sh` |
-| 檢查／啟動 decomposer 訓練 | `train_decomposer.sh`（`--check-only`／`--smoke-test`） |
+| 檢查／啟動 decomposer 訓練 | `train_decomposer.sh`（可先加 `--check-only`） |
 | 單一路徑 / gate 診斷 | `run_seek.py` |
 | 重建四份 1,000 題 evaluation JSONL | `prepare_eval_subsets.py` |
 | 產生 Tail Leakage 雙分支預測結果 | `rerun_tlsum_fixA.py` |

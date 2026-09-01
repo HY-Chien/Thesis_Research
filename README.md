@@ -64,7 +64,7 @@ that training stack.
 
 ## Quick Start
 
-Run these commands from `main_methodology/`.
+Choose the goal you want to verify and run its command from `main_methodology/`.
 
 | Goal | Command | Input | Output |
 |---|---|---|---|
@@ -205,7 +205,7 @@ for DATASET in hotpotqa 2wikimultihopqa musique popqa; do
 done
 ```
 
-For a small no-Elasticsearch smoke test, provide a paragraph-bearing JSONL,
+For a small no-Elasticsearch check, provide a paragraph-bearing JSONL,
 change `--corpus wiki` to `--corpus paragraphs`, and add `--limit 10`.
 The required JSONL schema is in
 [`main_methodology/README.md`](main_methodology/README.md#32-input-jsonl).
@@ -238,13 +238,6 @@ dataset registration without starting training:
 ```bash
 export SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
 bash scripts/train_decomposer.sh --check-only
-```
-
-Optionally run one real training step and write its temporary output under
-`/tmp/seek-decomposer-smoke.*`:
-
-```bash
-bash scripts/train_decomposer.sh --smoke-test
 ```
 
 Start training only after the preflight passes:

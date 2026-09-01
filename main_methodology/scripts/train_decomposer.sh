@@ -17,10 +17,8 @@ MODE="train"
 
 if [[ "${1:-}" == "--check-only" ]]; then
   MODE="check"
-elif [[ "${1:-}" == "--smoke-test" ]]; then
-  MODE="smoke"
 elif [[ $# -ne 0 ]]; then
-  echo "Usage: bash scripts/train_decomposer.sh [--check-only|--smoke-test]" >&2
+  echo "Usage: bash scripts/train_decomposer.sh [--check-only]" >&2
   exit 2
 fi
 
@@ -85,19 +83,5 @@ fi
   'import torch; assert torch.cuda.is_available(), "A CUDA GPU is required for training"'
 
 cd "$LLAMA_FACTORY_DIR"
-
-if [[ "$MODE" == "smoke" ]]; then
-  SMOKE_OUTPUT_DIR="$(mktemp -d /tmp/seek-decomposer-smoke.XXXXXX)"
-  "$LLAMAFACTORY_CLI" train "$CONFIG_PATH" \
-    max_steps=1 \
-    num_train_epochs=1.0 \
-    logging_steps=1 \
-    save_strategy=steps \
-    save_steps=999999 \
-    plot_loss=false \
-    output_dir="$SMOKE_OUTPUT_DIR"
-  echo "One-step training smoke test passed: $SMOKE_OUTPUT_DIR"
-  exit 0
-fi
 
 exec "$LLAMAFACTORY_CLI" train "$CONFIG_PATH"

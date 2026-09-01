@@ -240,18 +240,14 @@ python -m pip check
 # Validate the setup without training.
 bash scripts/train_decomposer.sh --check-only
 
-# Optional: run one optimizer step and save only under /tmp.
-bash scripts/train_decomposer.sh --smoke-test
-
 # Full three-epoch thesis training run.
 bash scripts/train_decomposer.sh
 ```
 
-The wrapper registers the three datasets automatically. `--smoke-test` runs one
-real optimizer step and writes to `/tmp`; omit it for the full three-epoch run.
-Dataset sources and the original construction record are documented in
-`DATASETS.md`. The wrapper uses GPU 0 by default so the effective batch size
-remains 16, matching the thesis run.
+The wrapper registers the three datasets automatically. Dataset sources and
+the original construction record are documented in `DATASETS.md`. The wrapper
+uses GPU 0 by default so the effective batch size remains 16, matching the
+thesis run.
 
 ### Live SEEK
 

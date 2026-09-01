@@ -358,16 +358,12 @@ export SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
 # Validate the setup without training.
 bash scripts/train_decomposer.sh --check-only
 
-# Optional: run one optimizer step and save only under /tmp.
-bash scripts/train_decomposer.sh --smoke-test
-
 # Full three-epoch thesis training run.
 bash scripts/train_decomposer.sh
 ```
 
 The wrapper checks Python, the LLaMA-Factory commit, CLI availability, and all
-three training files. The `--smoke-test` mode performs one real training step
-and writes only to `/tmp`. The full run copies and registers the datasets before
+three training files. The full run copies and registers the datasets before
 passing the YAML to `llamafactory-cli train`. It defaults to one GPU
 (`CUDA_VISIBLE_DEVICES=0`) to preserve the thesis effective batch size of 16.
 If the base model is already downloaded locally, replace
