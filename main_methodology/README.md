@@ -342,6 +342,10 @@ hf download Chien1011/SEEK-decomposer-12k \
 Run the following commands from `main_methodology/`. The YAML file is a
 configuration input and must not be executed directly.
 
+Before continuing, activate the Python 3.11 `venv`, accept the gated
+Meta-Llama-3-8B-Instruct license, run `hf auth login`, complete Section 5.1,
+and confirm GPU availability with `nvidia-smi`.
+
 ```bash
 export LLAMA_FACTORY_DIR="$(cd ../.. && pwd)/LLaMA-Factory"
 

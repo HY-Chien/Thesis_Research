@@ -73,6 +73,10 @@ Choose the goal you want to verify and run its command from `main_methodology/`.
 | Train the decomposer | `bash scripts/train_decomposer.sh` | `$SEEK_DATA_DIR/data/{musique,twowiki,popqa}/train.json`<br>`configs/llama3_8b_decomposer_lora_3ds.yaml` | `LLaMA-Factory/saves/seek/llama3-8b-decomposer-musique-2wiki-popqa/` |
 | Run the thesis main method | [Use the four-dataset command below](#main-evaluation) | `datasets/evaluation/{hotpotqa,2wikimultihopqa,musique,popqa}.jsonl`<br>Base model, adapter, and Elasticsearch paths are configured below | `results/generated/seek_{dataset}.jsonl` |
 
+The **Input** and **Output** columns show file or directory paths; they are not
+additional commands. In particular, the YAML file is read automatically by
+`scripts/train_decomposer.sh` and must not be executed directly.
+
 The fastest check reproduces **41.88 EM / 48.90 F1** from the saved model
 outputs included in this repository. The main evaluation performs fresh
 sequential generation and is not expected to be bit-identical.
@@ -215,8 +219,24 @@ The required JSONL schema is in
 Training uses the public 12K dataset and the pinned LLaMA-Factory revision
 `7e20db5735443861fad91766614b3415ff8966a4`.
 
-The YAML file is a configuration input, not an executable program. Do **not**
-run `./configs/llama3_8b_decomposer_lora_3ds.yaml`.
+### 1. Complete the prerequisites
+
+Before training:
+
+1. Complete [Environment Installation](#environment-installation) and activate
+   `venv`. `python --version` must report Python 3.11 or newer.
+2. Accept the gated
+   [Meta-Llama-3-8B-Instruct license](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct),
+   then run `hf auth login`.
+3. [Download and verify the 12K dataset](#data-and-model-files). Keep
+   `SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k`.
+4. Run `nvidia-smi` and confirm that one CUDA GPU is available. Training was
+   verified on one NVIDIA L40S with 48 GiB VRAM.
+
+The YAML path shown in Quick Start is only a configuration input. Do **not** run
+`./configs/llama3_8b_decomposer_lora_3ds.yaml`.
+
+### 2. Install the pinned training tool
 
 From `main_methodology/`, install the pinned training tool:
 
@@ -232,8 +252,9 @@ python -m pip install -e "$LLAMA_FACTORY_DIR"
 python -m pip check
 ```
 
-After downloading the 12K dataset as described above, validate every path and
-dataset registration without starting training:
+### 3. Validate and start training
+
+Validate every path and dataset registration without starting training:
 
 ```bash
 export SEEK_DATA_DIR=/tmp/SEEK-decomposer-12k
